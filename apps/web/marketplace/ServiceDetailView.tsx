@@ -5,52 +5,33 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   CheckCircle2,
+  Clock,
   Flag,
+  Lock,
   MapPin,
-  MessageSquare,
   Play,
   ShieldCheck,
   Star,
 } from 'lucide-react';
-import { DualPrice, Modal } from '@/packages/design-system';
 import { FreelancerServiceListing } from '@/packages/shared-types';
 import { useAppState } from '@/lib/hooks/useAppState';
 
 export const ServiceDetailView: React.FC<{
   service: FreelancerServiceListing;
 }> = ({ service }) => {
-  const { locale, openServiceOrderModal, openReportModal, showToast } = useAppState();
-  const [tab, setTab] = useState<'service' | 'specs' | 'reviews'>('service');
-  const [contactModal, setContactModal] = useState(false);
-  const [msgText, setMsgText] = useState('');
+  const { locale, openRecruitModal, openReportModal } = useAppState();
+  const isId = locale === 'id';
+  const [tab, setTab] = useState<'about' | 'portfolio' | 'specs' | 'reviews'>('about');
 
-  const title = locale === 'id' ? service.title : service.titleEn;
-  const desc = locale === 'id' ? service.description : service.descriptionEn;
-  const unit = locale === 'id' ? service.unitLabel : service.unitLabelEn || 'hour';
-  const cap =
-    locale === 'id'
-      ? service.capacityLabel
-      : service.capacityLabelEn || service.capacityLabel;
-  const sla =
-    locale === 'id' ? service.deliverySla : service.deliverySlaEn || service.deliverySla;
-  const loc = locale === 'id' ? service.location : service.locationEn || service.location;
-  const terms = locale === 'id' ? service.terms : service.termsEn || service.terms;
-  const exclusions =
-    locale === 'id' ? service.exclusions : service.exclusionsEn || service.exclusions;
-  const equipment =
-    locale === 'id' ? service.equipment : service.equipmentEn || service.equipment;
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!msgText.trim()) return;
-    setContactModal(false);
-    setMsgText('');
-    showToast(
-      locale === 'id'
-        ? `Pesan terkirim ke ${service.freelancerName} melalui platform messaging.`
-        : `Message sent to ${service.freelancerName} via platform messaging.`
-    );
-  };
+  const title = isId ? service.title : service.titleEn;
+  const desc = isId ? service.description : service.descriptionEn;
+  const cap = isId ? service.capacityLabel : service.capacityLabelEn || service.capacityLabel;
+  const sla = isId ? service.deliverySla : service.deliverySlaEn || service.deliverySla;
+  const loc = isId ? service.location : service.locationEn || service.location;
+  const terms = isId ? service.terms : service.termsEn || service.terms;
+  const exclusions = isId ? service.exclusions : service.exclusionsEn || service.exclusions;
+  const equipment = isId ? service.equipment : service.equipmentEn || service.equipment;
+  const accRate = service.acceptanceRatePercent ?? service.slaPercent;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -61,9 +42,7 @@ export const ServiceDetailView: React.FC<{
         >
           <ArrowLeft className="h-4 w-4" />
           <span>
-            {locale === 'id'
-              ? 'Kembali ke Katalog Freelancer'
-              : 'Back to Freelancer Catalog'}
+            {isId ? 'Kembali ke Katalog Freelancer' : 'Back to Freelancer Catalog'}
           </span>
         </Link>
         <button
@@ -72,13 +51,13 @@ export const ServiceDetailView: React.FC<{
           className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--egvox-text-secondary)] hover:text-[#C43D3D]"
         >
           <Flag className="h-3.5 w-3.5" />
-          <span>{locale === 'id' ? 'Laporkan' : 'Report'}</span>
+          <span>{isId ? 'Laporkan' : 'Report'}</span>
         </button>
       </div>
 
       <div className="grid gap-6 lg:gap-8 lg:grid-cols-12">
         <div className="lg:col-span-8 min-w-0 space-y-6">
-          {/* Freelancer Banner */}
+          {/* Freelancer Header Banner */}
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
             <div className="flex items-center gap-4">
               <img
@@ -96,12 +75,12 @@ export const ServiceDetailView: React.FC<{
                     {service.freelancerName}
                   </Link>
                   {service.verified && (
-                    <ShieldCheck className="h-4 w-4 text-[#2563A6]" />
+                    <ShieldCheck className="h-4 w-4 text-[#16835D]" />
                   )}
                 </div>
                 <p className="text-xs text-[var(--egvox-text-muted)]">
                   {service.roleType} · {service.levelBadge} · {service.completedOrders}{' '}
-                  {locale === 'id' ? 'Order Selesai' : 'Completed Orders'}
+                  {isId ? 'pekerjaan selesai' : 'completed jobs'}
                 </p>
               </div>
             </div>
@@ -109,7 +88,7 @@ export const ServiceDetailView: React.FC<{
               <span className="inline-flex items-center gap-1 font-bold tabular-nums">
                 <Star className="h-4 w-4 fill-[#FDBA27] text-[#FDBA27]" />
                 {service.rating} ({service.reviewCount}{' '}
-                {locale === 'id' ? 'ulasan' : 'reviews'})
+                {isId ? 'ulasan' : 'reviews'})
               </span>
             </div>
           </div>
@@ -120,7 +99,7 @@ export const ServiceDetailView: React.FC<{
               <img
                 src={service.portfolioPreviews[0].thumbnail}
                 alt={
-                  locale === 'id'
+                  isId
                     ? service.portfolioPreviews[0].title
                     : service.portfolioPreviews[0].titleEn ||
                       service.portfolioPreviews[0].title
@@ -136,13 +115,13 @@ export const ServiceDetailView: React.FC<{
               <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-1.5 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs text-white">
                 <span className="font-mono tabular-nums">
                   {service.portfolioPreviews[0].duration} ·{' '}
-                  {locale === 'id'
+                  {isId
                     ? service.portfolioPreviews[0].title
                     : service.portfolioPreviews[0].titleEn ||
                       service.portfolioPreviews[0].title}
                 </span>
                 <span className="rounded bg-black/60 px-2 py-0.5 text-[10px] sm:text-[11px]">
-                  {locale === 'id'
+                  {isId
                     ? 'Portfolio Preview Berizin · Watermarked'
                     : 'Consented Preview · Watermarked'}
                 </span>
@@ -159,28 +138,48 @@ export const ServiceDetailView: React.FC<{
             </p>
           </div>
 
+          {/* QA Anti-Conflict Disclosure Banner */}
+          {service.roleType === 'QA Specialist' && (
+            <div className="rounded-2xl border border-[#2563A6]/30 bg-[#2563A6]/8 p-4 text-xs space-y-1">
+              <p className="font-bold text-[#2563A6] inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4" />
+                <span>
+                  {isId
+                    ? 'Deklarasi Independensi QA Specialist (Anti-Konflik Kepentingan)'
+                    : 'QA Specialist Independence & Anti-Conflict Policy'}
+                </span>
+              </p>
+              <p className="text-[var(--egvox-text-secondary)]">
+                {isId
+                  ? service.conflictDisclosureText ||
+                    'QA Specialist tidak boleh memeriksa hasil rekaman atau anotasi miliknya sendiri pada Work Order yang sama.'
+                  : service.conflictDisclosureTextEn ||
+                    'QA Specialists cannot audit footage or annotations they captured or labeled within the same Work Order.'}
+              </p>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="border-b border-[var(--egvox-border-default)] flex gap-5 sm:gap-6 overflow-x-auto">
             {(
               [
                 {
-                  id: 'service',
-                  label:
-                    locale === 'id' ? 'Layanan & Ketentuan' : 'Service & Terms',
+                  id: 'about',
+                  label: isId ? 'Profil & Ketentuan' : 'Profile & Terms',
+                },
+                {
+                  id: 'portfolio',
+                  label: `Portfolio (${service.portfolioPreviews.length})`,
                 },
                 {
                   id: 'specs',
-                  label:
-                    locale === 'id'
-                      ? 'Spesifikasi & Perangkat'
-                      : 'Specs & Equipment',
+                  label: isId ? 'Keahlian & Perangkat' : 'Skills & Equipment',
                 },
                 {
                   id: 'reviews',
-                  label:
-                    locale === 'id'
-                      ? `Ulasan (${service.reviews.length})`
-                      : `Reviews (${service.reviews.length})`,
+                  label: isId
+                    ? `Ulasan (${service.reviews.length})`
+                    : `Reviews (${service.reviews.length})`,
                 },
               ] as const
             ).map((item) => (
@@ -199,13 +198,11 @@ export const ServiceDetailView: React.FC<{
             ))}
           </div>
 
-          {tab === 'service' && (
+          {tab === 'about' && (
             <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 space-y-5">
               <div>
                 <h2 className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id'
-                    ? 'Ketentuan Layanan & Revisi'
-                    : 'Service Terms & Revisions'}
+                  {isId ? 'Ketentuan Kerja & Kualitas' : 'Work Standards & Quality'}
                 </h2>
                 <ul className="mt-2 space-y-2 text-sm text-[var(--egvox-text-secondary)]">
                   {terms.map((t) => (
@@ -218,9 +215,7 @@ export const ServiceDetailView: React.FC<{
               </div>
               <div className="border-t border-[var(--egvox-border-default)] pt-4">
                 <h2 className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id'
-                    ? 'Batasan & Pengecualian (Exclusions)'
-                    : 'Exclusions & Boundaries'}
+                  {isId ? 'Batasan & Pengecualian (Exclusions)' : 'Exclusions & Boundaries'}
                 </h2>
                 <ul className="mt-2 space-y-1.5 text-sm text-[var(--egvox-text-secondary)]">
                   {exclusions.map((ex) => (
@@ -231,21 +226,58 @@ export const ServiceDetailView: React.FC<{
             </div>
           )}
 
+          {tab === 'portfolio' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {service.portfolioPreviews.map((pf) => (
+                <div
+                  key={pf.id}
+                  className="overflow-hidden rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]"
+                >
+                  <div className="relative aspect-[16/10] bg-[#102326]">
+                    <img
+                      src={pf.thumbnail}
+                      alt={isId ? pf.title : pf.titleEn || pf.title}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-0.5 text-[11px] font-mono text-white">
+                      {pf.duration} · {isId ? 'Ber-watermark' : 'Watermarked'}
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm font-bold">{isId ? pf.title : pf.titleEn || pf.title}</p>
+                    <p className="mt-1 text-xs text-[#16835D]">
+                      {isId
+                        ? 'Sampel berizin (bukan raw dataset komersial)'
+                        : 'Consented preview only (not public raw dataset)'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {tab === 'specs' && (
             <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 space-y-4">
               <h2 className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                {locale === 'id'
-                  ? 'Perangkat & Kapabilitas Teknis'
-                  : 'Equipment & Technical Capabilities'}
+                {isId ? 'Perangkat, Tools & Kapabilitas Teknis' : 'Equipment, Tools & Technical Capabilities'}
               </h2>
               <p className="text-sm text-[var(--egvox-text-secondary)]">
-                {locale === 'id' ? 'Standar Output:' : 'Output Standard:'}{' '}
+                {isId ? 'Standar Output:' : 'Output Standard:'}{' '}
                 <strong>
-                  {locale === 'id'
-                    ? service.resolutionFps
-                    : service.resolutionFpsEn || service.resolutionFps}
+                  {isId ? service.resolutionFps : service.resolutionFpsEn || service.resolutionFps}
                 </strong>
               </p>
+              <div className="flex flex-wrap gap-1.5">
+                {service.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-md border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-2.5 py-1 text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
               <ul className="space-y-2 text-sm text-[var(--egvox-text-secondary)]">
                 {equipment.map((eq) => (
                   <li key={eq} className="flex items-center gap-2">
@@ -270,7 +302,7 @@ export const ServiceDetailView: React.FC<{
                         {rev.buyerName} · {rev.buyerOrg}
                       </p>
                       <p className="text-xs text-[var(--egvox-text-muted)]">
-                        {locale === 'id'
+                        {isId
                           ? rev.orderScope
                           : rev.orderScopeEn || rev.orderScope}{' '}
                         · {rev.date}
@@ -282,7 +314,7 @@ export const ServiceDetailView: React.FC<{
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-[var(--egvox-text-secondary)]">
-                    {locale === 'id' ? rev.comment : rev.commentEn || rev.comment}
+                    {isId ? rev.comment : rev.commentEn || rev.comment}
                   </p>
                 </div>
               ))}
@@ -290,34 +322,55 @@ export const ServiceDetailView: React.FC<{
           )}
         </div>
 
-        {/* Sticky Order Sidebar */}
+        {/* Sticky Recruitment Sidebar */}
         <div className="lg:col-span-4 min-w-0">
           <div className="sticky top-20 space-y-5 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6">
             <div>
-              <p className="text-xs text-[var(--egvox-text-muted)]">
-                {locale === 'id' ? 'Mulai dari (IDR & USD)' : 'Starting from (IDR & USD)'}
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-[#027F86]/10 px-2.5 py-1 text-[11px] font-bold text-[#027F86] dark:text-[#04B8B4]">
+                <Lock className="h-3 w-3" />
+                {isId ? 'Rekrutmen Privat Terstruktur' : 'Structured Private Recruitment'}
+              </span>
+              <h2 className="mt-2.5 text-base font-bold text-[var(--egvox-text-primary)]">
+                {isId ? 'Kapasitas & Ketersediaan' : 'Capacity & Availability'}
+              </h2>
+              <p className="mt-1 text-xs text-[var(--egvox-text-secondary)]">
+                {isId
+                  ? 'Penawaran biaya diajukan secara privat ke talenta ini setelah memilih detail pekerjaan.'
+                  : 'Compensation offers are sent privately after defining project specifications.'}
               </p>
-              <div className="mt-1.5">
-                <DualPrice amountIDR={service.pricePerUnit} unitLabel={unit} size="lg" />
-              </div>
             </div>
 
             <div className="space-y-2.5 border-y border-[var(--egvox-border-default)] py-4 text-sm">
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Kapasitas' : 'Capacity'}
+                  {isId ? 'Kapasitas' : 'Capacity'}
                 </span>
-                <span className="font-semibold">{cap}</span>
+                <span className="font-semibold tabular-nums">{cap}</span>
               </div>
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Estimasi SLA' : 'Estimated SLA'}
+                  {isId ? 'Ketersediaan' : 'Availability'}
                 </span>
-                <span className="font-semibold">{sla}</span>
+                <span className="font-semibold text-[#16835D]">
+                  {service.available ? (isId ? 'Tersedia' : 'Available') : isId ? 'Terjadwal' : 'Scheduled'}
+                </span>
+              </div>
+              <div className="flex flex-wrap justify-between gap-2">
+                <span className="text-[var(--egvox-text-muted)]">SLA</span>
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  <Clock className="h-3.5 w-3.5 text-[#027F86]" />
+                  {sla}
+                </span>
               </div>
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Lokasi' : 'Location'}
+                  {isId ? 'Tingkat Penerimaan' : 'Acceptance Rate'}
+                </span>
+                <span className="font-bold text-[#16835D] tabular-nums">{accRate}%</span>
+              </div>
+              <div className="flex flex-wrap justify-between gap-2">
+                <span className="text-[var(--egvox-text-muted)]">
+                  {isId ? 'Lokasi' : 'Location'}
                 </span>
                 <span className="inline-flex items-center gap-1 font-semibold sm:text-right">
                   <MapPin className="h-3.5 w-3.5 shrink-0 text-[#027F86]" />
@@ -326,73 +379,52 @@ export const ServiceDetailView: React.FC<{
               </div>
             </div>
 
-            <div className="space-y-2.5">
+            {/* 4-Point Verification Checklist (Reference Board) */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-[var(--egvox-text-primary)]">
+                {isId ? 'Verifikasi EgvoX' : 'EgvoX Verification'}
+              </p>
+              <div className="grid grid-cols-1 gap-1.5 text-xs text-[var(--egvox-text-secondary)]">
+                {(isId
+                  ? [
+                      'Identitas Terverifikasi (KYC)',
+                      'Perangkat & Tools Tervalidasi',
+                      'Persetujuan & Consent',
+                      'Kepatuhan Kebijakan EgvoX',
+                    ]
+                  : [
+                      'Identity Verified (KYC)',
+                      'Validated Equipment & Tools',
+                      'Participant Consent Verified',
+                      'EgvoX Policy Compliance',
+                    ]
+                ).map((item) => (
+                  <div key={item} className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#16835D]" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
               <button
                 type="button"
-                onClick={() => openServiceOrderModal(service)}
-                className="w-full rounded-xl bg-[#027F86] py-3 text-sm font-semibold text-white hover:bg-[#039998]"
+                onClick={() => openRecruitModal(service)}
+                className="w-full rounded-xl bg-[#027F86] py-3 text-sm font-semibold text-white hover:bg-[#039998] transition-colors"
               >
-                {locale === 'id' ? 'Pesan Layanan' : 'Request Order'}
+                {isId ? 'Rekrut Freelancer' : 'Recruit Freelancer'}
               </button>
-              <button
-                type="button"
-                onClick={() => setContactModal(true)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--egvox-border-default)] py-2.5 text-sm font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+              <Link
+                href={`/freelancers/${service.username}`}
+                className="inline-flex w-full items-center justify-center rounded-xl border border-[var(--egvox-border-default)] py-2.5 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
               >
-                <MessageSquare className="h-4 w-4 text-[#027F86]" />
-                <span>
-                  {locale === 'id' ? 'Hubungi via Platform' : 'Message on Platform'}
-                </span>
-              </button>
+                {isId ? 'Lihat Profil Lengkap Talenta' : 'View Full Talent Profile'}
+              </Link>
             </div>
           </div>
         </div>
       </div>
-
-      <Modal
-        open={contactModal}
-        onClose={() => setContactModal(false)}
-        title={
-          locale === 'id'
-            ? `Hubungi ${service.freelancerName}`
-            : `Message ${service.freelancerName}`
-        }
-        subtitle={
-          locale === 'id'
-            ? 'Gunakan pesan internal EgvoX untuk diskusi spesifikasi sebelum order'
-            : 'Use EgvoX platform messaging to align on scope before placing an order'
-        }
-      >
-        <form onSubmit={handleSendMessage} className="space-y-4">
-          <textarea
-            rows={4}
-            required
-            value={msgText}
-            onChange={(e) => setMsgText(e.target.value)}
-            placeholder={
-              locale === 'id'
-                ? 'Tulis kebutuhan jadwal, perangkat, atau target durasi per jam Anda...'
-                : 'Describe your schedule, camera rig, or hourly volume target...'
-            }
-            className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 text-sm"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setContactModal(false)}
-              className="rounded-lg border border-[var(--egvox-border-default)] px-4 py-2 text-sm"
-            >
-              {locale === 'id' ? 'Batal' : 'Cancel'}
-            </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-[#027F86] px-4 py-2 text-sm font-semibold text-white"
-            >
-              {locale === 'id' ? 'Kirim Pesan' : 'Send Message'}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

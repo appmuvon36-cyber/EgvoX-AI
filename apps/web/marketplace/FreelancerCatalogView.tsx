@@ -2,20 +2,20 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { MapPin, Search, ShieldCheck, Star } from 'lucide-react';
-import { DualPrice } from '@/packages/design-system';
+import { CheckCircle2, MapPin, Search, ShieldCheck, Star, Wrench } from 'lucide-react';
 import { FREELANCER_SERVICES } from '@/lib/catalog-data';
 import { useAppState } from '@/lib/hooks/useAppState';
 
+type RoleFilter = 'Semua' | 'Video Contributor' | 'Data Annotator' | 'QA Specialist';
+
 export const FreelancerCatalogView: React.FC<{
-  initialRoleFilter?: 'Semua' | 'Video Contributor' | 'Data Annotator' | 'QA Reviewer';
+  initialRoleFilter?: RoleFilter;
 }> = ({ initialRoleFilter = 'Semua' }) => {
-  const { locale, openServiceOrderModal, customServices } = useAppState();
-  const [roleFilter, setRoleFilter] = useState<
-    'Semua' | 'Video Contributor' | 'Data Annotator' | 'QA Reviewer'
-  >(initialRoleFilter);
+  const { locale, openRecruitModal, customServices } = useAppState();
+  const isId = locale === 'id';
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>(initialRoleFilter);
   const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'rating' | 'orders' | 'price'>('rating');
+  const [sortBy, setSortBy] = useState<'rating' | 'orders' | 'sla'>('rating');
 
   const allServices = useMemo(
     () => [...customServices, ...FREELANCER_SERVICES],
@@ -32,7 +32,10 @@ export const FreelancerCatalogView: React.FC<{
         !srv.title.toLowerCase().includes(q) &&
         !srv.titleEn.toLowerCase().includes(q) &&
         !srv.tags.some((t) => t.toLowerCase().includes(q)) &&
-        !srv.location.toLowerCase().includes(q)
+        !srv.equipment.some((e) => e.toLowerCase().includes(q)) &&
+        !(srv.equipmentEn || []).some((e) => e.toLowerCase().includes(q)) &&
+        !srv.location.toLowerCase().includes(q) &&
+        !(srv.locationEn || '').toLowerCase().includes(q)
       ) {
         return false;
       }
@@ -42,8 +45,10 @@ export const FreelancerCatalogView: React.FC<{
     if (sortBy === 'orders') {
       return [...list].sort((a, b) => b.completedOrders - a.completedOrders);
     }
-    if (sortBy === 'price') {
-      return [...list].sort((a, b) => a.pricePerUnit - b.pricePerUnit);
+    if (sortBy === 'sla') {
+      return [...list].sort(
+        (a, b) => (b.acceptanceRatePercent ?? b.slaPercent) - (a.acceptanceRatePercent ?? a.slaPercent)
+      );
     }
     return [...list].sort((a, b) => b.rating - a.rating);
   }, [allServices, roleFilter, query, sortBy]);
@@ -53,22 +58,27 @@ export const FreelancerCatalogView: React.FC<{
       <div className="flex flex-col gap-4 border-b border-[var(--egvox-border-default)] pb-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--egvox-text-primary)]">
-              {locale === 'id'
-                ? 'Katalog Freelancer & Layanan Data'
-                : 'Freelancer Service Catalog'}
+            <p className="text-xs font-bold uppercase tracking-wider text-[#027F86] dark:text-[#04B8B4]">
+              {isId
+                ? 'Sistem Rekrutmen Talenta Terstruktur'
+                : 'Structured Talent Recruitment Marketplace'}
+            </p>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-[var(--egvox-text-primary)]">
+              {isId
+                ? 'Katalog Freelancer & Talenta EgvoX'
+                : 'EgvoX Freelancer Talent Catalog'}
             </h1>
             <p className="mt-1 text-sm text-[var(--egvox-text-secondary)]">
-              {locale === 'id'
-                ? 'Temukan kontributor video egocentric dan data annotator terverifikasi dengan tarif per jam transparan.'
-                : 'Hire verified egocentric video contributors and data annotators with transparent hourly rates.'}
+              {isId
+                ? 'Temukan Video Contributor, Data Annotator, dan QA Specialist berdasarkan spesialisasi, perangkat, kapasitas, dan rekam jejak QA. Negosiasi biaya berjalan privat setelah rekrutmen diajukan.'
+                : 'Discover Video Contributors, Data Annotators, and QA Specialists by specialization, equipment, capacity, and QA track record. Commercial terms are negotiated privately via recruitment offers.'}
             </p>
           </div>
           <Link
             href="/onboarding/freelancer"
             className="rounded-xl bg-[#FC840E] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#e57407] whitespace-nowrap"
           >
-            {locale === 'id' ? '+ Buat Listing Jasa' : '+ Create Service Listing'}
+            {isId ? '+ Daftarkan Profil Talenta' : '+ Register Talent Profile'}
           </Link>
         </div>
 
@@ -76,7 +86,7 @@ export const FreelancerCatalogView: React.FC<{
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-wrap gap-1.5">
             {(
-              ['Semua', 'Video Contributor', 'Data Annotator', 'QA Reviewer'] as const
+              ['Semua', 'Video Contributor', 'Data Annotator', 'QA Specialist'] as const
             ).map((role) => (
               <button
                 key={role}
@@ -88,60 +98,67 @@ export const FreelancerCatalogView: React.FC<{
                     : 'border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)]'
                 }`}
               >
-                {role === 'Semua' ? (locale === 'id' ? 'Semua' : 'All') : role}
+                {role === 'Semua' ? (isId ? 'Semua' : 'All') : role}
               </button>
             ))}
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <div className="relative flex-1 md:w-64">
+            <div className="relative flex-1 md:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--egvox-text-muted)]" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={
-                  locale === 'id'
-                    ? 'Cari talenta atau layanan...'
-                    : 'Search talent or services...'
+                  isId
+                    ? 'Cari freelancer, keahlian, perangkat, atau kota...'
+                    : 'Search freelancer, skills, gear, or city...'
                 }
                 className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] py-2 pl-9 pr-3 text-xs focus:border-[#027F86] focus:outline-none"
               />
             </div>
             <select
-              aria-label={locale === 'id' ? 'Urutkan freelancer' : 'Sort freelancers'}
+              aria-label={isId ? 'Urutkan freelancer' : 'Sort freelancers'}
               value={sortBy}
               onChange={(e) =>
-                setSortBy(e.target.value as 'rating' | 'orders' | 'price')
+                setSortBy(e.target.value as 'rating' | 'orders' | 'sla')
               }
               className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs font-semibold"
             >
               <option value="rating">
-                {locale === 'id' ? 'Rating Tertinggi' : 'Highest Rating'}
+                {isId ? 'Rating Tertinggi' : 'Highest Rating'}
               </option>
               <option value="orders">
-                {locale === 'id' ? 'Paling Banyak Selesai' : 'Most Completed'}
+                {isId ? 'Paling Banyak Pekerjaan Selesai' : 'Most Completed Jobs'}
               </option>
-              <option value="price">
-                {locale === 'id' ? 'Tarif Terendah' : 'Lowest Rate'}
+              <option value="sla">
+                {isId ? 'Acceptance Rate & SLA Tertinggi' : 'Highest Acceptance & SLA'}
               </option>
             </select>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 text-xs text-[var(--egvox-text-muted)] tabular-nums">
-        {locale === 'id'
-          ? `Menampilkan ${filtered.length} layanan talenta terverifikasi`
-          : `Showing ${filtered.length} verified talent services`}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--egvox-text-muted)] tabular-nums">
+        <span>
+          {isId
+            ? `Menampilkan ${filtered.length} talenta terverifikasi siap rekrut`
+            : `Showing ${filtered.length} verified talent profiles ready for recruitment`}
+        </span>
+        <span className="font-medium text-[#16835D]">
+          {isId
+            ? 'Penawaran biaya hanya terlihat privat antara Rekruter & Freelancer'
+            : 'Offer pricing is strictly private between Recruiter & Freelancer'}
+        </span>
       </div>
 
       {filtered.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-10 text-center space-y-3">
           <p className="text-sm font-semibold">
-            {locale === 'id'
-              ? 'Tidak ada layanan freelancer pada filter ini.'
-              : 'No freelancer services match this filter.'}
+            {isId
+              ? 'Tidak ada talenta freelancer pada filter ini.'
+              : 'No freelancer talent matches this filter.'}
           </p>
           <button
             type="button"
@@ -151,17 +168,19 @@ export const FreelancerCatalogView: React.FC<{
             }}
             className="rounded-lg bg-[#027F86] px-4 py-2 text-xs font-semibold text-white"
           >
-            {locale === 'id' ? 'Tampilkan Semua Talenta' : 'Show All Talent'}
+            {isId ? 'Tampilkan Semua Talenta' : 'Show All Talent'}
           </button>
         </div>
       ) : (
         <div className="mt-4 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((srv) => {
-            const title = locale === 'id' ? srv.title : srv.titleEn;
-            const desc = locale === 'id' ? srv.description : srv.descriptionEn;
-            const unit = locale === 'id' ? srv.unitLabel : srv.unitLabelEn || 'hour';
-            const sla = locale === 'id' ? srv.deliverySla : srv.deliverySlaEn || srv.deliverySla;
-            const loc = locale === 'id' ? srv.location : srv.locationEn || srv.location;
+            const title = isId ? srv.title : srv.titleEn;
+            const desc = isId ? srv.description : srv.descriptionEn;
+            const sla = isId ? srv.deliverySla : srv.deliverySlaEn || srv.deliverySla;
+            const cap = isId ? srv.capacityLabel : srv.capacityLabelEn || srv.capacityLabel;
+            const loc = isId ? srv.location : srv.locationEn || srv.location;
+            const equip = (isId ? srv.equipment : srv.equipmentEn || srv.equipment).slice(0, 2);
+            const accRate = srv.acceptanceRatePercent ?? srv.slaPercent;
             return (
               <article
                 key={srv.id}
@@ -185,17 +204,17 @@ export const FreelancerCatalogView: React.FC<{
                             {srv.freelancerName}
                           </Link>
                           {srv.verified && (
-                            <ShieldCheck className="h-4 w-4 text-[#2563A6]" />
+                            <ShieldCheck className="h-4 w-4 text-[#16835D]" />
                           )}
                         </div>
-                        <p className="text-xs text-[var(--egvox-text-muted)]">
+                        <p className="text-xs font-medium text-[#027F86] dark:text-[#04B8B4]">
                           {srv.roleType} · {srv.levelBadge}
                         </p>
                       </div>
                     </div>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold tabular-nums">
                       <Star className="h-3.5 w-3.5 fill-[#FDBA27] text-[#FDBA27]" />
-                      {srv.rating} ({srv.reviewCount})
+                      {srv.rating} ({srv.completedOrders})
                     </span>
                   </div>
 
@@ -211,14 +230,6 @@ export const FreelancerCatalogView: React.FC<{
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-[var(--egvox-text-muted)]">
-                    <span className="inline-flex items-center gap-1 truncate">
-                      <MapPin className="h-3.5 w-3.5 shrink-0 text-[#027F86]" />
-                      {loc}
-                    </span>
-                    <span className="tabular-nums text-right">SLA: {sla}</span>
-                  </div>
-
                   {/* Portfolio Preview Strip (Watermarked Samples) */}
                   {srv.portfolioPreviews.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
@@ -229,7 +240,7 @@ export const FreelancerCatalogView: React.FC<{
                         >
                           <img
                             src={pf.thumbnail}
-                            alt={locale === 'id' ? pf.title : pf.titleEn || pf.title}
+                            alt={isId ? pf.title : pf.titleEn || pf.title}
                             referrerPolicy="no-referrer"
                             className="h-full w-full object-cover"
                           />
@@ -240,28 +251,60 @@ export const FreelancerCatalogView: React.FC<{
                       ))}
                     </div>
                   )}
+
+                  {/* Capability, Equipment & QA Metrics (No Public Prices) */}
+                  <div className="space-y-1.5 rounded-xl bg-[var(--egvox-bg-canvas)] p-3 text-xs">
+                    <div className="flex items-start gap-1.5 text-[var(--egvox-text-secondary)]">
+                      <Wrench className="h-3.5 w-3.5 shrink-0 text-[#027F86] mt-0.5" />
+                      <span className="line-clamp-1">{equip.join(' · ')}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-[#027F86]" />
+                        {loc}
+                      </span>
+                      <span className="font-semibold text-[#16835D]">
+                        {accRate}% {isId ? 'Penerimaan' : 'Acceptance'} · SLA {sla}
+                      </span>
+                    </div>
+                    {srv.roleType === 'QA Specialist' && srv.conflictDisclosureDeclared && (
+                      <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563A6]">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" />
+                        <span>
+                          {isId
+                            ? 'Deklarasi Anti-Konflik Kepentingan QA Aktif'
+                            : 'QA Anti-Conflict Declaration Active'}
+                        </span>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-2.5 border-t border-[var(--egvox-border-default)] pt-4">
-                  <div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--egvox-border-default)] pt-3.5">
+                  <div className="text-xs">
                     <span className="block text-[11px] text-[var(--egvox-text-muted)]">
-                      {locale === 'id' ? 'Mulai dari' : 'From'}
+                      {isId ? 'Kapasitas & Ketersediaan' : 'Capacity & Availability'}
                     </span>
-                    <DualPrice amountIDR={srv.pricePerUnit} unitLabel={unit} size="sm" />
+                    <span className="font-semibold text-[var(--egvox-text-primary)] tabular-nums">
+                      {cap} ·{' '}
+                      <span className="text-[#16835D]">
+                        {srv.available ? (isId ? 'Tersedia' : 'Available') : isId ? 'Terjadwal' : 'Scheduled'}
+                      </span>
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/freelancers/${srv.username}`}
                       className="rounded-lg border border-[var(--egvox-border-default)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
                     >
-                      {locale === 'id' ? 'Profil' : 'Profile'}
+                      {isId ? 'Profil' : 'Profile'}
                     </Link>
                     <button
                       type="button"
-                      onClick={() => openServiceOrderModal(srv)}
-                      className="rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
+                      onClick={() => openRecruitModal(srv)}
+                      className="rounded-lg bg-[#027F86] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
                     >
-                      {locale === 'id' ? 'Pesan Layanan' : 'Request Order'}
+                      {isId ? 'Rekrut' : 'Recruit'}
                     </button>
                   </div>
                 </div>

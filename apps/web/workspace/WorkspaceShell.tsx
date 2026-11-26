@@ -3,30 +3,48 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
+  Activity,
   AlertTriangle,
-  ArrowUpRight,
+  BarChart3,
   Bell,
+  Briefcase,
   Building2,
   CheckCircle2,
+  ChevronRight,
+  CreditCard,
   Download,
+  ExternalLink,
   FileCheck2,
   FileText,
+  FolderKanban,
   FolderPlus,
+  Globe,
   Heart,
+  Home,
+  LayoutDashboard,
   Lock,
-  MessageSquare,
+  Menu,
+  Moon,
+  PauseCircle,
+  PlayCircle,
   Plus,
-  Send,
+  Search,
+  Settings,
   ShieldCheck,
-  ShoppingBag,
+  Sparkles,
   Star,
+  Sun,
+  Tag,
+  Undo2,
   UploadCloud,
   UserCheck,
+  Users,
   Wallet,
   X,
 } from 'lucide-react';
 import {
   DualPrice,
+  EgvoXLogo,
   egvoxFormatIDR,
   egvoxFormatUSD,
 } from '@/packages/design-system';
@@ -34,37 +52,61 @@ import { FREELANCER_SERVICES, PROJECT_LISTINGS } from '@/lib/catalog-data';
 import { useAppState } from '@/lib/hooks/useAppState';
 import {
   ActiveWorkOrder,
-  ActivityCategorySlug,
-  DataModality,
-  FreelancerServiceListing,
-  NegotiationOffer,
+  OpsDeliveryPackage,
+  RecruitmentOffer,
+  StructuredClarification,
   SubmissionFileItem,
 } from '@/packages/shared-types';
+import { AnnotationWorkspaceView } from './AnnotationWorkspaceView';
+import {
+  CustomerModalsBundle,
+  CustomerModeSelectorModal,
+  EnterpriseSampleInspectionModal,
+  MilestoneFundingChangeModal,
+  PrivateUploadThreeStepModal,
+  TeamInviteModal,
+} from './CustomerWorkspaceModals';
 import { GoogleWorkspacePluginPanel } from './GoogleWorkspacePluginPanel';
 
 type WorkspaceTab =
   | 'overview'
-  | 'tracking'
-  | 'offers'
+  | 'browse'
+  | 'services'
   | 'proposals'
-  | 'messages'
+  | 'offers'
+  | 'tracking'
+  | 'uploads'
+  | 'annotation'
   | 'delivery'
+  | 'earnings'
+  | 'billing'
+  | 'team'
   | 'profile'
+  | 'settings'
   | 'saved'
-  | 'plugins';
+  | 'plugins'
+  | 'reports';
 
 type Persona = 'freelancer' | 'vendor' | 'enterprise';
 
 function resolveInitialTab(tab?: string): WorkspaceTab {
   switch (tab) {
-    case 'tracking':
-    case 'offers':
+    case 'browse':
+    case 'services':
     case 'proposals':
-    case 'messages':
+    case 'offers':
+    case 'tracking':
+    case 'uploads':
+    case 'annotation':
     case 'delivery':
+    case 'earnings':
+    case 'billing':
+    case 'team':
     case 'profile':
+    case 'settings':
     case 'saved':
     case 'plugins':
+    case 'reports':
       return tab;
     default:
       return 'overview';
@@ -78,37 +120,60 @@ function resolveInitialPersona(role?: string): Persona {
   return 'freelancer';
 }
 
+const WORKFLOW_11_STEPS = [
+  { num: 1, id: 'Organisasi Terverifikasi & KYB', en: 'Verified Recruiter Org & KYB' },
+  { num: 2, id: 'Cek Saldo Settled (Min. 5 Jt)', en: 'Settled Balance Check (Min. 5M)' },
+  { num: 3, id: 'Ajukan Minat / Rekrut Talenta', en: 'Express Interest / Recruit' },
+  { num: 4, id: 'Penawaran Privat & Negosiasi V1–V3', en: 'Private Offer & V1–V3 Negotiation' },
+  { num: 5, id: 'Work Order & Reservasi Dana Ledger', en: 'Work Order & Ledger Reservation' },
+  { num: 6, id: 'Upload Data (Private)', en: 'Upload Data (Private)' },
+  { num: 7, id: 'Validasi Teknis (SHA-256)', en: 'Technical Check (SHA-256)' },
+  { num: 8, id: 'Review QA Specialist Independen', en: 'Independent QA Specialist Review' },
+  { num: 9, id: 'Keputusan (Accept / Rework)', en: 'Verdict (Accept / Rework)' },
+  { num: 10, id: 'Delivery (Paket & Manifest)', en: 'Delivery (Package & Manifest)' },
+  { num: 11, id: 'Pencairan Ke Freelancer (Milestone)', en: 'Milestone Settlement' },
+];
+
 export const WorkspaceShell: React.FC<{
   initialTab?: string;
   initialRole?: string;
 }> = ({ initialTab, initialRole }) => {
   const {
     locale,
+    setLocale,
+    theme,
+    toggleTheme,
     proposals,
+    withdrawProposal,
     workOrders,
+    acknowledgedOrderIds,
+    acknowledgeOrderSpec,
     savedSlugs,
     inquiries,
-    setCartDrawerOpen,
     notifications,
     setNotificationsModalOpen,
-    conversations,
-    sendMessage,
     submissionFiles,
-    submitReworkOrDispute,
-    offers,
-    respondOffer,
+    recruiterWallet,
+    setTopUpModalOpen,
+    recruitmentOffers,
+    respondRecruitmentOffer,
+    clarifications,
+    submitClarification,
+    resolveClarification,
     availableBalance,
     payoutHistory,
-    requestPayout,
     reviews,
-    submitOrderReview,
     customProjects,
-    createVendorProject,
     customServices,
-    createFreelancerService,
+    pausedServiceIds,
+    toggleServiceAvailability,
     kycStatus,
-    submitKyc,
-    submitEnterpriseInquiry,
+    opsAnnotationProjects,
+    opsDeliveryPackages,
+    acceptedEnterpriseDeliveries,
+    adminEnterpriseDeals,
+    openProposalModal,
+    openRecruitModal,
     showToast,
   } = useAppState();
 
@@ -117,65 +182,61 @@ export const WorkspaceShell: React.FC<{
   const [persona, setPersona] = useState<Persona>(() =>
     resolveInitialPersona(initialRole)
   );
+  const [freelancerMode, setFreelancerMode] = useState<
+    'contributor' | 'annotator' | 'qa_specialist'
+  >(initialTab === 'annotation' ? 'annotator' : 'contributor');
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(() =>
     resolveInitialTab(initialTab)
   );
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [selectedOrderId, setSelectedOrderId] = useState<string>(
     workOrders[0]?.id || 'wo-1'
   );
   const [proposalFilter, setProposalFilter] = useState<
     'all' | 'pending' | 'accepted' | 'rejected'
   >('all');
-  const [selectedConvId, setSelectedConvId] = useState<string>(
-    conversations[0]?.id || 'conv-1'
+  const [selectedRecruitOfferId, setSelectedRecruitOfferId] = useState<string>(
+    recruitmentOffers[0]?.id || 'rec-1'
   );
-  const [messageDraft, setMessageDraft] = useState('');
+  const [offerInboxTab, setOfferInboxTab] = useState<'penawaran' | 'aktif'>('penawaran');
+  const [clarifyTopic, setClarifyTopic] =
+    useState<StructuredClarification['topic']>('spec');
+  const [clarifyText, setClarifyText] = useState('');
+  const [clarifyAnswerDrafts, setClarifyAnswerDrafts] = useState<Record<string, string>>({});
   const [activeOrg, setActiveOrg] = useState('PT Data Visual Indonesia');
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState(
+    opsAnnotationProjects[0]?.id || 'an-1'
+  );
+  const [annotationSubMode, setAnnotationSubMode] = useState<'tasks' | 'studio'>(
+    initialTab === 'annotation' ? 'studio' : 'tasks'
+  );
 
-  // Workspace Modal States
+  // Modal States
+  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
+  const [privateUploadOpen, setPrivateUploadOpen] = useState(false);
+  const [teamInviteOpen, setTeamInviteOpen] = useState(false);
+
   const [contractOrder, setContractOrder] = useState<ActiveWorkOrder | null>(null);
   const [reworkTarget, setReworkTarget] = useState<SubmissionFileItem | null>(null);
-  const [reworkMode, setReworkMode] = useState<'rework' | 'appeal'>('rework');
-  const [reworkNote, setReworkNote] = useState('');
-
-  const [counterTarget, setCounterTarget] = useState<NegotiationOffer | null>(null);
-  const [counterRate, setCounterRate] = useState('175000');
-  const [counterNote, setCounterNote] = useState('');
-
+  const [counterTarget, setCounterTarget] = useState<RecruitmentOffer | null>(null);
   const [payoutOpen, setPayoutOpen] = useState(false);
-  const [payoutAmount, setPayoutAmount] = useState('1000000');
-  const [payoutDest, setPayoutDest] = useState('BCA Virtual / Rekening •••• 8821');
-
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState('');
-
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
-  const [newPrjTitle, setNewPrjTitle] = useState('');
-  const [newPrjCat, setNewPrjCat] = useState<ActivityCategorySlug>('cooking');
-  const [newPrjType, setNewPrjType] = useState<DataModality>('Video');
-  const [newPrjHours, setNewPrjHours] = useState('50');
-  const [newPrjRate, setNewPrjRate] = useState('175000');
-  const [newPrjLocation, setNewPrjLocation] = useState('Indonesia');
-  const [newPrjSummary, setNewPrjSummary] = useState('');
-
   const [createServiceOpen, setCreateServiceOpen] = useState(false);
-  const [newSrvTitle, setNewSrvTitle] = useState('');
-  const [newSrvRole, setNewSrvRole] =
-    useState<FreelancerServiceListing['roleType']>('Video Contributor');
-  const [newSrvRate, setNewSrvRate] = useState('160000');
-  const [newSrvLocation, setNewSrvLocation] = useState('Jakarta, Indonesia');
-  const [newSrvDesc, setNewSrvDesc] = useState('');
-
   const [rfpOpen, setRfpOpen] = useState(false);
-  const [rfpCompany, setRfpCompany] = useState('PT Contoh Teknologi');
-  const [rfpEmail, setRfpEmail] = useState('procurement@company.com');
-  const [rfpVolume, setRfpVolume] = useState('50 – 250 jam');
-  const [rfpSummary, setRfpSummary] = useState('');
-
   const [kycOpen, setKycOpen] = useState(false);
-  const [kycDocType, setKycDocType] = useState('KTP / National ID');
   const [orgModalOpen, setOrgModalOpen] = useState(false);
+  const [milestoneModalOrder, setMilestoneModalOrder] = useState<ActiveWorkOrder | null>(null);
+  const [inspectDeliveryPkg, setInspectDeliveryPkg] = useState<OpsDeliveryPackage | null>(null);
+
+  const [mfaEnabled, setMfaEnabled] = useState(true);
+  const [teamMembers, setTeamMembers] = useState([
+    { id: 'tm-1', name: 'Budi Santoso', email: 'budi@datavisual.co.id', role: 'Vendor Admin', status: 'Aktif' },
+    { id: 'tm-2', name: 'Ratna Dewi', email: 'ratna@datavisual.co.id', role: 'Project Manager', status: 'Aktif' },
+    { id: 'tm-3', name: 'Arif Wijaya', email: 'arif@nusantarariset.id', role: 'QA Observer (Read-Only)', status: 'Aktif' },
+  ]);
 
   const selectedOrder =
     workOrders.find((w) => w.id === selectedOrderId) || workOrders[0];
@@ -187,10 +248,12 @@ export const WorkspaceShell: React.FC<{
   const totalSavedCount = savedProjects.length + savedServices.length;
 
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
-  const unreadMessagesCount = conversations.reduce((acc, c) => acc + c.unread, 0);
-
-  const activeConv =
-    conversations.find((c) => c.id === selectedConvId) || conversations[0];
+  const pendingOffersCount = recruitmentOffers.filter(
+    (o) => o.status === 'sent' || o.status === 'negotiating'
+  ).length;
+  const activeOffer =
+    recruitmentOffers.find((o) => o.id === selectedRecruitOfferId) ||
+    recruitmentOffers[0];
 
   const filteredProposals = proposals.filter((prop) => {
     if (proposalFilter === 'all') return true;
@@ -204,1962 +267,2821 @@ export const WorkspaceShell: React.FC<{
     return prop.status === proposalFilter;
   });
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeConv || !messageDraft.trim()) return;
-    sendMessage(activeConv.id, messageDraft);
-    setMessageDraft('');
-  };
-
-  const handleSubmitRework = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reworkTarget) return;
-    submitReworkOrDispute(
-      reworkTarget.id,
-      reworkNote.trim() ||
-        (isId ? 'Revisi kualitas & pencahayaan diunggah ulang.' : 'Lighting and focus rework uploaded.'),
-      reworkMode
-    );
-    setReworkTarget(null);
-    setReworkNote('');
-  };
-
-  const handleSubmitCounter = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!counterTarget) return;
-    respondOffer(
-      counterTarget.id,
-      'countered',
-      Number(counterRate) || counterTarget.proposedRatePerHour,
-      counterNote.trim() || counterTarget.note
-    );
-    setCounterTarget(null);
-    setCounterNote('');
-  };
-
-  const handleSubmitPayout = (e: React.FormEvent) => {
-    e.preventDefault();
-    const numeric = Number(payoutAmount);
-    if (!numeric || numeric <= 0 || numeric > availableBalance) {
-      showToast(
-        isId
-          ? 'Nominal penarikan tidak valid atau melebihi saldo layak payout.'
-          : 'Invalid withdrawal amount or exceeds available balance.'
-      );
-      return;
+  const handleSwitchPersona = (next: Persona) => {
+    setPersona(next);
+    if (next === 'enterprise' && (activeTab === 'services' || activeTab === 'uploads')) {
+      setActiveTab('overview');
     }
-    requestPayout(numeric, payoutDest);
-    setPayoutOpen(false);
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitOrderReview(
-      persona === 'freelancer' ? 'PT Data Visual Indonesia' : 'Rizal Maulana',
-      selectedOrder?.code || 'PRJ-202611-0045',
-      reviewRating,
-      reviewComment.trim() ||
-        (isId
-          ? 'Kolaborasi lancar, hasil video jernih dan sesuai spesifikasi.'
-          : 'Smooth collaboration, clean footage matching specification.')
-    );
-    setReviewOpen(false);
-    setReviewComment('');
-  };
+  const sidebarItems: {
+    id: WorkspaceTab;
+    label: string;
+    icon: React.ElementType;
+    badge?: string | number;
+    action?: () => void;
+  }[] =
+    persona === 'freelancer'
+      ? [
+          { id: 'overview', label: isId ? 'Dasbor' : 'Dashboard', icon: LayoutDashboard },
+          { id: 'browse', label: isId ? 'Jelajah Proyek' : 'Browse Projects', icon: Search },
+          { id: 'services', label: isId ? 'Profil Kapabilitas' : 'Capability Profiles', icon: Briefcase },
+          { id: 'proposals', label: isId ? 'Pengajuan Minat' : 'Applications', icon: FileText, badge: proposals.length },
+          { id: 'offers', label: isId ? 'Penawaran Rekrutmen' : 'Recruitment Offers', icon: Tag, badge: pendingOffersCount || undefined },
+          { id: 'tracking', label: isId ? 'Order / Penugasan' : 'Orders / Assignments', icon: FolderKanban, badge: workOrders.length },
+          { id: 'uploads', label: isId ? 'Upload (Privat)' : 'Uploads (Private)', icon: UploadCloud },
+          { id: 'annotation', label: isId ? 'Tugas Anotasi' : 'Annotation Jobs', icon: Sparkles, badge: opsAnnotationProjects.length },
+          { id: 'delivery', label: isId ? 'Pengiriman Dataset' : 'Deliveries', icon: FileCheck2 },
+          { id: 'earnings', label: isId ? 'Pendapatan / Payout' : 'Earnings / Payouts', icon: Wallet },
+          { id: 'profile', label: isId ? 'Profil & Verifikasi' : 'Profile & Verification', icon: UserCheck },
+          { id: 'settings', label: isId ? 'Pengaturan & Keamanan' : 'Settings & Security', icon: Settings },
+          { id: 'plugins', label: 'Google Workspace', icon: Globe },
+        ]
+      : persona === 'vendor'
+      ? [
+          { id: 'overview', label: isId ? 'Dasbor' : 'Dashboard', icon: LayoutDashboard },
+          { id: 'browse', label: isId ? 'Proyek & Talenta' : 'Projects & Talent', icon: FolderKanban },
+          {
+            id: 'services',
+            label: isId ? 'Buat Project Baru' : 'Create Project',
+            icon: FolderPlus,
+            action: () => setCreateProjectOpen(true),
+          },
+          { id: 'proposals', label: isId ? 'Minat Masuk' : 'Incoming Interest', icon: FileText, badge: proposals.length },
+          { id: 'offers', label: isId ? 'Rekrutmen & Dompet' : 'Recruitment & Wallet', icon: Tag, badge: recruitmentOffers.length },
+          { id: 'tracking', label: isId ? 'Work Order' : 'Work Orders', icon: Briefcase, badge: workOrders.length },
+          { id: 'uploads', label: isId ? 'Produksi & Monitoring' : 'Production & Monitoring', icon: Activity },
+          { id: 'annotation', label: isId ? 'Anotasi (Opsional)' : 'Annotation (Optional)', icon: Sparkles },
+          { id: 'delivery', label: isId ? 'Pengiriman & Manifest' : 'Deliveries & Manifest', icon: FileCheck2 },
+          { id: 'billing', label: isId ? 'Billing & Transaksi' : 'Billing & Transactions', icon: CreditCard },
+          { id: 'team', label: isId ? 'Tim & Organisasi' : 'Team & Organization', icon: Users },
+          { id: 'settings', label: isId ? 'Pengaturan & Keamanan' : 'Settings & Security', icon: Settings },
+          { id: 'plugins', label: 'Google Workspace', icon: Globe },
+        ]
+      : [
+          { id: 'overview', label: isId ? 'Dasbor' : 'Dashboard', icon: LayoutDashboard },
+          {
+            id: 'proposals',
+            label: isId ? 'Permintaan Data (RFP)' : 'Data Request (RFP)',
+            icon: Building2,
+            action: () => setRfpOpen(true),
+          },
+          { id: 'offers', label: isId ? 'Proposal & Penawaran' : 'Proposal & Quotes', icon: FileText },
+          { id: 'tracking', label: isId ? 'Proyek Resmi (Managed)' : 'Official Projects (Managed)', icon: ShieldCheck, badge: adminEnterpriseDeals.length },
+          { id: 'uploads', label: isId ? 'Produksi & Progress' : 'Production & Progress', icon: Activity },
+          { id: 'annotation', label: isId ? 'Jaminan Kualitas (QA)' : 'Quality Assurance (QA)', icon: CheckCircle2 },
+          { id: 'delivery', label: isId ? 'Pengiriman Dataset' : 'Dataset Deliveries', icon: FileCheck2 },
+          { id: 'billing', label: isId ? 'Faktur & Penagihan' : 'Invoices & Billing', icon: CreditCard },
+          { id: 'team', label: isId ? 'Manajemen Tim' : 'Team Management', icon: Users },
+          { id: 'reports', label: isId ? 'Laporan & Analitik' : 'Reports & Analytics', icon: BarChart3 },
+          { id: 'settings', label: isId ? 'Pengaturan & Keamanan' : 'Settings & Security', icon: Settings },
+          { id: 'plugins', label: 'Google Workspace', icon: Globe },
+        ];
 
-  const handleCreateProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPrjTitle.trim() || !newPrjSummary.trim()) return;
-    createVendorProject({
-      title: newPrjTitle.trim(),
-      category: newPrjCat,
-      dataType: newPrjType,
-      targetVolume: Math.max(10, Number(newPrjHours) || 50),
-      ratePerUnit: Math.max(50000, Number(newPrjRate) || 175000),
-      location: newPrjLocation.trim() || 'Indonesia',
-      summary: newPrjSummary.trim(),
-    });
-    setCreateProjectOpen(false);
-    setNewPrjTitle('');
-    setNewPrjSummary('');
-  };
+  const activeProjectsFiltered = allProjects.filter(
+    (p) =>
+      !searchQuery.trim() ||
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.titleEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.categoryLabelEn || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleCreateService = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSrvTitle.trim() || !newSrvDesc.trim()) return;
-    createFreelancerService({
-      title: newSrvTitle.trim(),
-      roleType: newSrvRole,
-      pricePerUnit: Math.max(50000, Number(newSrvRate) || 160000),
-      location: newSrvLocation.trim() || 'Indonesia',
-      description: newSrvDesc.trim(),
-    });
-    setCreateServiceOpen(false);
-    setNewSrvTitle('');
-    setNewSrvDesc('');
-  };
+  const activeServicesFiltered = allServices.filter(
+    (s) =>
+      !searchQuery.trim() ||
+      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.titleEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.freelancerName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleSubmitRfp = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rfpCompany.trim() || !rfpSummary.trim()) return;
-    submitEnterpriseInquiry({
-      companyName: rfpCompany.trim(),
-      country: 'Indonesia',
-      businessEmail: rfpEmail.trim(),
-      contactPerson: activeOrg,
-      estimatedVolume: rfpVolume,
-      requirementSummary: rfpSummary.trim(),
-    });
-    setRfpOpen(false);
-    setRfpSummary('');
-  };
-
-  const handleSubmitKyc = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitKyc(kycDocType);
-    setKycOpen(false);
-  };
+  const selectedAnnotationProject =
+    opsAnnotationProjects.find((a) => a.id === selectedAnnotationId) ||
+    opsAnnotationProjects[0];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-      {/* Top Workspace Banner with Role Switcher (Freelancer / Vendor / Enterprise) */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-[#027F86] dark:text-[#04B8B4]">
-              {isId ? 'EgvoX · Workspace Pelanggan' : 'EgvoX · Customer Workspace'}
-            </span>
-            {persona !== 'freelancer' && (
-              <button
-                type="button"
-                onClick={() => setOrgModalOpen(true)}
-                className="inline-flex items-center gap-1 rounded-md border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-2 py-0.5 text-[11px] font-medium text-[var(--egvox-text-secondary)] hover:border-[#027F86]"
-              >
-                <Building2 className="h-3 w-3 text-[#027F86]" />
-                <span>{activeOrg}</span>
-              </button>
-            )}
-          </div>
-          <h1 className="mt-1 text-xl sm:text-2xl font-bold text-[var(--egvox-text-primary)]">
-            {persona === 'freelancer'
-              ? isId
-                ? 'Workspace Freelancer (Contributor & Annotator)'
-                : 'Freelancer Workspace (Contributor & Annotator)'
-              : persona === 'vendor'
-              ? isId
-                ? 'Workspace Dataset Vendor / Provider'
-                : 'Dataset Vendor / Provider Workspace'
-              : isId
-              ? 'Workspace Enterprise Managed Operations'
-              : 'Enterprise Managed Operations Workspace'}
-          </h1>
+    <div className="min-h-screen flex bg-[var(--egvox-bg-canvas)] text-[var(--egvox-text-primary)] pb-16 lg:pb-0">
+      {/* MOBILE SIDEBAR DRAWER BACKDROP */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* LEFT SIDEBAR (Desktop Fixed + Mobile Drawer) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 border-r border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 py-4 border-b border-[var(--egvox-border-default)]">
+          <Link href="/" className="inline-flex items-center gap-2">
+            <EgvoXLogo width={116} />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(false)}
+            className="lg:hidden rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex max-w-full overflow-x-auto rounded-xl bg-[var(--egvox-bg-subtle)] p-1">
-            {(
-              [
-                { id: 'freelancer', label: 'Freelancer' },
-                { id: 'vendor', label: 'Vendor' },
-                { id: 'enterprise', label: 'Enterprise' },
-              ] as const
-            ).map((r) => (
+        {/* Workspace Persona Switcher */}
+        <div className="p-3 border-b border-[var(--egvox-border-default)]">
+          <label className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--egvox-text-muted)] mb-1.5">
+            {isId ? 'Peran Workspace' : 'Workspace Persona'}
+          </label>
+          <select
+            value={persona}
+            onChange={(e) => handleSwitchPersona(e.target.value as Persona)}
+            className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-bold text-[var(--egvox-text-primary)]"
+          >
+            <option value="freelancer">Freelancer (Contributor / Annotator / QA)</option>
+            <option value="vendor">
+              {isId ? 'Dataset Vendor (Penyedia Data)' : 'Dataset Vendor (Data Provider)'}
+            </option>
+            <option value="enterprise">
+              {isId ? 'Enterprise Buyer (Terkelola)' : 'Enterprise Buyer (Managed)'}
+            </option>
+          </select>
+          {persona === 'freelancer' && (
+            <button
+              type="button"
+              onClick={() => setModeSelectorOpen(true)}
+              className="mt-2 w-full flex items-center justify-between rounded-lg bg-[#027F86]/10 px-2.5 py-1.5 text-[11px] font-semibold text-[#027F86] dark:text-[#04B8B4]"
+            >
+              <span>
+                Mode:{' '}
+                {freelancerMode === 'contributor'
+                  ? 'Video Contributor'
+                  : freelancerMode === 'annotator'
+                  ? 'Data Annotator'
+                  : 'QA Specialist'}
+              </span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Sidebar Navigation Items */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
               <button
-                key={r.id}
+                key={item.id + item.label}
                 type="button"
-                onClick={() => setPersona(r.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  persona === r.id
-                    ? 'bg-[var(--egvox-bg-surface)] text-[#027F86] dark:text-[#04B8B4] shadow-xs'
-                    : 'text-[var(--egvox-text-secondary)]'
+                onClick={() => {
+                  if (item.action) {
+                    item.action();
+                  } else {
+                    setActiveTab(item.id);
+                  }
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-[#027F86] text-white'
+                    : 'text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)] hover:text-[var(--egvox-text-primary)]'
                 }`}
               >
-                {r.label}
-              </button>
-            ))}
-          </div>
-
-          {persona === 'freelancer' && (
-            <>
-              <button
-                type="button"
-                onClick={() => setPayoutOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#027F86]/40 bg-[#027F86]/10 px-3.5 py-2 text-xs font-semibold text-[#027F86] dark:text-[#04B8B4] hover:bg-[#027F86]/20"
-              >
-                <Wallet className="h-3.5 w-3.5" />
-                <span>{isId ? 'Tarik Dana' : 'Withdraw Funds'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreateServiceOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--egvox-border-default)] px-3.5 py-2 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <Plus className="h-3.5 w-3.5 text-[#027F86]" />
-                <span>{isId ? 'Buat Listing Jasa' : 'Create Service'}</span>
-              </button>
-            </>
-          )}
-
-          {persona === 'vendor' && (
-            <button
-              type="button"
-              onClick={() => setCreateProjectOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FC840E] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#e57609]"
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-              <span>{isId ? 'Buat Project Baru' : 'Create New Project'}</span>
-            </button>
-          )}
-
-          {persona === 'enterprise' && (
-            <button
-              type="button"
-              onClick={() => setRfpOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#FC840E] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#e57609]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>{isId ? 'Buat Permintaan RFP' : 'New RFP Request'}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setNotificationsModalOpen(true)}
-            className="relative inline-flex items-center justify-center rounded-xl border border-[var(--egvox-border-default)] p-2 text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)]"
-            aria-label={isId ? 'Notifikasi Workspace' : 'Workspace Notifications'}
-          >
-            <Bell className="h-4 w-4" />
-            {unreadNotifCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FC840E] text-[10px] font-bold text-white">
-                {unreadNotifCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCartDrawerOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white hover:bg-[#039998]"
-          >
-            <ShoppingBag className="h-3.5 w-3.5" />
-            <span>{isId ? 'Keranjang Order' : 'Order Cart'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Workspace Section Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {(
-          [
-            { id: 'overview', label: isId ? 'Ringkasan' : 'Overview' },
-            {
-              id: 'tracking',
-              label: isId ? 'Pelacakan Produksi & QA' : 'Production & QA Tracking',
-            },
-            {
-              id: 'offers',
-              label: isId
-                ? `Negosiasi (${offers.length})`
-                : `Offers & Counter (${offers.length})`,
-            },
-            {
-              id: 'proposals',
-              label: isId
-                ? `Proposal Saya (${proposals.length})`
-                : `Proposals (${proposals.length})`,
-            },
-            {
-              id: 'messages',
-              label: isId
-                ? `Pesan${unreadMessagesCount > 0 ? ` (${unreadMessagesCount})` : ''}`
-                : `Messages${unreadMessagesCount > 0 ? ` (${unreadMessagesCount})` : ''}`,
-            },
-            {
-              id: 'delivery',
-              label: isId ? 'Delivery & Ulasan' : 'Delivery & Reviews',
-            },
-            {
-              id: 'profile',
-              label: isId ? 'Profil, KYC & Organisasi' : 'Profile, KYC & Org',
-            },
-            {
-              id: 'saved',
-              label: isId
-                ? `Tersimpan (${totalSavedCount})`
-                : `Saved (${totalSavedCount})`,
-            },
-            {
-              id: 'plugins',
-              label: isId ? 'Plugin Google Workspace' : 'Google Workspace Plugins',
-            },
-          ] as const
-        ).map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`rounded-xl px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
-              activeTab === tab.id
-                ? 'bg-[#027F86] text-white'
-                : 'border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* TAB 1: OVERVIEW */}
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl bg-[#027F86] p-5 text-white">
-              <p className="text-xs text-white/80">
-                {persona === 'freelancer'
-                  ? isId
-                    ? 'Saldo Layak Payout'
-                    : 'Available Payout Balance'
-                  : persona === 'vendor'
-                  ? isId
-                    ? 'Project Aktif'
-                    : 'Active Projects'
-                  : isId
-                  ? 'Official Project Aktif'
-                  : 'Active Official Projects'}
-              </p>
-              <div className="mt-1">
-                {persona === 'freelancer' ? (
-                  <div>
-                    <p className="text-2xl font-bold tabular-nums">
-                      {egvoxFormatIDR(availableBalance)}
-                    </p>
-                    <p className="text-xs font-semibold text-white/90 tabular-nums mt-0.5">
-                      &asymp; {egvoxFormatUSD(availableBalance)} USD (1 USD = Rp 16.000)
-                    </p>
-                  </div>
-                ) : persona === 'vendor' ? (
-                  <p className="text-2xl font-bold tabular-nums">
-                    {4 + customProjects.length} {isId ? 'Proyek' : 'Projects'}
-                  </p>
-                ) : (
-                  <p className="text-2xl font-bold tabular-nums">
-                    {2 + inquiries.length} {isId ? 'Proyek' : 'Projects'}
-                  </p>
+                <span className="inline-flex items-center gap-2.5 truncate">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </span>
+                {item.badge !== undefined && Number(item.badge) > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[#027F86]/12 text-[#027F86] dark:text-[#04B8B4]'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
                 )}
-              </div>
-              <p className="mt-2 text-[11px] text-white/80">
-                {isId
-                  ? 'Berdasarkan jam video yang lolos QA Acceptance Criteria'
-                  : 'Based on video hours passing QA Acceptance Criteria'}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Bottom Profile & Portal Switcher */}
+        <div className="p-3 border-t border-[var(--egvox-border-default)] space-y-2">
+          <div className="flex items-center gap-2.5 rounded-xl bg-[var(--egvox-bg-canvas)] p-2.5">
+            <img
+              src={
+                freelancerMode === 'annotator'
+                  ? '/images/avatar_annotator_female_1795676773112.jpg'
+                  : '/images/avatar_contributor_male_1795676771682.jpg'
+              }
+              alt="Workspace User"
+              referrerPolicy="no-referrer"
+              className="h-9 w-9 rounded-full object-cover shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold truncate">
+                {persona === 'freelancer'
+                  ? freelancerMode === 'annotator'
+                    ? 'Salsa Fitriani'
+                    : freelancerMode === 'qa_specialist'
+                    ? 'Dimas Prasetyo'
+                    : 'Rizal Maulana'
+                  : persona === 'vendor'
+                  ? activeOrg
+                  : 'PT Nusantara Riset'}
               </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
-              <p className="text-xs text-[var(--egvox-text-muted)]">
-                {isId ? 'Work Order Aktif' : 'Active Work Orders'}
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{workOrders.length}</p>
-              <p className="mt-2 text-xs text-[#16835D]">
-                {isId ? 'Semua memiliki versi spec terkunci' : 'All carry immutable spec versions'}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
-              <p className="text-xs text-[var(--egvox-text-muted)]">
-                {isId ? 'Proposal & Negosiasi' : 'Proposals & Offers'}
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">
-                {proposals.length + offers.length}
-              </p>
-              <p className="mt-2 text-xs text-[var(--egvox-text-secondary)]">
-                {isId ? 'Pantau status review & counter-offer' : 'Track review status & counter-offers'}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
-              <p className="text-xs text-[var(--egvox-text-muted)]">
-                {isId ? 'Permintaan Enterprise (RFP)' : 'Enterprise Inquiries (RFP)'}
-              </p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{inquiries.length}</p>
-              <p className="mt-2 text-xs text-[var(--egvox-text-secondary)]">
-                {isId ? 'Pipeline kemitraan & kontrak' : 'Partnership & contract pipeline'}
+              <p className="text-[10px] text-[#16835D] font-semibold">
+                {kycStatus === 'verified'
+                  ? isId
+                    ? 'Terverifikasi · Online'
+                    : 'Verified · Online'
+                  : isId
+                  ? 'KYC Menunggu Review'
+                  : 'KYC Pending Review'}
               </p>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+            <Link
+              href="/marketplace"
+              className="rounded-lg border border-[var(--egvox-border-default)] px-2 py-1.5 text-center font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+            >
+              Marketplace
+            </Link>
+            <Link
+              href="/ops"
+              className="rounded-lg border border-[var(--egvox-border-default)] px-2 py-1.5 text-center font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+            >
+              {isId ? 'Portal Ops' : 'Ops Portal'}
+            </Link>
+          </div>
+        </div>
+      </aside>
 
-          <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-bold">
-                {isId ? 'Work Order & Tugas Terbaru' : 'Recent Work Orders & Assignments'}
-              </h2>
+      {/* MAIN PORTAL AREA */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* TOP HEADER */}
+        <header className="sticky top-0 z-30 border-b border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]/95 backdrop-blur px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('tracking')}
-                className="text-xs font-semibold text-[#027F86] hover:underline"
+                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden rounded-xl border border-[var(--egvox-border-default)] p-2 hover:bg-[var(--egvox-bg-subtle)]"
+                aria-label="Open menu"
               >
-                {isId ? 'Lihat Detail Produksi →' : 'View Production Details →'}
+                <Menu className="h-4 w-4" />
               </button>
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--egvox-text-muted)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={
+                    isId
+                      ? 'Cari proyek, work order, layanan, atau ID...'
+                      : 'Search projects, work orders, services...'
+                  }
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] pl-9 pr-14 py-2 text-xs"
+                />
+                <span className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-[var(--egvox-border-default)] px-1.5 py-0.5 text-[10px] text-[var(--egvox-text-muted)] font-mono">
+                  Ctrl+K
+                </span>
+              </div>
             </div>
-            <div className="divide-y divide-[var(--egvox-border-default)]">
-              {workOrders.map((wo) => (
-                <div
-                  key={wo.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5"
+
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {persona === 'freelancer' && (
+                <button
+                  type="button"
+                  onClick={() => setPrivateUploadOpen(true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#027F86] px-3 py-2 text-xs font-semibold text-white hover:bg-[#039998]"
                 >
-                  <div className="min-w-0">
-                    <p className="text-xs font-mono text-[#027F86]">
-                      {wo.code} · {wo.specVersion}
-                    </p>
-                    <p className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                      {isId ? wo.title : wo.titleEn || wo.title}
-                    </p>
-                    <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {wo.counterparty} · {isId ? 'Batas Waktu' : 'Deadline'}{' '}
-                      {isId ? wo.deadline : wo.deadlineEn || wo.deadline}
-                    </p>
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  <span>{isId ? 'Upload Tugas' : 'Upload Task'}</span>
+                </button>
+              )}
+              {persona === 'vendor' && (
+                <button
+                  type="button"
+                  onClick={() => setCreateProjectOpen(true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#027F86] px-3 py-2 text-xs font-semibold text-white hover:bg-[#039998]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{isId ? 'Buat Project' : 'Create Project'}</span>
+                </button>
+              )}
+              {persona === 'enterprise' && (
+                <button
+                  type="button"
+                  onClick={() => setRfpOpen(true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#FC840E] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>{isId ? 'Ajukan Permintaan' : 'Submit Request'}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setLocale(locale === 'id' ? 'en' : 'id')}
+                className="rounded-xl border border-[var(--egvox-border-default)] px-2.5 py-2 text-xs font-bold hover:bg-[var(--egvox-bg-subtle)]"
+              >
+                {locale.toUpperCase()}
+              </button>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="rounded-xl border border-[var(--egvox-border-default)] p-2 hover:bg-[var(--egvox-bg-subtle)]"
+                aria-label="Toggle Theme"
+              >
+                {theme === 'light' ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setNotificationsModalOpen(true)}
+                className="relative rounded-xl border border-[var(--egvox-border-default)] p-2 hover:bg-[var(--egvox-bg-subtle)]"
+                aria-label="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#C43D3D] text-[10px] font-bold text-white tabular-nums">
+                    {unreadNotifCount}
+                  </span>
+                )}
+              </button>
+              {persona === 'vendor' && (
+                <button
+                  type="button"
+                  onClick={() => setTopUpModalOpen(true)}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-[#027F86]/35 bg-[#027F86]/10 px-3 py-2 text-xs font-bold text-[#027F86] dark:text-[#04B8B4] hover:bg-[#027F86]/15 tabular-nums"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  <span>{egvoxFormatIDR(recruiterWallet.availableBalanceIDR)}</span>
+                </button>
+              )}
+              {persona === 'freelancer' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('offers')}
+                  className="relative rounded-xl border border-[var(--egvox-border-default)] p-2 hover:bg-[var(--egvox-bg-subtle)]"
+                  aria-label="Recruitment Offers"
+                  title={isId ? 'Penawaran Rekrutmen' : 'Recruitment Offers'}
+                >
+                  <Tag className="h-4 w-4" />
+                  {pendingOffersCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#027F86] text-[10px] font-bold text-white tabular-nums">
+                      {pendingOffersCount}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Sub-banner showing active domain app.egvox.ai & privacy guard */}
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--egvox-text-secondary)]">
+            <span className="inline-flex items-center gap-2 font-medium">
+              <span className="font-bold text-[#027F86] dark:text-[#04B8B4]">
+                app.egvox.ai
+              </span>
+              <span>·</span>
+              <span>
+                {persona === 'freelancer'
+                  ? 'Freelancer Workspace'
+                  : persona === 'vendor'
+                  ? 'Dataset Vendor Workspace'
+                  : 'Enterprise Managed Workspace'}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[#16835D] font-medium">
+              <Lock className="h-3.5 w-3.5" />
+              {isId
+                ? 'Raw Video Bersifat Privat · Portofolio Hanya Preview Berizin'
+                : 'Raw Video Strictly Private · Consented Previews Only'}
+            </span>
+          </div>
+        </header>
+
+        {/* WORKSPACE MAIN BODY */}
+        <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl w-full mx-auto">
+          {/* ================= OVERVIEW DASHBOARD ================= */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {/* FREELANCER OVERVIEW */}
+              {persona === 'freelancer' && (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
+                    <div>
+                      <p className="text-xs font-semibold text-[#027F86] dark:text-[#04B8B4]">
+                        {isId ? 'Mode Aktif: ' : 'Active Mode: '}
+                        {freelancerMode === 'contributor'
+                          ? isId
+                            ? 'Video Contributor (Capture Egocentric)'
+                            : 'Video Contributor (First-Person Capture)'
+                          : freelancerMode === 'annotator'
+                          ? 'Data Annotator (Schema v1.2)'
+                          : isId
+                          ? 'QA Specialist (Audit Kualitas Independen)'
+                          : 'QA Specialist (Independent Quality Audit)'}
+                      </p>
+                      <h1 className="text-xl sm:text-2xl font-bold mt-0.5">
+                        {isId
+                          ? `Selamat Datang, ${
+                              freelancerMode === 'annotator'
+                                ? 'Salsa Fitriani'
+                                : freelancerMode === 'qa_specialist'
+                                ? 'Dimas Prasetyo'
+                                : 'Rizal Maulana'
+                            }`
+                          : `Welcome back, ${
+                              freelancerMode === 'annotator'
+                                ? 'Salsa Fitriani'
+                                : freelancerMode === 'qa_specialist'
+                                ? 'Dimas Prasetyo'
+                                : 'Rizal Maulana'
+                            }`}
+                      </h1>
+                      <p className="text-xs text-[var(--egvox-text-secondary)] mt-1">
+                        {isId
+                          ? 'Kelola tugas capture, sesi upload privat SHA-256, anotasi skema, dan penarikan dana.'
+                          : 'Manage capture tasks, encrypted private uploads, schema annotations, and payouts.'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setModeSelectorOpen(true)}
+                        className="rounded-xl border border-[var(--egvox-border-default)] px-3.5 py-2 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+                      >
+                        {isId ? 'Ganti Mode Layanan' : 'Switch Role Mode'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('annotation');
+                          setAnnotationSubMode('studio');
+                        }}
+                        className="rounded-xl bg-[#FC840E] px-3.5 py-2 text-xs font-semibold text-white hover:opacity-90"
+                      >
+                        {isId ? 'Buka Annotation Workspace' : 'Open Annotation Studio'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-left sm:text-right">
-                      <p className="text-xs font-bold tabular-nums">
-                        {wo.acceptedUnits}/{wo.totalUnits}{' '}
-                        {isId ? wo.unitLabel : wo.unitLabelEn || 'hour'} ({wo.progressPercent}%)
+
+                  {/* 4 KPI Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4">
+                      <p className="text-xs text-[var(--egvox-text-muted)]">
+                        {isId ? 'Tugas Aktif' : 'Active Tasks'}
                       </p>
-                      <p className="text-xs text-[#FC840E] font-semibold tabular-nums">
-                        {egvoxFormatIDR(wo.amount)}{' '}
-                        <span className="text-[#027F86] dark:text-[#04B8B4]">
-                          ({egvoxFormatUSD(wo.amount)} USD)
-                        </span>
+                      <p className="mt-1 text-2xl font-bold tabular-nums">3</p>
+                      <p className="mt-1 text-[11px] text-[#027F86] font-medium">
+                        {isId ? '2 dalam produksi · 1 review' : '2 in progress · 1 review'}
                       </p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4">
+                      <p className="text-xs text-[var(--egvox-text-muted)]">
+                        {isId ? 'Aplikasi Terkirim' : 'Submitted Applications'}
+                      </p>
+                      <p className="mt-1 text-2xl font-bold tabular-nums">{proposals.length + 4}</p>
+                      <p className="mt-1 text-[11px] text-[#16835D] font-medium">
+                        {isId ? '1 disetujui minggu ini' : '1 approved this week'}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4">
+                      <p className="text-xs text-[var(--egvox-text-muted)]">
+                        {isId ? 'Deadline Terdekat' : 'Nearest Deadline'}
+                      </p>
+                      <p className="mt-1 text-2xl font-bold tabular-nums">30 Nov</p>
+                      <p className="mt-1 text-[11px] text-[#B7791F] font-medium">
+                        EGX-0256 · Cooking POV
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4">
+                      <p className="text-xs text-[var(--egvox-text-muted)]">
+                        {isId ? 'Pendapatan Layak Payout' : 'Payout Eligible'}
+                      </p>
+                      <p className="mt-1 text-xl font-bold text-[#027F86] dark:text-[#04B8B4] tabular-nums">
+                        {egvoxFormatIDR(availableBalance)}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
+                        {egvoxFormatUSD(availableBalance)} USD
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tugas & Deadline + Progress Mingguan 72% + Aktivitas Terbaru */}
+                  <div className="grid gap-6 lg:grid-cols-12">
+                    <div className="lg:col-span-6 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-bold">
+                          {isId ? 'Tugas & Deadline Terbaru' : 'Active Tasks & Deadlines'}
+                        </h2>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('tracking')}
+                          className="text-xs font-semibold text-[#027F86] hover:underline"
+                        >
+                          {isId ? 'Lihat Semua' : 'View All'}
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          {
+                            code: 'EGX-0241',
+                            title: isId ? 'Capture: Memasak Egocentric' : 'Capture: Cooking Egocentric',
+                            img: '/images/capture_cooking_pov_1795676769816.jpg',
+                            status: isId ? 'Dikerjakan' : 'In Progress',
+                            statusColor: 'text-[#027F86] bg-[#027F86]/10',
+                            due: isId ? '30 Nov 2026' : 'Nov 30, 2026',
+                          },
+                          {
+                            code: 'EGX-0217',
+                            title: isId ? 'Anotasi: Otomotif Driving' : 'Annotation: Automotive Driving',
+                            img: '/images/capture_automotive_pov_1795676770764.jpg',
+                            status: isId ? 'Review QA' : 'QA Review',
+                            statusColor: 'text-[#B7791F] bg-[#F59E0B]/12',
+                            due: isId ? '28 Nov 2026' : 'Nov 28, 2026',
+                          },
+                          {
+                            code: 'EGX-0239',
+                            title: isId ? 'Capture: Aktivitas Gudang & Rak' : 'Capture: Warehouse & Shelf Ops',
+                            img: '/images/capture_warehouse_pov_1795676771521.jpg',
+                            status: isId ? 'Menunggu Upload' : 'Awaiting Upload',
+                            statusColor: 'text-[#2563A6] bg-[#2563A6]/10',
+                            due: isId ? '2 Des 2026' : 'Dec 2, 2026',
+                          },
+                        ].map((task) => (
+                          <div
+                            key={task.code}
+                            className="flex items-center gap-3 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3"
+                          >
+                            <img
+                              src={task.img}
+                              alt={task.title}
+                              referrerPolicy="no-referrer"
+                              className="h-12 w-16 rounded-lg object-cover shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold truncate">{task.title}</p>
+                              <p className="text-[11px] font-mono text-[var(--egvox-text-muted)]">
+                                {task.code} · Deadline: {task.due}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${task.statusColor}`}
+                            >
+                              {task.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Weekly Progress Ring + Recent Activity */}
+                    <div className="lg:col-span-6 grid gap-4 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 flex flex-col items-center justify-center text-center">
+                        <h3 className="text-sm font-bold mb-3">
+                          {isId ? 'Progress Mingguan' : 'Weekly Progress'}
+                        </h3>
+                        <svg className="h-28 w-28 -rotate-90" viewBox="0 0 100 100">
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="40"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="10"
+                            className="text-[var(--egvox-border-default)]"
+                          />
+                          <circle
+                            cx="50"
+                            cy="50"
+                            r="40"
+                            fill="none"
+                            stroke="#027F86"
+                            strokeWidth="10"
+                            strokeDasharray="251.2"
+                            strokeDashoffset={251.2 * (1 - 0.72)}
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <p className="-mt-18 mb-10 text-xl font-bold tabular-nums">72%</p>
+                        <div className="text-xs text-[var(--egvox-text-secondary)] space-y-0.5 tabular-nums">
+                          <p>{isId ? 'Target: 10 tugas' : 'Target: 10 tasks'}</p>
+                          <p className="font-semibold text-[#16835D]">
+                            {isId ? 'Selesai: 7 tugas' : 'Completed: 7 tasks'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3">
+                        <h3 className="text-sm font-bold">
+                          {isId ? 'Aktivitas Terbaru' : 'Recent Activity'}
+                        </h3>
+                        <div className="space-y-2.5 text-xs">
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-[#16835D] shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold">
+                                {isId ? 'Proposal disetujui' : 'Application approved'}
+                              </p>
+                              <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                                PT Data Visual · EGX-0241
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-[#B7791F] shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold">
+                                {isId ? 'Permintaan revisi QA' : 'QA revision requested'}
+                              </p>
+                              <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                                {isId
+                                  ? 'cook_batch_03.mp4 (pencahayaan)'
+                                  : 'cook_batch_03.mp4 (lighting check)'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Wallet className="h-4 w-4 text-[#027F86] shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold">
+                                {isId ? 'Pembayaran diterima' : 'Milestone payout settled'}
+                              </p>
+                              <p className="text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
+                                Rp 1.250.000 · WO-EGX-0239
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* DATASET VENDOR OVERVIEW */}
+              {persona === 'vendor' && (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#027F86] text-white">
+                        <Building2 className="h-6 w-6" />
+                      </span>
+                      <div>
+                        <h1 className="text-xl font-bold">{activeOrg}</h1>
+                        <p className="text-xs text-[#16835D] font-semibold">
+                          {isId
+                            ? 'Dataset Vendor (Terverifikasi) · Catatan: Anotasi Bersifat Opsional'
+                            : 'Verified Dataset Vendor · Note: Annotation is Optional'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOrgModalOpen(true)}
+                        className="rounded-xl border border-[var(--egvox-border-default)] px-3.5 py-2 text-xs font-semibold"
+                      >
+                        {isId ? 'Ganti Organisasi' : 'Switch Org'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCreateProjectOpen(true)}
+                        className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>{isId ? 'Buat Project' : 'Create Project'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: isId ? 'Proyek Aktif' : 'Active Projects',
+                        value: allProjects.length,
+                        sub: isId ? 'Dipublikasikan' : 'Published',
+                      },
+                      {
+                        label: isId ? 'Order Berjalan' : 'Active Work Orders',
+                        value: 12,
+                        sub: isId ? 'Work Order aktif' : 'In production',
+                      },
+                      {
+                        label: isId ? 'Dalam Review QA' : 'In QA Review',
+                        value: 5,
+                        sub: isId ? 'Antrian Karantina' : 'Quarantine queue',
+                      },
+                      {
+                        label: isId ? 'Selesai & Delivered' : 'Completed & Delivered',
+                        value: 28,
+                        sub: isId ? 'Manifest Terkunci' : 'Manifest Locked',
+                      },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4"
+                      >
+                        <p className="text-xs text-[var(--egvox-text-muted)]">{stat.label}</p>
+                        <p className="mt-1 text-2xl font-bold tabular-nums">{stat.value}</p>
+                        <p className="mt-1 text-[11px] text-[#027F86] font-medium">{stat.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-bold">
+                        {isId ? 'Manajemen & Progress Produksi Proyek' : 'Project Production Progress'}
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('browse')}
+                        className="text-xs font-semibold text-[#027F86] hover:underline"
+                      >
+                        {isId ? 'Kelola Semua' : 'Manage All'}
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        {
+                          name: isId ? 'Dataset Memasak (Cooking)' : 'Cooking Dataset (Egocentric)',
+                          progress: 65,
+                          status: isId ? 'Produksi' : 'In Production',
+                          badge: 'text-[#027F86] bg-[#027F86]/10',
+                        },
+                        {
+                          name: isId ? 'Manufaktur Assembly Line' : 'Manufacturing Assembly Line',
+                          progress: 40,
+                          status: isId ? 'Produksi' : 'In Production',
+                          badge: 'text-[#027F86] bg-[#027F86]/10',
+                        },
+                        {
+                          name: isId ? 'Otomotif (Driving & Interior)' : 'Automotive (Driving & Interior)',
+                          progress: 100,
+                          status: isId ? 'Review QA' : 'QA Review',
+                          badge: 'text-[#B7791F] bg-[#F59E0B]/12',
+                        },
+                        {
+                          name: isId ? 'Aktivitas Gudang (Logistik)' : 'Warehouse Logistics Ops',
+                          progress: 15,
+                          status: 'Setup',
+                          badge: 'text-[#2563A6] bg-[#2563A6]/10',
+                        },
+                      ].map((row) => (
+                        <div
+                          key={row.name}
+                          className="grid sm:grid-cols-12 items-center gap-3 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-4 py-3"
+                        >
+                          <p className="sm:col-span-5 text-xs font-bold">{row.name}</p>
+                          <div className="sm:col-span-5 flex items-center gap-2">
+                            <div className="h-2 flex-1 rounded-full bg-[var(--egvox-border-default)] overflow-hidden">
+                              <div
+                                className="h-full bg-[#027F86] rounded-full"
+                                style={{ width: `${row.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold tabular-nums w-10 text-right">
+                              {row.progress}%
+                            </span>
+                          </div>
+                          <div className="sm:col-span-2 sm:text-right">
+                            <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${row.badge}`}>
+                              {row.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ENTERPRISE BUYER OVERVIEW */}
+              {persona === 'enterprise' && (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FC840E] text-white">
+                        <ShieldCheck className="h-6 w-6" />
+                      </span>
+                      <div>
+                        <h1 className="text-xl font-bold">PT Nusantara Riset Teknologi</h1>
+                        <p className="text-xs text-[#16835D] font-semibold">
+                          {isId
+                            ? 'Enterprise Buyer (Proyek Resmi Terkelola · Privat)'
+                            : 'Enterprise Buyer (Managed Official Projects · Private)'}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setContractOrder(wo)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--egvox-border-default)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+                      onClick={() => setRfpOpen(true)}
+                      className="rounded-xl bg-[#FC840E] px-4 py-2.5 text-xs font-semibold text-white inline-flex items-center gap-1.5"
                     >
-                      <FileText className="h-3.5 w-3.5 text-[#027F86]" />
-                      <span>{isId ? 'Detail Kontrak' : 'Contract Spec'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedOrderId(wo.id);
-                        setActiveTab('tracking');
-                      }}
-                      className="rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
-                    >
-                      {isId ? 'Lacak' : 'Track'}
+                      <Plus className="h-4 w-4" />
+                      <span>{isId ? 'Ajukan Permintaan (RFP)' : 'Submit Data Request (RFP)'}</span>
                     </button>
                   </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      {
+                        label: isId ? 'Permintaan RFP' : 'RFP Requests',
+                        value: adminEnterpriseDeals.length + inquiries.length,
+                        sub: isId ? 'Aktif di pipeline' : 'Active in pipeline',
+                      },
+                      {
+                        label: isId ? 'Proyek Resmi' : 'Official Projects',
+                        value: 6,
+                        sub: isId ? 'Dikelola oleh EgvoX' : 'Managed by EgvoX',
+                      },
+                      {
+                        label: isId ? 'Progress Rata-rata' : 'Average Progress',
+                        value: '68%',
+                        sub: isId ? 'Sesuai SLA 96%' : '96% on-SLA',
+                      },
+                      {
+                        label: isId ? 'Menunggu Review' : 'Awaiting Review',
+                        value: 3,
+                        sub: isId ? 'Siap inspeksi sampel' : 'Ready for sample QA',
+                      },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4"
+                      >
+                        <p className="text-xs text-[var(--egvox-text-muted)]">{stat.label}</p>
+                        <p className="mt-1 text-2xl font-bold tabular-nums">{stat.value}</p>
+                        <p className="mt-1 text-[11px] text-[#FC840E] font-medium">{stat.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                    <h2 className="text-sm font-bold">
+                      {isId ? 'Proyek Resmi (Managed Official Projects)' : 'Managed Official Projects'}
+                    </h2>
+                    <div className="space-y-3">
+                      {[
+                        {
+                          code: 'ENT-202611-0012',
+                          name: isId ? 'Dataset Aktivitas Retail & Kasir' : 'Retail & POS Activity Dataset',
+                          img: '/images/capture_warehouse_pov_1795676771521.jpg',
+                          stage: isId ? 'Produksi' : 'Production',
+                          progress: 68,
+                        },
+                        {
+                          code: 'ENT-202611-0015',
+                          name: isId ? 'Dataset Manufaktur & K3 Perakitan' : 'Manufacturing & Safety Assembly Dataset',
+                          img: '/images/capture_manufacturing_pov_1795676770652.jpg',
+                          stage: isId ? 'Review QA' : 'QA Review',
+                          progress: 40,
+                        },
+                        {
+                          code: 'ENT-202610-0008',
+                          name: isId ? 'Dataset Otomotif Interior & Kokpit' : 'Automotive Interior & Cockpit Dataset',
+                          img: '/images/capture_automotive_pov_1795676770764.jpg',
+                          stage: isId ? 'Delivery Siap' : 'Delivery Ready',
+                          progress: 100,
+                        },
+                      ].map((proj) => (
+                        <div
+                          key={proj.code}
+                          className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3"
+                        >
+                          <img
+                            src={proj.img}
+                            alt={proj.name}
+                            referrerPolicy="no-referrer"
+                            className="h-14 w-24 rounded-lg object-cover shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-mono text-[#027F86]">{proj.code}</p>
+                            <p className="text-sm font-bold truncate">{proj.name}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <div className="h-2 flex-1 rounded-full bg-[var(--egvox-border-default)] overflow-hidden">
+                                <div className="h-full bg-[#027F86]" style={{ width: `${proj.progress}%` }} />
+                              </div>
+                              <span className="text-xs font-bold tabular-nums">{proj.progress}%</span>
+                            </div>
+                          </div>
+                          <span className="rounded-lg bg-[#027F86]/10 px-2.5 py-1 text-xs font-bold text-[#027F86] shrink-0">
+                            {proj.stage}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 11-STEP END-TO-END WORKFLOW STRIP */}
+              <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-bold">
+                      {isId ? 'Alur Kerja End-to-End (11 Tahap · Semua Peran)' : 'End-to-End Workflow (11 Stages · All Roles)'}
+                    </h2>
+                    <p className="text-xs text-[var(--egvox-text-muted)]">
+                      {isId
+                        ? 'Dari kebutuhan dataset hingga delivery & pembayaran milestone yang teraudit.'
+                        : 'From dataset requirements through private upload, QA, delivery, and milestone settlement.'}
+                    </p>
+                  </div>
                 </div>
-              ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                  {WORKFLOW_11_STEPS.map((st) => (
+                    <div
+                      key={st.num}
+                      className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3"
+                    >
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#027F86] text-[10px] font-bold text-white tabular-nums">
+                        {st.num}
+                      </span>
+                      <p className="mt-1.5 text-[11px] font-bold leading-snug">
+                        {isId ? st.id : st.en}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Status Legend (Master PRD v1.3) */}
+                <div className="border-t border-[var(--egvox-border-default)] pt-4 grid gap-4 md:grid-cols-2 text-[11px]">
+                  <div>
+                    <p className="font-bold text-[var(--egvox-text-secondary)] mb-2">
+                      {isId ? 'Status Penugasan / Work Order' : 'Assignment / Work Order Status'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(isId
+                        ? ['Draft', 'Menunggu', 'Negosiasi', 'Aktif', 'Review', 'Rework', 'Diterima', 'Ditolak', 'Selesai']
+                        : ['Draft', 'Pending', 'Negotiating', 'Active', 'In Review', 'Rework', 'Accepted', 'Rejected', 'Completed']
+                      ).map((s) => (
+                        <span
+                          key={s}
+                          className="rounded-md border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-2 py-0.5 font-semibold"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-bold text-[var(--egvox-text-secondary)] mb-2">
+                      {isId ? 'Status Upload & QA Dataset' : 'Upload & Dataset QA Status'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(isId
+                        ? ['Mengunggah', 'Validasi', 'Karantina', 'Dalam Review', 'Diterima Parsial', 'Diterima', 'Ditolak']
+                        : ['Uploading', 'Validating', 'Quarantine', 'In Review', 'Partial Accept', 'Accepted', 'Rejected']
+                      ).map((s) => (
+                        <span
+                          key={s}
+                          className="rounded-md border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-2 py-0.5 font-semibold"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* TAB 2: TRACKING & FILE-LEVEL QA REWORK / APPEAL */}
-      {activeTab === 'tracking' && selectedOrder && (
-        <div className="space-y-6">
-          {/* Work Order Selector Bar */}
-          <div className="flex flex-wrap items-center gap-2">
-            {workOrders.map((wo) => (
-              <button
-                key={wo.id}
-                type="button"
-                onClick={() => setSelectedOrderId(wo.id)}
-                className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
-                  selectedOrder.id === wo.id
-                    ? 'bg-[#027F86] text-white'
-                    : 'border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] text-[var(--egvox-text-secondary)]'
-                }`}
-              >
-                {wo.code} · {wo.progressPercent}%
-              </button>
-            ))}
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-12">
-            <div className="min-w-0 lg:col-span-7 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-5">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-mono text-[#027F86]">{selectedOrder.code}</p>
-                  <h2 className="mt-1 text-lg font-bold">
-                    {isId ? selectedOrder.title : selectedOrder.titleEn || selectedOrder.title}
-                  </h2>
-                  <p className="text-xs text-[var(--egvox-text-muted)]">
-                    {isId ? 'Spesifikasi Terkunci' : 'Locked Spec'}: {selectedOrder.specVersion}
+          {/* ================= BROWSE PROJECTS / VENDOR PROJECT & TALENT RECRUITMENT ================= */}
+          {activeTab === 'browse' && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {persona === 'vendor'
+                      ? isId
+                        ? 'Manajemen Project & Rekrutmen Talenta'
+                        : 'Vendor Project & Talent Recruitment'
+                      : isId
+                      ? 'Jelajahi Project & Talenta Terverifikasi'
+                      : 'Browse Verified Projects & Talent'}
+                  </h1>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
+                    {isId
+                      ? 'Kompensasi dan ketentuan kerja dibicarakan secara privat melalui penawaran rekrutmen terstruktur.'
+                      : 'Compensation and work terms are negotiated privately via structured recruitment offers.'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setContractOrder(selectedOrder)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--egvox-border-default)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
-                >
-                  <FileText className="h-3.5 w-3.5 text-[#027F86]" />
-                  <span>{isId ? 'Lihat Kontrak' : 'View Contract'}</span>
-                </button>
+                {persona === 'vendor' && (
+                  <button
+                    type="button"
+                    onClick={() => setCreateProjectOpen(true)}
+                    className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>{isId ? 'Buat Project Baru' : 'New Project'}</span>
+                  </button>
+                )}
               </div>
 
-              <div className="space-y-4">
-                {[
-                  {
-                    key: 'order_confirmed',
-                    label: isId
-                      ? 'Order Diterima & Capture Spec Disetujui'
-                      : 'Order Confirmed & Capture Spec Agreed',
-                    done: true,
-                  },
-                  {
-                    key: 'in_production',
-                    label: isId
-                      ? `Produksi Data & Private Raw Upload (${selectedOrder.progressPercent}%)`
-                      : `Data Production & Private Raw Upload (${selectedOrder.progressPercent}%)`,
-                    done: selectedOrder.progressPercent >= 50,
-                  },
-                  {
-                    key: 'qa_review',
-                    label: isId
-                      ? 'Verifikasi Quality Assurance & Gerbang Hak Data'
-                      : 'Quality Assurance & Rights Gate Verification',
-                    done:
-                      selectedOrder.stage === 'qa_review' ||
-                      selectedOrder.stage === 'delivered',
-                  },
-                  {
-                    key: 'delivered',
-                    label: isId
-                      ? 'Dataset Packaging & Delivery Selesai'
-                      : 'Dataset Packaging & Final Delivery',
-                    done: selectedOrder.stage === 'delivered',
-                  },
-                ].map((step) => (
-                  <div key={step.key} className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        step.done
-                          ? 'bg-[#16835D] text-white'
-                          : 'border border-[var(--egvox-border-default)] text-[var(--egvox-text-muted)]'
-                      }`}
-                    >
-                      {step.done ? <CheckCircle2 className="h-4 w-4" /> : '•'}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--egvox-text-primary)]">
-                        {step.label}
-                      </p>
-                      <p className="text-xs text-[var(--egvox-text-muted)]">
-                        {step.done
-                          ? isId
-                            ? 'Terverifikasi oleh sistem QA'
-                            : 'Verified by QA pipeline'
-                          : isId
-                          ? 'Menunggu penyelesaian batch'
-                          : 'Awaiting batch completion'}
-                      </p>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {activeProjectsFiltered.map((proj) => (
+                  <div
+                    key={proj.id}
+                    className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] overflow-hidden flex flex-col"
+                  >
+                    <div className="relative aspect-[16/9] bg-black">
+                      <img
+                        src={proj.previewImage}
+                        alt={isId ? proj.title : proj.titleEn}
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-cover"
+                      />
+                      <span className="absolute top-2.5 left-2.5 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-bold text-white">
+                        {proj.dataType} · {proj.previewDuration}
+                      </span>
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <p className="text-[11px] font-semibold text-[#027F86]">{proj.vendorName}</p>
+                        <h3 className="text-sm font-bold mt-0.5">{isId ? proj.title : proj.titleEn}</h3>
+                        <p className="text-xs text-[var(--egvox-text-secondary)] mt-1 line-clamp-2">
+                          {isId ? proj.summary : proj.summaryEn}
+                        </p>
+                      </div>
+                      <div className="pt-2 border-t border-[var(--egvox-border-default)] flex items-center justify-between gap-2">
+                        {proj.showBudgetDisclosure !== false ? (
+                          <div>
+                            <p className="text-[10px] font-medium text-[var(--egvox-text-muted)]">
+                              {isId ? 'Info Budget Vendor' : 'Vendor Budget Info'}
+                            </p>
+                            <DualPrice amountIDR={proj.ratePerUnit} unitLabel={isId ? 'jam' : 'hour'} size="sm" />
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-[#027F86]">
+                            {isId ? 'Negosiasi Privat' : 'Private Offer'}
+                          </span>
+                        )}
+                        {persona === 'freelancer' ? (
+                          <button
+                            type="button"
+                            onClick={() => openProposalModal(proj)}
+                            className="rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white shrink-0"
+                          >
+                            {isId ? 'Ajukan Minat' : 'Express Interest'}
+                          </button>
+                        ) : (
+                          <Link
+                            href={`/marketplace/projects/${proj.slug}`}
+                            className="rounded-lg border border-[var(--egvox-border-default)] px-3 py-1.5 text-xs font-semibold shrink-0"
+                          >
+                            {isId ? 'Kelola / Detail' : 'Details'}
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div className="min-w-0 lg:col-span-5 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <UploadCloud className="h-5 w-5 text-[#027F86]" />
-                <span>
-                  {isId
-                    ? 'Sesi Upload Video Mentah Privat'
-                    : 'Private Raw Video Upload Session'}
-                </span>
-              </div>
-              <p className="text-xs text-[var(--egvox-text-secondary)]">
-                {isId
-                  ? 'Unggah video langsung ke zona karantina privat. Sistem menghitung checksum SHA-256 otomatis dan mencegah akses publik.'
-                  : 'Upload footage directly to private quarantine. Checksum SHA-256 is verified automatically with zero public exposure.'}
-              </p>
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#027F86]/40 bg-[var(--egvox-bg-canvas)] p-6 text-center text-xs">
-                <Lock className="h-5 w-5 text-[#027F86]" />
-                <span className="font-semibold">
-                  {isId
-                    ? 'Pilih Video MP4 untuk Upload Privat'
-                    : 'Select MP4 Video for Private Upload'}
-                </span>
-                <span className="text-[var(--egvox-text-muted)]">
-                  {isId
-                    ? 'Maks 4GB per file · Resumable Session'
-                    : 'Max 4GB per file · Resumable Session'}
-                </span>
-                <input
-                  type="file"
-                  accept="video/*"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      showToast(
-                        isId
-                          ? `Sesi upload dibuat untuk ${file.name} (status: quarantine -> technical_validation).`
-                          : `Upload session created for ${file.name} (status: quarantine -> technical_validation).`
-                      );
-                    }
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* File-level Submission & QA Verdict Table */}
-          <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-bold">
-                {isId
-                  ? 'Status QA per File & Banding / Rework'
-                  : 'File-Level QA Verdicts & Rework / Appeal'}
-              </h3>
-              <span className="text-xs text-[var(--egvox-text-muted)]">
-                {isId ? 'Pipeline Karantina SHA-256' : 'SHA-256 Quarantine Pipeline'}
-              </span>
-            </div>
-            <div className="divide-y divide-[var(--egvox-border-default)]">
-              {submissionFiles.map((sf) => (
-                <div
-                  key={sf.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-bold break-all">{sf.fileName}</span>
-                      <span
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                          sf.status === 'accepted'
-                            ? 'bg-[#16835D]/15 text-[#16835D]'
-                            : sf.status === 'rework_required'
-                            ? 'bg-[#E11D48]/15 text-[#E11D48]'
-                            : 'bg-[#FC840E]/15 text-[#FC840E]'
-                        }`}
+              {persona === 'vendor' && (
+                <div className="pt-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-bold">
+                      {isId
+                        ? 'Rekrut Talenta Freelancer (Video Contributor, Data Annotator & QA Specialist)'
+                        : 'Recruit Verified Freelancer Talent'}
+                    </h2>
+                    <Link
+                      href="/marketplace/services"
+                      className="text-xs font-semibold text-[#027F86] hover:underline"
+                    >
+                      {isId ? 'Jelajahi Direktori Talenta →' : 'Browse Talent Directory →'}
+                    </Link>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {activeServicesFiltered.slice(0, 6).map((srv) => (
+                      <div
+                        key={srv.id}
+                        className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 flex flex-col justify-between space-y-3"
                       >
-                        {sf.status === 'accepted'
-                          ? isId
-                            ? 'Diterima'
-                            : 'Accepted'
-                          : sf.status === 'rework_required'
-                          ? isId
-                            ? 'Perlu Revisi'
-                            : 'Rework Required'
-                          : sf.status === 'technical_review'
-                          ? isId
-                            ? 'Review Teknis'
-                            : 'Technical Review'
-                          : sf.status === 'quarantine'
-                          ? isId
-                            ? 'Karantina'
-                            : 'Quarantine'
-                          : sf.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {isId ? sf.durationLabel : sf.durationLabelEn || sf.durationLabel} · {sf.sizeLabel} · SHA-256: {sf.checksumSha256.slice(0, 12)}...
-                    </p>
-                    {(sf.qaReasonId || sf.qaReasonEn) && (
-                      <p className="inline-flex items-center gap-1 text-xs font-medium text-[#E11D48]">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        {isId ? sf.qaReasonId : sf.qaReasonEn}
-                      </p>
-                    )}
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={srv.avatar}
+                            alt={srv.freelancerName}
+                            referrerPolicy="no-referrer"
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">{srv.freelancerName}</p>
+                            <p className="text-[11px] text-[#027F86] font-semibold">{srv.roleType}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs font-semibold line-clamp-2">
+                          {isId ? srv.title : srv.titleEn}
+                        </p>
+                        <div className="text-[11px] text-[var(--egvox-text-muted)] space-y-1">
+                          <p className="truncate">
+                            <strong>{isId ? 'Kapasitas:' : 'Capacity:'}</strong>{' '}
+                            {isId ? srv.capacityLabel : srv.capacityLabelEn}
+                          </p>
+                          <p className="truncate">
+                            <strong>{isId ? 'Tingkat Penerimaan:' : 'Acceptance:'}</strong>{' '}
+                            {srv.acceptanceRatePercent ?? srv.slaPercent}% · ★ {srv.rating.toFixed(1)}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--egvox-border-default)]">
+                          <Link
+                            href={`/marketplace/services/${srv.slug}`}
+                            className="text-[11px] font-semibold text-[var(--egvox-text-secondary)] hover:text-[#027F86]"
+                          >
+                            {isId ? 'Profil Lengkap' : 'Full Profile'}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => openRecruitModal(srv)}
+                            className="rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
+                          >
+                            {isId ? 'Rekrut' : 'Recruit'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  {sf.status !== 'accepted' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReworkTarget(sf);
-                        setReworkMode('rework');
-                      }}
-                      className="shrink-0 self-start sm:self-center rounded-xl border border-[#027F86]/40 px-3.5 py-2 text-xs font-semibold text-[#027F86] dark:text-[#04B8B4] hover:bg-[#027F86]/10"
-                    >
-                      {isId ? 'Rework / Banding QA' : 'Rework / QA Appeal'}
-                    </button>
-                  )}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* TAB 3: OFFERS & COUNTER-OFFER NEGOTIATION */}
-      {activeTab === 'offers' && (
-        <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] divide-y divide-[var(--egvox-border-default)]">
-          {offers.map((off) => (
-            <div
-              key={off.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5"
-            >
-              <div className="space-y-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-bold">
-                    {isId ? off.projectTitle : off.projectTitleEn || off.projectTitle}
-                  </span>
-                  <span
-                    className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                      off.status === 'accepted'
-                        ? 'bg-[#16835D]/15 text-[#16835D]'
-                        : off.status === 'rejected'
-                        ? 'bg-[#E11D48]/15 text-[#E11D48]'
-                        : 'bg-[#FC840E]/15 text-[#FC840E]'
-                    }`}
-                  >
-                    {off.status === 'accepted'
-                      ? isId
-                        ? 'Diterima'
-                        : 'Accepted'
-                      : off.status === 'rejected'
-                      ? isId
-                        ? 'Ditolak'
-                        : 'Rejected'
-                      : off.status === 'countered'
-                      ? 'Counter-Offer'
-                      : isId
-                      ? 'Terkirim'
-                      : 'Sent'}
-                  </span>
+          {/* ================= PROFIL KAPABILITAS FREELANCER ================= */}
+          {activeTab === 'services' && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {isId ? 'Profil Kapabilitas Saya' : 'My Capability Profiles'}
+                  </h1>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
+                    {isId
+                      ? 'Menampilkan spesialisasi, perangkat, kapasitas, SLA, & portfolio preview berizin 30–60 detik. Kompensasi dibahas privat via penawaran rekrutmen.'
+                      : 'Displays specialization, equipment, capacity, SLA, and consented 30–60s portfolio previews. Compensation is negotiated privately.'}
+                  </p>
                 </div>
-                <p className="text-xs text-[var(--egvox-text-muted)]">
-                  {off.counterparty} · {off.proposedVolumeHours}{' '}
-                  {isId ? 'jam' : 'hours'} ·{' '}
-                  {isId ? off.updatedAt : off.updatedAtEn || off.updatedAt}
-                </p>
-                <p className="text-xs text-[var(--egvox-text-secondary)]">
-                  {isId ? off.note : off.noteEn || off.note}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setCreateServiceOpen(true)}
+                  className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>{isId ? 'Tambah Profil Kapabilitas' : 'Add Capability Profile'}</span>
+                </button>
               </div>
-              <div className="flex flex-col sm:items-end gap-2 shrink-0">
-                <DualPrice
-                  amountIDR={off.proposedRatePerHour}
-                  unitLabel={isId ? 'jam' : 'hour'}
-                  size="sm"
-                  layout="inline"
-                />
-                {off.status !== 'accepted' && off.status !== 'rejected' && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => respondOffer(off.id, 'accepted')}
-                      className="rounded-lg bg-[#16835D] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+              <div className="grid gap-4 md:grid-cols-2">
+                {activeServicesFiltered.slice(0, 4).map((srv) => {
+                  const isPaused = pausedServiceIds.includes(srv.id);
+                  return (
+                    <div
+                      key={srv.id}
+                      className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3"
                     >
-                      {isId ? 'Terima' : 'Accept'}
-                    </button>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[11px] font-bold text-[#027F86]">{srv.roleType}</span>
+                          <h3 className="text-sm font-bold mt-0.5">
+                            {isId ? srv.title : srv.titleEn}
+                          </h3>
+                        </div>
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                            isPaused
+                              ? 'bg-[#F59E0B]/15 text-[#B7791F]'
+                              : 'bg-[#16835D]/12 text-[#16835D]'
+                          }`}
+                        >
+                          {isPaused
+                            ? isId
+                              ? 'Dijeda'
+                              : 'Paused'
+                            : isId
+                            ? 'Siap Direkrut'
+                            : 'Ready to Recruit'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--egvox-text-secondary)]">
+                        {isId ? srv.description : srv.descriptionEn}
+                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--egvox-border-default)]">
+                        <div className="text-[11px] text-[var(--egvox-text-muted)]">
+                          <span className="font-semibold text-[var(--egvox-text-primary)]">
+                            {isId ? srv.capacityLabel : srv.capacityLabelEn}
+                          </span>
+                          {' · '}
+                          <span>{isId ? srv.deliverySla : srv.deliverySlaEn}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleServiceAvailability(srv.id, isId ? srv.title : srv.titleEn)
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-[var(--egvox-border-default)] px-2.5 py-1 text-[11px] font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+                          >
+                            {isPaused ? (
+                              <>
+                                <PlayCircle className="h-3.5 w-3.5 text-[#16835D]" />
+                                <span>{isId ? 'Aktifkan' : 'Activate'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <PauseCircle className="h-3.5 w-3.5 text-[#B7791F]" />
+                                <span>{isId ? 'Jeda' : 'Pause'}</span>
+                              </>
+                            )}
+                          </button>
+                          <Link
+                            href={`/marketplace/services/${srv.slug}`}
+                            className="text-xs font-semibold text-[#027F86] hover:underline inline-flex items-center gap-1"
+                          >
+                            <span>{isId ? 'Pratinjau' : 'Preview'}</span>
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ================= PROPOSALS / PENGAJUAN MINAT ================= */}
+          {activeTab === 'proposals' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-xl font-bold">
+                  {isId ? 'Pengajuan Minat & Kualifikasi Proyek' : 'Project Interest & Qualification Applications'}
+                </h1>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['all', 'pending', 'accepted', 'rejected'] as const).map((st) => (
                     <button
+                      key={st}
                       type="button"
-                      onClick={() => {
-                        setCounterTarget(off);
-                        setCounterRate(String(off.proposedRatePerHour));
-                      }}
-                      className="rounded-lg border border-[#027F86] px-3 py-1.5 text-xs font-semibold text-[#027F86] dark:text-[#04B8B4]"
+                      onClick={() => setProposalFilter(st)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                        proposalFilter === st
+                          ? 'bg-[#027F86] text-white'
+                          : 'border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]'
+                      }`}
                     >
-                      {isId ? 'Counter-Offer' : 'Counter-Offer'}
+                      {st === 'all'
+                        ? isId
+                          ? 'Semua'
+                          : 'All'
+                        : st === 'pending'
+                        ? isId
+                          ? 'Dalam Review'
+                          : 'Under Review'
+                        : st === 'accepted'
+                        ? isId
+                          ? 'Disetujui'
+                          : 'Accepted'
+                        : isId
+                        ? 'Ditolak'
+                        : 'Rejected'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => respondOffer(off.id, 'rejected')}
-                      className="rounded-lg border border-[var(--egvox-border-default)] px-3 py-1.5 text-xs font-semibold text-[#E11D48]"
-                    >
-                      {isId ? 'Tolak' : 'Decline'}
-                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-3">
+                {filteredProposals.length === 0 ? (
+                  <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 text-center text-xs text-[var(--egvox-text-muted)]">
+                    {isId ? 'Belum ada pengajuan minat pada filter ini.' : 'No applications found in this filter.'}
                   </div>
+                ) : (
+                  filteredProposals.map((prop) => (
+                    <div
+                      key={prop.id}
+                      className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div>
+                        <p className="text-xs font-mono text-[#027F86]">
+                          {prop.vendorName} · {prop.createdAt}
+                        </p>
+                        <h3 className="text-sm font-bold mt-0.5">{prop.projectTitle}</h3>
+                        <p className="text-xs text-[var(--egvox-text-secondary)] mt-1">{prop.note}</p>
+                        {prop.deviceSummary && (
+                          <p className="text-[11px] text-[var(--egvox-text-muted)] mt-1">
+                            {isId ? 'Perangkat:' : 'Equipment:'} <strong>{prop.deviceSummary}</strong>
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
+                        <p className="text-xs font-bold text-[#027F86] tabular-nums">
+                          {prop.weeklyCapacityHours
+                            ? `${prop.weeklyCapacityHours} ${isId ? 'jam/minggu' : 'hrs/week'}`
+                            : `${prop.volume} ${isId ? 'unit' : 'units'}`}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block rounded-md bg-[#027F86]/10 px-2.5 py-0.5 text-[11px] font-bold text-[#027F86]">
+                            {prop.status}
+                          </span>
+                          {(prop.status === 'submitted' || prop.status === 'under_review') && (
+                            <button
+                              type="button"
+                              onClick={() => withdrawProposal(prop.id)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[#C43D3D]/40 px-2.5 py-1 text-[11px] font-semibold text-[#C43D3D] hover:bg-[#C43D3D]/8"
+                            >
+                              <Undo2 className="h-3 w-3" />
+                              <span>{isId ? 'Tarik' : 'Withdraw'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* TAB 4: PROPOSALS */}
-      {activeTab === 'proposals' && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                { id: 'all', label: isId ? 'Semua' : 'All' },
-                { id: 'pending', label: isId ? 'Menunggu Review' : 'Pending Review' },
-                { id: 'accepted', label: isId ? 'Diterima' : 'Accepted' },
-                { id: 'rejected', label: isId ? 'Ditolak' : 'Rejected' },
-              ] as const
-            ).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setProposalFilter(f.id)}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold ${
-                  proposalFilter === f.id
-                    ? 'bg-[#027F86] text-white'
-                    : 'border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] text-[var(--egvox-text-secondary)]'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] divide-y divide-[var(--egvox-border-default)]">
-            {filteredProposals.length === 0 ? (
-              <p className="p-8 text-center text-xs text-[var(--egvox-text-muted)]">
-                {isId
-                  ? 'Belum ada proposal pada filter status ini.'
-                  : 'No proposals match this status filter.'}
-              </p>
-            ) : (
-              filteredProposals.map((prop) => (
-                <div
-                  key={prop.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5"
-                >
-                  <div>
-                    <p className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                      {isId ? prop.projectTitle : prop.projectTitleEn || prop.projectTitle}
-                    </p>
-                    <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {prop.vendorName} · {prop.volume} {isId ? 'jam' : 'hours'} ·{' '}
-                      {isId ? 'Dikirim' : 'Submitted'}{' '}
-                      {isId ? prop.createdAt : prop.createdAtEn || prop.createdAt}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--egvox-text-secondary)]">
-                      {isId ? prop.note : prop.noteEn || prop.note}
-                    </p>
-                  </div>
-                  <div className="sm:text-right shrink-0">
-                    <p className="text-sm font-bold text-[#FC840E] tabular-nums">
-                      {egvoxFormatIDR(prop.estimatedTotal)}{' '}
-                      <span className="text-xs text-[#027F86] dark:text-[#04B8B4]">
-                        ({egvoxFormatUSD(prop.estimatedTotal)} USD)
-                      </span>
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-[#027F86]">
-                      Status:{' '}
-                      {prop.status === 'accepted'
-                        ? isId
-                          ? 'Diterima'
-                          : 'Accepted'
-                        : prop.status === 'rejected'
-                        ? isId
-                          ? 'Ditolak'
-                          : 'Rejected'
-                        : prop.status === 'countered'
-                        ? 'Counter-Offer'
-                        : prop.status === 'under_review'
-                        ? isId
-                          ? 'Ditinjau'
-                          : 'Under Review'
-                        : isId
-                        ? 'Terkirim'
-                        : 'Submitted'}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: SECURE MESSAGING CENTER */}
-      {activeTab === 'messages' && (
-        <div className="grid gap-4 lg:grid-cols-12 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] overflow-hidden">
-          <div className="min-w-0 lg:col-span-4 border-b lg:border-b-0 lg:border-r border-[var(--egvox-border-default)] divide-y divide-[var(--egvox-border-default)]">
-            <div className="p-4 font-bold text-sm flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-[#027F86]" />
-              <span>{isId ? 'Kotak Masuk Workspace' : 'Workspace Inbox'}</span>
-            </div>
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                type="button"
-                onClick={() => setSelectedConvId(conv.id)}
-                className={`w-full text-left p-4 transition-colors ${
-                  activeConv?.id === conv.id
-                    ? 'bg-[#027F86]/10'
-                    : 'hover:bg-[var(--egvox-bg-subtle)]'
-                }`}
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold">{conv.partnerName}</span>
-                  {conv.unread > 0 && (
-                    <span className="rounded-full bg-[#FC840E] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                      {conv.unread}
-                    </span>
-                  )}
-                </span>
-                <span className="block text-[11px] text-[#027F86] mt-0.5">
-                  {isId ? conv.partnerRoleLabelId : conv.partnerRoleLabelEn}
-                </span>
-                <span className="block text-[11px] text-[var(--egvox-text-muted)] truncate mt-1">
-                  {conv.contextTitle}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="min-w-0 lg:col-span-8 flex flex-col min-h-[380px]">
-            {activeConv && (
-              <>
-                <div className="border-b border-[var(--egvox-border-default)] px-4 sm:px-5 py-3.5">
-                  <p className="text-sm font-bold">{activeConv.partnerName}</p>
-                  <p className="text-xs text-[var(--egvox-text-muted)]">
-                    {activeConv.contextTitle}
+          {/* ================= RECRUITMENT INBOX, VERSIONED OFFERS & WALLET LEDGER (v1.3) ================= */}
+          {activeTab === 'offers' && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {persona === 'vendor'
+                      ? isId
+                        ? 'Rekrutmen Privat & Dompet Ledger Rekruter'
+                        : 'Private Recruitment & Recruiter Wallet Ledger'
+                      : isId
+                      ? 'Tawaran Rekrutmen Privat & Negosiasi Versi'
+                      : 'Private Recruitment Offers & Versioned Negotiation'}
+                  </h1>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
+                    {isId
+                      ? 'Komunikasi dilakukan melalui versi penawaran terstruktur (V1–V3) dan klarifikasi terikat proyek — tanpa chat bebas.'
+                      : 'All negotiations run through versioned offers and project-bound clarifications — zero free-form chat.'}
                   </p>
                 </div>
-                <div className="flex-1 space-y-3 p-4 sm:p-5 overflow-y-auto max-h-80">
-                  {activeConv.messages.map((m) => (
+                {persona === 'vendor' && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('browse')}
+                    className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>{isId ? 'Rekrut Talenta Baru' : 'Recruit New Talent'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Saldo & Rekruter Card (for Vendor & Enterprise) */}
+              {persona !== 'freelancer' && (
+                <div className="grid gap-4 lg:grid-cols-12">
+                  <div className="lg:col-span-7 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#027F86]">
+                          {isId ? 'Saldo & Rekruter (Dompet Organisasi)' : 'Recruiter Organization Wallet Ledger'}
+                        </p>
+                        <p className="mt-1 text-2xl sm:text-3xl font-bold tabular-nums">
+                          {egvoxFormatIDR(recruiterWallet.availableBalanceIDR)}
+                        </p>
+                        <p className="text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
+                          {isId ? 'Saldo Settled:' : 'Settled Balance:'}{' '}
+                          {egvoxFormatIDR(recruiterWallet.settledBalanceIDR)} ·{' '}
+                          {egvoxFormatUSD(recruiterWallet.availableBalanceIDR)} USD
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTopUpModalOpen(true)}
+                        className="rounded-xl bg-[#027F86] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#039998] inline-flex items-center gap-1.5"
+                      >
+                        <Wallet className="h-4 w-4" />
+                        <span>{isId ? 'Top Up Saldo' : 'Top Up Balance'}</span>
+                      </button>
+                    </div>
                     <div
-                      key={m.id}
-                      className={`flex flex-col max-w-[85%] rounded-2xl px-4 py-2.5 text-xs ${
-                        m.isOwn
-                          ? 'ml-auto bg-[#027F86] text-white'
-                          : 'bg-[var(--egvox-bg-canvas)] border border-[var(--egvox-border-default)]'
+                      className={`rounded-xl border px-3.5 py-2 text-xs font-semibold flex items-center gap-2 ${
+                        recruiterWallet.settledBalanceIDR >= recruiterWallet.minPolicyIDR &&
+                        recruiterWallet.vendorKybVerified
+                          ? 'border-[#16835D]/30 bg-[#16835D]/10 text-[#16835D]'
+                          : 'border-[#C43D3D]/30 bg-[#C43D3D]/10 text-[#C43D3D]'
                       }`}
                     >
-                      <span
-                        className={`text-[10px] font-semibold mb-1 ${
-                          m.isOwn ? 'text-white/80' : 'text-[var(--egvox-text-muted)]'
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>
+                        {recruiterWallet.settledBalanceIDR >= recruiterWallet.minPolicyIDR
+                          ? isId
+                            ? 'Organisasi Terverifikasi KYB & Memenuhi Minimum Saldo Rekrutmen (Min. Rp 5.000.000)'
+                            : 'KYB Verified & Meets Minimum Recruitment Balance Policy (Min. Rp 5,000,000)'
+                          : isId
+                          ? 'Saldo settled belum memenuhi minimum Rp 5.000.000'
+                          : 'Settled balance below Rp 5,000,000 policy'}
+                      </span>
+                    </div>
+                    <div className="grid sm:grid-cols-3 gap-2.5 text-xs tabular-nums">
+                      <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3">
+                        <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                          {isId ? 'Dana Direservasi (Penawaran)' : 'Reserved (Active Offers)'}
+                        </p>
+                        <p className="font-bold mt-0.5">{egvoxFormatIDR(recruiterWallet.reservedBalanceIDR)}</p>
+                      </div>
+                      <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3">
+                        <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                          {isId ? 'Dana Terkomitmen (Work Order)' : 'Committed (Work Orders)'}
+                        </p>
+                        <p className="font-bold mt-0.5">{egvoxFormatIDR(recruiterWallet.committedBalanceIDR)}</p>
+                      </div>
+                      <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3">
+                        <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                          {isId ? 'Pending Settlement PSP' : 'Pending PSP Settlement'}
+                        </p>
+                        <p className="font-bold mt-0.5 text-[#B7791F]">{egvoxFormatIDR(recruiterWallet.pendingTopUpIDR)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-5 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3">
+                    <h2 className="text-sm font-bold">
+                      {isId ? 'Status Rekrutmen Organisasi' : 'Recruitment Pipeline Status'}
+                    </h2>
+                    <div className="space-y-2 text-xs tabular-nums">
+                      <div className="flex items-center justify-between rounded-xl bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5">
+                        <span>{isId ? 'Penawaran Diajukan' : 'Offers Sent'}</span>
+                        <span className="font-bold">
+                          {recruitmentOffers.filter((o) => o.status === 'sent').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5">
+                        <span>{isId ? 'Dalam Negosiasi (V2+)' : 'In Negotiation (V2+)'}</span>
+                        <span className="font-bold text-[#FC840E]">
+                          {recruitmentOffers.filter((o) => o.status === 'negotiating').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5">
+                        <span>{isId ? 'Disepakati / Work Order' : 'Agreed / Work Order'}</span>
+                        <span className="font-bold text-[#16835D]">
+                          {recruitmentOffers.filter((o) => o.status === 'accepted').length}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                      {isId
+                        ? 'Catatan: Reservasi dana dilakukan terotorisasi melalui Payment Provider setelah saldo settled tervalidasi.'
+                        : 'Note: Fund reservations are authorized through the Payment Provider against settled ledger funds.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Recruitment Inbox + Versioned Offer Detail */}
+              <div className="grid gap-5 lg:grid-cols-12">
+                {/* Left Column: Inbox List */}
+                <div className="lg:col-span-5 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold">
+                      {isId ? 'Tawaran Rekrutmen (Inbox)' : 'Recruitment Offers (Inbox)'}
+                    </h2>
+                    <div className="inline-flex rounded-lg border border-[var(--egvox-border-default)] p-0.5 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setOfferInboxTab('penawaran')}
+                        className={`rounded-md px-2.5 py-1 font-semibold ${
+                          offerInboxTab === 'penawaran' ? 'bg-[#027F86] text-white' : ''
                         }`}
                       >
-                        {isId ? m.sender : m.senderEn || m.sender} ·{' '}
-                        {isId ? m.timestamp : m.timestampEn || m.timestamp}
+                        {isId ? 'Penawaran' : 'Offers'} ({recruitmentOffers.filter((o) => o.status !== 'accepted').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOfferInboxTab('aktif')}
+                        className={`rounded-md px-2.5 py-1 font-semibold ${
+                          offerInboxTab === 'aktif' ? 'bg-[#027F86] text-white' : ''
+                        }`}
+                      >
+                        {isId ? 'Aktif' : 'Active'} ({recruitmentOffers.filter((o) => o.status === 'accepted').length})
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {recruitmentOffers
+                      .filter((o) =>
+                        offerInboxTab === 'aktif'
+                          ? o.status === 'accepted'
+                          : o.status !== 'accepted'
+                      )
+                      .map((off) => {
+                        const isSelected = activeOffer?.id === off.id;
+                        return (
+                          <button
+                            key={off.id}
+                            type="button"
+                            onClick={() => setSelectedRecruitOfferId(off.id)}
+                            className={`w-full text-left rounded-xl border p-3.5 transition-colors space-y-1.5 ${
+                              isSelected
+                                ? 'border-[#027F86] bg-[#027F86]/8'
+                                : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] hover:border-[#027F86]/40'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-mono font-bold text-[#027F86]">
+                                {off.code} · {off.workType}
+                              </span>
+                              <span
+                                className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                  off.status === 'accepted'
+                                    ? 'bg-[#16835D]/15 text-[#16835D]'
+                                    : off.status === 'negotiating'
+                                    ? 'bg-[#FC840E]/15 text-[#FC840E]'
+                                    : off.status === 'rejected' || off.status === 'withdrawn'
+                                    ? 'bg-[#C43D3D]/15 text-[#C43D3D]'
+                                    : 'bg-[#027F86]/15 text-[#027F86]'
+                                }`}
+                              >
+                                {off.status}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold leading-snug">{off.projectTitle}</p>
+                            <div className="flex items-center justify-between text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
+                              <span>
+                                {persona === 'freelancer' ? off.recruiterOrg : off.freelancerName}
+                              </span>
+                              <span className="font-bold text-[var(--egvox-text-primary)]">
+                                {egvoxFormatIDR(off.grossFeeIDR)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Right Column: Detail Penawaran, Waterfall Biaya, Kesepakatan & Klarifikasi */}
+                <div className="lg:col-span-7 space-y-4">
+                  {activeOffer && (
+                    <>
+                      <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-mono font-bold text-[#027F86]">
+                                {activeOffer.code}
+                              </span>
+                              <span className="rounded-md bg-[var(--egvox-bg-canvas)] border border-[var(--egvox-border-default)] px-2 py-0.5 text-[10px] font-semibold">
+                                {activeOffer.workType}
+                              </span>
+                              <span className="rounded-md bg-[#027F86]/10 px-2 py-0.5 text-[10px] font-bold text-[#027F86]">
+                                {activeOffer.bindingType === 'binding'
+                                  ? isId
+                                    ? 'Penawaran Mengikat'
+                                    : 'Binding Offer'
+                                  : isId
+                                  ? 'Undangan Screening'
+                                  : 'Screening Invite'}
+                              </span>
+                            </div>
+                            <h2 className="text-base font-bold mt-1">{activeOffer.projectTitle}</h2>
+                            <p className="text-xs text-[var(--egvox-text-muted)]">
+                              {isId ? 'Rekruter:' : 'Recruiter:'} <strong>{activeOffer.recruiterOrg}</strong> ·{' '}
+                              {isId ? 'Talenta:' : 'Talent:'} <strong>{activeOffer.freelancerName}</strong> · Spec{' '}
+                              <span className="font-mono">{activeOffer.specVersion}</span>
+                            </p>
+                          </div>
+                          <span className="rounded-lg bg-[#027F86]/12 px-2.5 py-1 text-xs font-bold text-[#027F86] uppercase">
+                            {activeOffer.status}
+                          </span>
+                        </div>
+
+                        {activeOffer.workType === 'QA Specialist' && (
+                          <div className="rounded-xl border border-[#16835D]/30 bg-[#16835D]/8 px-3.5 py-2 text-[11px] font-semibold text-[#16835D] flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 shrink-0" />
+                            <span>
+                              {isId
+                                ? 'Pemeriksaan Anti-Konflik Lolos: QA Specialist independen (tidak mengaudit output produksi sendiri).'
+                                : 'Anti-Conflict Check Passed: Independent QA Specialist (does not audit own production output).'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Timeline Versi Penawaran */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold uppercase tracking-wider text-[var(--egvox-text-muted)]">
+                            {isId
+                              ? `Riwayat Versi Penawaran (${activeOffer.versions.length} Versi)`
+                              : `Offer Version History (${activeOffer.versions.length} Versions)`}
+                          </p>
+                          <div className="space-y-2">
+                            {activeOffer.versions.map((ver) => (
+                              <div
+                                key={ver.version}
+                                className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 text-xs space-y-1"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="font-bold text-[#027F86]">
+                                    V{ver.version} ·{' '}
+                                    {ver.actorRole === 'recruiter'
+                                      ? isId
+                                        ? 'Penawaran Rekruter'
+                                        : 'Recruiter Offer'
+                                      : isId
+                                      ? 'Counteroffer Freelancer'
+                                      : 'Freelancer Counteroffer'}{' '}
+                                    ({ver.actorName})
+                                  </span>
+                                  <span className="font-mono text-[10px] text-[var(--egvox-text-muted)]">
+                                    {ver.timestamp}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-between gap-2 tabular-nums">
+                                  <span className="font-bold">{egvoxFormatIDR(ver.grossFeeIDR)} (Gross)</span>
+                                  {ver.scopeDelta && (
+                                    <span className="text-[11px] text-[var(--egvox-text-muted)]">
+                                      {ver.scopeDelta}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[var(--egvox-text-secondary)]">{ver.note}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Rincian Biaya Transparan */}
+                        <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-4 text-xs space-y-1.5 tabular-nums">
+                          <p className="font-bold mb-1">
+                            {isId ? 'Rincian Biaya & Kompensasi Transparan' : 'Transparent Fee & Net Compensation Breakdown'}
+                          </p>
+                          <div className="flex justify-between">
+                            <span className="text-[var(--egvox-text-muted)]">
+                              {isId ? 'Total Pembayaran (Gross)' : 'Total Payment (Gross)'}
+                            </span>
+                            <span className="font-bold">{egvoxFormatIDR(activeOffer.grossFeeIDR)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[var(--egvox-text-muted)]">
+                              {isId ? 'Biaya Admin EgvoX (8%)' : 'EgvoX Admin Fee (8%)'}
+                            </span>
+                            <span className="font-semibold text-[#C43D3D]">- {egvoxFormatIDR(activeOffer.adminFeeIDR)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[var(--egvox-text-muted)]">
+                              {isId ? 'Biaya Pembayaran (±1,5%)' : 'Payment Fee (±1.5%)'}
+                            </span>
+                            <span className="font-semibold text-[#C43D3D]">- {egvoxFormatIDR(activeOffer.paymentFeeIDR)}</span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t border-[var(--egvox-border-default)] text-sm">
+                            <span className="font-bold text-[#16835D]">
+                              {isId ? 'Penerimaan Freelancer (Net)' : 'Freelancer Net Payout'}
+                            </span>
+                            <span className="font-bold text-[#16835D]">
+                              {egvoxFormatIDR(activeOffer.freelancerNetIDR)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Kesepakatan & Work Order OR Action Buttons */}
+                        {activeOffer.status === 'accepted' ? (
+                          <div className="rounded-xl border border-[#16835D]/35 bg-[#16835D]/10 p-4 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-bold text-[#16835D] inline-flex items-center gap-1.5">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>
+                                    {isId
+                                      ? 'Kesepakatan Tercapai & Work Order Aktif'
+                                      : 'Agreement Reached & Work Order Active'}
+                                  </span>
+                                </p>
+                                <p className="text-[11px] font-mono text-[var(--egvox-text-secondary)] mt-0.5">
+                                  Work Order: {activeOffer.code.replace(/^(VO|AN|QA)-/, 'WO-')} ·{' '}
+                                  {isId
+                                    ? 'Status Dana: Reservasi Dana Terotorisasi Ledger'
+                                    : 'Funding Status: Ledger Authorized Fund Reservation'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('tracking')}
+                                className="rounded-xl border border-[#16835D] bg-[var(--egvox-bg-surface)] px-3.5 py-2 text-xs font-semibold text-[#16835D]"
+                              >
+                                {isId ? 'Lihat Work Order' : 'View Work Order'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPrivateUploadOpen(true)}
+                                className="rounded-xl bg-[#027F86] px-3.5 py-2 text-xs font-semibold text-white"
+                              >
+                                {isId ? 'Mulai Pekerjaan' : 'Start Work'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (activeOffer.status === 'sent' ||
+                            activeOffer.status === 'negotiating' ||
+                            activeOffer.status === 'draft') && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => respondRecruitmentOffer(activeOffer.id, 'accepted')}
+                              className="rounded-xl bg-[#16835D] px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+                            >
+                              {isId ? 'Terima Penawaran' : 'Accept Offer'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCounterTarget(activeOffer)}
+                              className="rounded-xl border border-[#027F86] px-4 py-2 text-xs font-semibold text-[#027F86] hover:bg-[#027F86]/8"
+                            >
+                              {isId ? 'Ajukan Counteroffer' : 'Counteroffer'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => respondRecruitmentOffer(activeOffer.id, 'rejected')}
+                              className="rounded-xl border border-[#C43D3D]/50 px-4 py-2 text-xs font-semibold text-[#C43D3D] hover:bg-[#C43D3D]/8"
+                            >
+                              {isId ? 'Tolak' : 'Decline'}
+                            </button>
+                            {persona === 'vendor' && (
+                              <button
+                                type="button"
+                                onClick={() => respondRecruitmentOffer(activeOffer.id, 'withdrawn')}
+                                className="rounded-xl border border-[var(--egvox-border-default)] px-3 py-2 text-xs font-semibold text-[var(--egvox-text-muted)]"
+                              >
+                                {isId ? 'Tarik Penawaran' : 'Withdraw'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Structured Clarifications Bound to Active Offer (Zero Free-Form Chat) */}
+                      <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-bold">
+                            {isId
+                              ? `Klarifikasi Terstruktur (${activeOffer.code})`
+                              : `Structured Clarifications (${activeOffer.code})`}
+                          </h3>
+                          <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                            {isId
+                              ? 'Pertanyaan berbasis topik proyek yang tercatat resmi. Tidak tersedia chat bebas antar pengguna.'
+                              : 'Topic-tagged official project clarifications. No free-form user chat.'}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {clarifications.filter((c) => c.offerCode === activeOffer.code).length === 0 ? (
+                            <p className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3 text-xs text-[var(--egvox-text-muted)]">
+                              {isId ? 'Belum ada catatan klarifikasi pada penawaran ini.' : 'No structured clarifications yet.'}
+                            </p>
+                          ) : (
+                            clarifications
+                              .filter((c) => c.offerCode === activeOffer.code)
+                              .map((clr) => (
+                                <div
+                                  key={clr.id}
+                                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 text-xs space-y-2"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="font-bold text-[#027F86] uppercase text-[10px]">
+                                      {isId ? 'Topik:' : 'Topic:'} {clr.topic} · {clr.senderName}
+                                    </span>
+                                    <span
+                                      className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                        clr.status === 'resolved'
+                                          ? 'bg-[#16835D]/12 text-[#16835D]'
+                                          : 'bg-[#F59E0B]/15 text-[#B7791F]'
+                                      }`}
+                                    >
+                                      {clr.status === 'resolved'
+                                        ? isId
+                                          ? 'Terjawab'
+                                          : 'Resolved'
+                                        : isId
+                                        ? 'Menunggu Jawaban'
+                                        : 'Awaiting Reply'}
+                                    </span>
+                                  </div>
+                                  <p className="font-medium">{clr.question}</p>
+                                  {clr.answer ? (
+                                    <p className="rounded-lg bg-[var(--egvox-bg-surface)] border border-[var(--egvox-border-default)] px-3 py-2 text-[var(--egvox-text-secondary)]">
+                                      <strong>{isId ? 'Jawaban:' : 'Answer:'}</strong> {clr.answer}
+                                    </p>
+                                  ) : (
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        value={clarifyAnswerDrafts[clr.id] || ''}
+                                        onChange={(e) =>
+                                          setClarifyAnswerDrafts((prev) => ({
+                                            ...prev,
+                                            [clr.id]: e.target.value,
+                                          }))
+                                        }
+                                        placeholder={isId ? 'Tulis jawaban resmi...' : 'Write official answer...'}
+                                        className="flex-1 rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-xs"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const draft = clarifyAnswerDrafts[clr.id] || '';
+                                          if (!draft.trim()) return;
+                                          resolveClarification(clr.id, draft);
+                                          setClarifyAnswerDrafts((prev) => ({
+                                            ...prev,
+                                            [clr.id]: '',
+                                          }));
+                                        }}
+                                        className="rounded-lg bg-[#027F86] px-3 py-1.5 text-[11px] font-semibold text-white"
+                                      >
+                                        {isId ? 'Jawab' : 'Resolve'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                          )}
+                        </div>
+
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!clarifyText.trim()) return;
+                            submitClarification(
+                              activeOffer.code,
+                              activeOffer.projectTitle,
+                              clarifyTopic,
+                              clarifyText,
+                              persona === 'freelancer' ? 'freelancer' : 'recruiter'
+                            );
+                            setClarifyText('');
+                          }}
+                          className="grid sm:grid-cols-12 gap-2 pt-2 border-t border-[var(--egvox-border-default)]"
+                        >
+                          <select
+                            value={clarifyTopic}
+                            onChange={(e) =>
+                              setClarifyTopic(e.target.value as StructuredClarification['topic'])
+                            }
+                            className="sm:col-span-4 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                          >
+                            <option value="spec">{isId ? 'Topik: Capture Spec' : 'Topic: Capture Spec'}</option>
+                            <option value="deliverables">{isId ? 'Topik: Deliverables & SLA' : 'Topic: Deliverables & SLA'}</option>
+                            <option value="schedule">{isId ? 'Topik: Jadwal & Milestone' : 'Topic: Schedule & Milestone'}</option>
+                            <option value="conflict_check">{isId ? 'Topik: Anti-Konflik QA' : 'Topic: QA Anti-Conflict'}</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={clarifyText}
+                            onChange={(e) => setClarifyText(e.target.value)}
+                            placeholder={
+                              isId
+                                ? 'Ajukan pertanyaan terstruktur terkait spec...'
+                                : 'Submit spec clarification question...'
+                            }
+                            className="sm:col-span-6 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                          />
+                          <button
+                            type="submit"
+                            className="sm:col-span-2 rounded-xl bg-[#027F86] px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            {isId ? 'Kirim' : 'Submit'}
+                          </button>
+                        </form>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= WORK ORDERS & TRACKING ================= */}
+          {activeTab === 'tracking' && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-xl font-bold">
+                  {persona === 'enterprise'
+                    ? isId
+                      ? 'Proyek Resmi & Kontrak (Managed)'
+                      : 'Official Projects & Contracts (Managed)'
+                    : isId
+                    ? 'Work Order & Pipeline Produksi'
+                    : 'Work Orders & Production Pipeline'}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setPrivateUploadOpen(true)}
+                  className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  <span>{isId ? 'Upload Video Privat' : 'Private Video Upload'}</span>
+                </button>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {workOrders.map((wo) => (
+                  <button
+                    key={wo.id}
+                    type="button"
+                    onClick={() => setSelectedOrderId(wo.id)}
+                    className={`rounded-2xl border p-4 text-left transition-colors ${
+                      selectedOrder?.id === wo.id
+                        ? 'border-[#027F86] bg-[#027F86]/8'
+                        : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]'
+                    }`}
+                  >
+                    <p className="text-xs font-mono text-[#027F86]">{wo.code}</p>
+                    <p className="text-sm font-bold mt-0.5">
+                      {isId ? wo.title : wo.titleEn || wo.title}
+                    </p>
+                    <p className="text-xs text-[var(--egvox-text-muted)] mt-1">
+                      {wo.counterparty} · {wo.progressPercent}%
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              {selectedOrder && (
+                <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-mono text-[#027F86]">
+                        {selectedOrder.code} · {selectedOrder.specVersion}
+                      </p>
+                      <h2 className="text-base font-bold">
+                        {isId ? selectedOrder.title : selectedOrder.titleEn || selectedOrder.title}
+                      </h2>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setContractOrder(selectedOrder)}
+                        className="rounded-xl border border-[var(--egvox-border-default)] px-3 py-2 text-xs font-semibold"
+                      >
+                        {isId ? 'Lihat Spesifikasi Kontrak' : 'View Contract Spec'}
+                      </button>
+                      {persona === 'freelancer' && (
+                        <button
+                          type="button"
+                          onClick={() => acknowledgeOrderSpec(selectedOrder.id)}
+                          disabled={acknowledgedOrderIds.includes(selectedOrder.id)}
+                          className={`rounded-xl px-3 py-2 text-xs font-semibold ${
+                            acknowledgedOrderIds.includes(selectedOrder.id)
+                              ? 'bg-[#16835D]/12 text-[#16835D]'
+                              : 'bg-[#027F86] text-white'
+                          }`}
+                        >
+                          {acknowledgedOrderIds.includes(selectedOrder.id)
+                            ? isId
+                              ? 'Spec Disetujui ✓'
+                              : 'Spec Acknowledged ✓'
+                            : isId
+                            ? `Setujui ${selectedOrder.specVersion}`
+                            : `Acknowledge ${selectedOrder.specVersion}`}
+                        </button>
+                      )}
+                      {persona === 'vendor' && (
+                        <button
+                          type="button"
+                          onClick={() => setMilestoneModalOrder(selectedOrder)}
+                          className="rounded-xl bg-[#FC840E] px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          {isId ? 'Milestone / Change Request' : 'Milestone / Change'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setReviewOpen(true)}
+                        className="rounded-xl border border-[#027F86] px-3 py-2 text-xs font-semibold text-[#027F86]"
+                      >
+                        {isId ? 'Beri Ulasan' : 'Rate Order'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* File-Level Submission QA Verdicts */}
+                  <div className="space-y-2.5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--egvox-text-muted)]">
+                      {isId ? 'Status Validasi File & Karantina QA' : 'File Validation & QA Verdicts'}
+                    </h3>
+                    {submissionFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-mono font-bold">{file.fileName}</p>
+                          <p className="text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
+                            {file.durationLabel} · {file.sizeLabel} · SHA-256: {file.checksumSha256.slice(0, 14)}…
+                          </p>
+                          {(file.qaReasonId || file.qaReasonEn) && (
+                            <p className="text-[11px] text-[#B7791F] mt-1">
+                              {isId ? file.qaReasonId : file.qaReasonEn || file.qaReasonId}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={`rounded-md px-2.5 py-1 text-[11px] font-bold ${
+                              file.status === 'accepted'
+                                ? 'bg-[#16835D]/12 text-[#16835D]'
+                                : file.status === 'rework_required'
+                                ? 'bg-[#C43D3D]/12 text-[#C43D3D]'
+                                : 'bg-[#F59E0B]/15 text-[#B7791F]'
+                            }`}
+                          >
+                            {file.status}
+                          </span>
+                          {file.status === 'rework_required' && (
+                            <button
+                              type="button"
+                              onClick={() => setReworkTarget(file)}
+                              className="rounded-lg bg-[#027F86] px-3 py-1.5 text-[11px] font-semibold text-white"
+                            >
+                              {isId ? 'Rework / Banding' : 'Rework / Appeal'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= PRIVATE UPLOADS (3-STEP + HISTORY) ================= */}
+          {activeTab === 'uploads' && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {isId ? 'Upload Tugas & Zona Karantina Privat' : 'Private Video Uploads & Quarantine'}
+                  </h1>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
+                    {isId
+                      ? 'Seluruh file raw video masuk sesi upload terenkripsi SHA-256 dan tidak pernah dipublikasikan.'
+                      : 'All raw videos enter SHA-256 encrypted upload sessions and are never publicly listed.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivateUploadOpen(true)}
+                  className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  <span>{isId ? 'Mulai Sesi Upload (3 Langkah)' : 'Start 3-Step Upload'}</span>
+                </button>
+              </div>
+              <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] text-[var(--egvox-text-muted)]">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">File</th>
+                      <th className="px-4 py-3 font-semibold">
+                        {isId ? 'Ukuran & Durasi' : 'Size & Duration'}
+                      </th>
+                      <th className="px-4 py-3 font-semibold">Checksum SHA-256</th>
+                      <th className="px-4 py-3 font-semibold">{isId ? 'Status QA' : 'QA Status'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--egvox-border-default)] tabular-nums">
+                    {submissionFiles.map((f) => (
+                      <tr key={f.id}>
+                        <td className="px-4 py-3 font-mono font-bold">{f.fileName}</td>
+                        <td className="px-4 py-3">{f.sizeLabel} · {f.durationLabel}</td>
+                        <td className="px-4 py-3 font-mono text-[var(--egvox-text-muted)]">
+                          {f.checksumSha256.slice(0, 20)}…
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-md bg-[#027F86]/10 px-2 py-0.5 font-bold text-[#027F86]">
+                            {f.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ================= ANNOTATION JOBS & INTERACTIVE STUDIO ================= */}
+          {activeTab === 'annotation' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {persona === 'enterprise'
+                      ? isId
+                        ? 'Jaminan Kualitas & Audit Skema (QA)'
+                        : 'Quality Assurance & Schema Audit'
+                      : isId
+                      ? 'Tugas Anotasi & Workspace (Skema v1.2)'
+                      : 'Annotation Jobs & Workspace (Schema v1.2)'}
+                  </h1>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
+                    {isId
+                      ? 'Pelabelan manusia terstruktur: Bounding Box, Object Tracking, Keypoints, & Temporal Action Segments.'
+                      : 'Human-in-the-loop labeling: Bounding Box, Object Tracking, Keypoints, and Temporal Action Segments.'}
+                  </p>
+                </div>
+                <div className="inline-flex rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAnnotationSubMode('tasks')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                      annotationSubMode === 'tasks' ? 'bg-[#027F86] text-white' : ''
+                    }`}
+                  >
+                    {isId ? 'Daftar Tugas' : 'Task Queue'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnnotationSubMode('studio')}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                      annotationSubMode === 'studio' ? 'bg-[#027F86] text-white' : ''
+                    }`}
+                  >
+                    {isId ? 'Workspace Anotasi' : 'Annotation Workspace'}
+                  </button>
+                </div>
+              </div>
+
+              {annotationSubMode === 'tasks' ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {opsAnnotationProjects.map((ap) => (
+                    <div
+                      key={ap.id}
+                      className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 flex gap-4 items-center"
+                    >
+                      <img
+                        src={ap.previewImage}
+                        alt={isId ? ap.titleId : ap.titleEn}
+                        referrerPolicy="no-referrer"
+                        className="h-20 w-28 rounded-xl object-cover shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-mono text-[#027F86]">
+                          {ap.code} · {ap.schemaVersion}
+                        </p>
+                        <h3 className="text-sm font-bold truncate">
+                          {isId ? ap.titleId : ap.titleEn}
+                        </h3>
+                        <p className="text-xs text-[var(--egvox-text-muted)] tabular-nums mt-0.5">
+                          {ap.completedTasks} / {ap.taskCount} {isId ? 'tugas' : 'tasks'} ({ap.progressPercent}%)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAnnotationId(ap.id);
+                            setAnnotationSubMode('studio');
+                          }}
+                          className="mt-2 rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          {isId ? 'Buka Studio Anotasi' : 'Open Annotation Studio'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <AnnotationWorkspaceView
+                  project={selectedAnnotationProject}
+                  onCompleteSubmit={() => setAnnotationSubMode('tasks')}
+                />
+              )}
+            </div>
+          )}
+
+          {/* ================= DELIVERIES & RIGHTS MANIFEST ================= */}
+          {activeTab === 'delivery' && (
+            <div className="space-y-5">
+              <h1 className="text-xl font-bold">
+                {isId ? 'Pengiriman Dataset & Rights Manifest' : 'Dataset Deliveries & Rights Manifest'}
+              </h1>
+              <div className="grid gap-4 md:grid-cols-2">
+                {opsDeliveryPackages.map((pkg) => (
+                  <div
+                    key={pkg.id}
+                    className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-mono text-[#027F86]">
+                          {pkg.packageCode} · {pkg.version}
+                        </p>
+                        <h3 className="text-base font-bold mt-0.5">
+                          {isId ? pkg.titleId : pkg.titleEn}
+                        </h3>
+                        <p className="text-xs text-[var(--egvox-text-muted)]">
+                          {isId ? 'Pembeli:' : 'Buyer:'} {pkg.buyerName}
+                        </p>
+                      </div>
+                      <span className="rounded-md bg-[#16835D]/12 px-2.5 py-1 text-[11px] font-bold text-[#16835D]">
+                        {pkg.status}
                       </span>
-                      <span className="leading-relaxed">
-                        {isId ? m.text : m.textEn || m.text}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 rounded-xl bg-[var(--egvox-bg-canvas)] p-3 text-xs tabular-nums">
+                      <div>
+                        <p className="text-[var(--egvox-text-muted)]">
+                          {isId ? 'Total File' : 'Total Files'}
+                        </p>
+                        <p className="font-bold">{pkg.totalFiles.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--egvox-text-muted)]">
+                          {isId ? 'Ukuran' : 'Size'}
+                        </p>
+                        <p className="font-bold">{pkg.totalSizeGb} GB</p>
+                      </div>
+                      <div>
+                        <p className="text-[var(--egvox-text-muted)]">Format</p>
+                        <p className="font-bold">{pkg.exportFormat}</p>
+                      </div>
+                    </div>
+                      <div className="flex flex-wrap gap-2">
+                        {persona === 'enterprise' && (
+                          <button
+                            type="button"
+                            onClick={() => setInspectDeliveryPkg(pkg)}
+                            className={`flex-1 rounded-xl px-3 py-2.5 text-xs font-semibold ${
+                              acceptedEnterpriseDeliveries.includes(pkg.id)
+                                ? 'bg-[#16835D]/12 text-[#16835D]'
+                                : 'border border-[#FC840E] text-[#FC840E]'
+                            }`}
+                          >
+                            {acceptedEnterpriseDeliveries.includes(pkg.id)
+                              ? isId
+                                ? 'Diterima Enterprise ✓'
+                                : 'Enterprise Accepted ✓'
+                              : isId
+                              ? 'Inspeksi Sampel & Terima'
+                              : 'Inspect Sample & Accept'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            showToast(
+                              isId
+                                ? `Mengunduh paket terenkripsi ${pkg.packageCode} & Rights Manifest PDF.`
+                                : `Downloading encrypted ${pkg.packageCode} & Rights Manifest.`
+                            )
+                          }
+                          className="flex-1 rounded-xl bg-[#027F86] px-3 py-2.5 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>{isId ? 'Unduh Paket & Manifest' : 'Download Package & Manifest'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          {/* ================= EARNINGS / BILLING ================= */}
+          {(activeTab === 'earnings' || activeTab === 'billing') && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5">
+                <div>
+                  <p className="text-xs text-[var(--egvox-text-muted)]">
+                    {persona === 'freelancer'
+                      ? isId
+                        ? 'Saldo Layak Payout (Setelah QA Acceptance)'
+                        : 'Payout Eligible Balance (Post-QA Acceptance)'
+                      : isId
+                      ? 'Ringkasan Invoice & Saldo Work Order Organisasi'
+                      : 'Organization Work Order Billing Summary'}
+                  </p>
+                  <p className="mt-1 text-3xl font-bold text-[#027F86] dark:text-[#04B8B4] tabular-nums">
+                    {egvoxFormatIDR(availableBalance)}
+                  </p>
+                  <p className="text-xs text-[var(--egvox-text-muted)] tabular-nums">
+                    {egvoxFormatUSD(availableBalance)} USD
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReviewOpen(true)}
+                    className="rounded-xl border border-[#027F86] px-4 py-2.5 text-xs font-semibold text-[#027F86] hover:bg-[#027F86]/8"
+                  >
+                    {isId ? 'Beri Ulasan & Rating' : 'Rate & Review Order'}
+                  </button>
+                  {persona === 'freelancer' && (
+                    <button
+                      type="button"
+                      onClick={() => setPayoutOpen(true)}
+                      className="rounded-xl bg-[#027F86] px-5 py-2.5 text-xs font-semibold text-white"
+                    >
+                      {isId ? 'Tarik Dana (Request Payout)' : 'Withdraw Payout'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Pembayaran & Pencairan 6-Tahap (Master PRD §10) */}
+              <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold">
+                    {isId
+                      ? 'Alur Status Pembayaran & Pencairan (WO-EGX-0256)'
+                      : 'Payment & Payout Settlement Progress'}
+                  </h2>
+                  <span className="rounded-md bg-[#16835D]/12 px-2.5 py-0.5 text-[11px] font-bold text-[#16835D]">
+                    {isId ? 'QA Diterima · Siap Cair' : 'QA Accepted · Ready'}
+                  </span>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6 text-xs">
+                  {(
+                    [
+                      { labelId: 'Penawaran Disepakati', labelEn: 'Offer Agreed', state: 'done' },
+                      { labelId: 'Work Order Aktif', labelEn: 'Work Order Active', state: 'done' },
+                      { labelId: 'Tugas Disubmit', labelEn: 'Work Submitted', state: 'done' },
+                      { labelId: 'QA Diterima (50/50)', labelEn: 'QA Accepted', state: 'done' },
+                      { labelId: 'Pembayaran Diproses', labelEn: 'Settlement Processing', state: 'active' },
+                      { labelId: 'Pencairan Ke Freelancer', labelEn: 'Released to Freelancer', state: 'next' },
+                    ] as const
+                  ).map((st) => (
+                    <div
+                      key={st.labelId}
+                      className={`rounded-xl border px-3 py-2.5 flex items-center gap-2 ${
+                        st.state === 'done'
+                          ? 'border-[#16835D]/35 bg-[#16835D]/10 text-[#16835D]'
+                          : st.state === 'active'
+                          ? 'border-[#FC840E]/45 bg-[#FC840E]/10 text-[#FC840E]'
+                          : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] text-[var(--egvox-text-muted)]'
+                      }`}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="font-semibold leading-tight">
+                        {isId ? st.labelId : st.labelEn}
                       </span>
                     </div>
                   ))}
                 </div>
-                <form
-                  onSubmit={handleSendMessage}
-                  className="flex items-center gap-2 border-t border-[var(--egvox-border-default)] p-3.5"
-                >
-                  <input
-                    type="text"
-                    value={messageDraft}
-                    onChange={(e) => setMessageDraft(e.target.value)}
-                    placeholder={
-                      isId
-                        ? 'Tulis pesan terkait spesifikasi atau revisi Work Order...'
-                        : 'Write a message regarding Work Order spec or delivery...'
-                    }
-                    className="min-w-0 flex-1 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2 text-xs"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white hover:bg-[#039998]"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    <span>{isId ? 'Kirim' : 'Send'}</span>
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+              </div>
 
-      {/* TAB 6: DELIVERY DATASET, PAYOUT HISTORY & 5-STAR REVIEWS */}
-      {activeTab === 'delivery' && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#16835D]">
-                  <CheckCircle2 className="h-4 w-4" />
-                  {isId ? 'Selesai & Terverifikasi QA' : 'Completed & QA Verified'}
-                </span>
-                <h2 className="mt-1 text-lg font-bold">
-                  {isId
-                    ? 'Dataset Memasak (Egocentric Cooking) — Paket Final'
-                    : 'Egocentric Cooking Dataset — Final Delivery Package'}
+              <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3">
+                <h2 className="text-sm font-bold">
+                  {isId ? 'Riwayat Payout & Transaksi Selesai' : 'Payout & Completed Transaction Ledger'}
                 </h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setReviewOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#FC840E] px-4 py-2.5 text-xs font-semibold text-[#FC840E] hover:bg-[#FC840E]/10"
-                >
-                  <Star className="h-4 w-4" />
-                  <span>{isId ? 'Berikan Ulasan' : 'Leave Review'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    showToast(
-                      isId
-                        ? 'Signed download link (bermasa aktif singkat) dibuat untuk paket dataset.'
-                        : 'Short-lived signed download link generated for dataset package.'
-                    )
-                  }
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#027F86] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#039998]"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>{isId ? 'Unduh Dataset' : 'Download Dataset'}</span>
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-sm">
-              <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3.5">
-                <p className="text-xs text-[var(--egvox-text-muted)]">
-                  {isId ? 'Total Volume' : 'Total Volume'}
-                </p>
-                <p className="mt-1 font-bold tabular-nums">
-                  {isId ? '50 Jam Video' : '50 Video Hours'}
-                </p>
-              </div>
-              <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3.5">
-                <p className="text-xs text-[var(--egvox-text-muted)]">
-                  {isId ? 'Ukuran Paket' : 'Package Size'}
-                </p>
-                <p className="mt-1 font-bold tabular-nums">120 GB</p>
-              </div>
-              <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3.5">
-                <p className="text-xs text-[var(--egvox-text-muted)]">Format</p>
-                <p className="mt-1 font-bold">MP4 + JSONL</p>
-              </div>
-              <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3.5">
-                <p className="text-xs text-[var(--egvox-text-muted)]">
-                  {isId ? 'Manifest Hak Data' : 'Data Rights Manifest'}
-                </p>
-                <p className="mt-1 font-bold text-[#16835D] inline-flex items-center gap-1">
-                  <FileCheck2 className="h-4 w-4" /> Valid
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Payout History */}
-            <div className="min-w-0 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">
-                  {isId ? 'Riwayat Penarikan Dana (Payout)' : 'Payout Settlement History'}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setPayoutOpen(true)}
-                  className="text-xs font-semibold text-[#027F86] hover:underline"
-                >
-                  {isId ? 'Tarik Dana Baru' : 'New Withdrawal'}
-                </button>
-              </div>
-              <div className="divide-y divide-[var(--egvox-border-default)]">
-                {payoutHistory.map((p) => (
-                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-xs">
+                {payoutHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-4 py-3 text-xs"
+                  >
                     <div>
-                      <p className="font-bold">
-                        {isId ? p.destination : p.destinationEn || p.destination}
-                      </p>
-                      <p className="text-[var(--egvox-text-muted)]">
-                        {isId ? p.createdAt : p.createdAtEn || p.createdAt}
-                      </p>
+                      <p className="font-bold">{item.destination}</p>
+                      <p className="text-[11px] text-[var(--egvox-text-muted)]">{item.createdAt}</p>
                     </div>
-                    <div className="sm:text-right">
-                      <p className="font-bold tabular-nums text-[#FC840E]">
-                        {egvoxFormatIDR(p.amount)}{' '}
-                        <span className="text-[#027F86] dark:text-[#04B8B4]">
-                          ({egvoxFormatUSD(p.amount)} USD)
-                        </span>
-                      </p>
-                      <p className="text-[#16835D] font-semibold">
-                        {p.status === 'settled'
-                          ? isId
-                            ? 'Lunas / Cair'
-                            : 'Settled'
-                          : isId
-                          ? 'Menunggu Review'
-                          : 'Pending Review'}
-                      </p>
+                    <div className="flex items-center gap-3 tabular-nums">
+                      <div className="text-right">
+                        <p className="font-bold">{egvoxFormatIDR(item.amount)}</p>
+                        <span className="text-[11px] font-semibold text-[#16835D]">{item.status}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setReviewOpen(true)}
+                        className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-[11px] font-semibold hover:border-[#027F86] hover:text-[#027F86]"
+                      >
+                        {isId ? 'Ulasan & Rating' : 'Leave Review'}
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* Completed Order Reviews */}
-            <div className="min-w-0 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-bold">
-                  {isId ? 'Ulasan & Rating Selesai' : 'Completed Order Reviews'}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setReviewOpen(true)}
-                  className="text-xs font-semibold text-[#027F86] hover:underline"
-                >
-                  {isId ? '+ Tulis Ulasan' : '+ Write Review'}
-                </button>
-              </div>
-              <div className="divide-y divide-[var(--egvox-border-default)]">
-                {reviews.map((rev) => (
-                  <div key={rev.id} className="py-3 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold">{rev.targetName}</span>
-                      <span className="inline-flex items-center gap-0.5 text-[#F59E0B] font-bold">
-                        <Star className="h-3.5 w-3.5 fill-current" /> {rev.rating}.0
-                      </span>
-                    </div>
-                    <p className="text-[var(--egvox-text-muted)]">
-                      {rev.workOrderCode} · {isId ? rev.createdAt : rev.createdAtEn || rev.createdAt}
-                    </p>
-                    <p className="text-[var(--egvox-text-secondary)]">
-                      {isId ? rev.comment : rev.commentEn || rev.comment}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 7: PROFILE, KYC & ORGANIZATION SWITCHER */}
-      {activeTab === 'profile' && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="min-w-0 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <UserCheck className="h-5 w-5 text-[#027F86]" />
-                <h2 className="text-base font-bold">
-                  {isId ? 'Verifikasi Identitas (KYC)' : 'Identity Verification (KYC)'}
-                </h2>
-              </div>
-              <span
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
-                  kycStatus === 'verified'
-                    ? 'bg-[#16835D]/15 text-[#16835D]'
-                    : 'bg-[#FC840E]/15 text-[#FC840E]'
-                }`}
-              >
-                {kycStatus === 'verified'
-                  ? isId
-                    ? 'Terverifikasi'
-                    : 'Verified'
-                  : isId
-                  ? 'Dalam Peninjauan'
-                  : 'Pending Review'}
-              </span>
-            </div>
-            <p className="text-xs text-[var(--egvox-text-secondary)] leading-relaxed">
-              {isId
-                ? 'Verifikasi identitas wajib sebelum pencairan payout dan akses proyek dengan kepatuhan khusus.'
-                : 'Identity verification is required prior to payout withdrawals and policy-gated projects.'}
-            </p>
-            <button
-              type="button"
-              onClick={() => setKycOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#027F86] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#039998]"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span>
-                {isId ? 'Verifikasi / Unggah Ulang KYC' : 'Verify / Upload KYC Document'}
-              </span>
-            </button>
-          </div>
-
-          <div className="min-w-0 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-[#027F86]" />
-              <h2 className="text-base font-bold">
-                {isId
-                  ? 'Organisasi Aktif & Akun Payout'
-                  : 'Active Organization & Payout Account'}
-              </h2>
-            </div>
-            <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-4 text-xs space-y-1">
-              <p className="text-[var(--egvox-text-muted)]">
-                {isId ? 'Organisasi Terpilih' : 'Selected Organization'}
-              </p>
-              <p className="text-sm font-bold">{activeOrg}</p>
-              <p className="text-[var(--egvox-text-secondary)] pt-1">
-                {isId ? 'Rekening Payout Utama' : 'Primary Payout Account'}: {payoutDest}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOrgModalOpen(true)}
-              className="rounded-xl border border-[var(--egvox-border-default)] px-4 py-2.5 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
-            >
-              {isId ? 'Ganti Organisasi' : 'Switch Organization'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 8: SAVED ITEMS */}
-      {activeTab === 'saved' && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {totalSavedCount === 0 ? (
-            <div className="sm:col-span-2 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-8 text-center">
-              <Heart className="mx-auto h-6 w-6 text-[var(--egvox-text-muted)]" />
-              <p className="mt-2 text-sm">
-                {isId ? 'Belum ada listing tersimpan.' : 'No saved listings yet.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              {savedProjects.map((prj) => (
-                <Link
-                  key={prj.id}
-                  href={`/marketplace/projects/${prj.slug}`}
-                  className="flex gap-3 sm:gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 hover:border-[#027F86]"
-                >
-                  <img
-                    src={prj.previewImage}
-                    alt={isId ? prj.title : prj.titleEn}
-                    referrerPolicy="no-referrer"
-                    className="h-16 w-24 sm:h-20 sm:w-28 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold">
-                      {isId ? prj.title : prj.titleEn}
-                    </p>
-                    <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {prj.vendorName}
-                    </p>
-                    <div className="mt-2">
-                      <DualPrice
-                        amountIDR={prj.ratePerUnit}
-                        unitLabel={isId ? 'jam' : 'hour'}
-                        size="sm"
-                        layout="inline"
-                      />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-              {savedServices.map((srv) => (
-                <Link
-                  key={srv.id}
-                  href={`/marketplace/services/${srv.slug}`}
-                  className="flex gap-3 sm:gap-4 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 hover:border-[#027F86]"
-                >
-                  <img
-                    src={srv.avatar}
-                    alt={srv.freelancerName}
-                    referrerPolicy="no-referrer"
-                    className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold">
-                      {isId ? srv.title : srv.titleEn}
-                    </p>
-                    <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {srv.freelancerName} · {srv.roleType}
-                    </p>
-                    <div className="mt-2">
-                      <DualPrice
-                        amountIDR={srv.pricePerUnit}
-                        unitLabel={isId ? 'jam' : 'hour'}
-                        size="sm"
-                        layout="inline"
-                      />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </>
           )}
-        </div>
-      )}
 
-      {/* TAB 9: GOOGLE WORKSPACE PLUGINS */}
-      {activeTab === 'plugins' && <GoogleWorkspacePluginPanel />}
+          {/* Free-form chat messaging removed per Master PRD v1.3; replaced with versioned offers & structured clarifications in Offers tab. */}
 
-      {/* ================= WORKSPACE MODAL CARDS ================= */}
-
-      {/* 1. Work Order Contract Spec Modal */}
-      {contractOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-mono text-[#027F86]">
-                  {contractOrder.code} · {contractOrder.specVersion}
-                </p>
-                <h3 className="text-base font-bold mt-0.5">
-                  {isId ? 'Spesifikasi Kontrak Work Order' : 'Work Order Contract Specification'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setContractOrder(null)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-4 text-xs space-y-2.5">
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="text-[var(--egvox-text-muted)]">
-                  {isId ? 'Judul Tugas' : 'Assignment'}
-                </span>
-                <span className="font-semibold sm:text-right sm:max-w-[60%]">
-                  {isId ? contractOrder.title : contractOrder.titleEn || contractOrder.title}
-                </span>
-              </div>
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="text-[var(--egvox-text-muted)]">
-                  {isId ? 'Pihak Terkait' : 'Counterparty'}
-                </span>
-                <span className="font-semibold">{contractOrder.counterparty}</span>
-              </div>
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="text-[var(--egvox-text-muted)]">
-                  {isId ? 'Target Volume' : 'Committed Volume'}
-                </span>
-                <span className="font-semibold">
-                  {contractOrder.totalUnits} {isId ? 'jam' : 'hours'}
-                </span>
-              </div>
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="text-[var(--egvox-text-muted)]">
-                  {isId ? 'Nilai Work Order' : 'Order Value'}
-                </span>
-                <span className="font-bold text-[#FC840E] tabular-nums">
-                  {egvoxFormatIDR(contractOrder.amount)} ({egvoxFormatUSD(contractOrder.amount)} USD)
-                </span>
-              </div>
-              <div className="flex flex-wrap justify-between gap-2">
-                <span className="text-[var(--egvox-text-muted)]">
-                  {isId ? 'Gerbang Hak Data' : 'Rights Gate'}
-                </span>
-                <span className="font-semibold text-[#16835D]">
-                  {isId ? 'SHA-256 & Consent Terkunci' : 'SHA-256 & Consent Locked'}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setContractOrder(null)}
-              className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-            >
-              {isId ? 'Tutup Ringkasan Kontrak' : 'Close Contract Summary'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Rework / Banding QA Modal */}
-      {reworkTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-base font-bold">
-                  {isId ? 'Tindak Lanjut File QA' : 'QA File Action & Rework'}
-                </h3>
-                <p className="text-xs font-mono text-[#027F86] mt-0.5 break-all">
-                  {reworkTarget.fileName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReworkTarget(null)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmitRework} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setReworkMode('rework')}
-                  className={`rounded-xl py-2 text-xs font-semibold ${
-                    reworkMode === 'rework'
-                      ? 'bg-[#027F86] text-white'
-                      : 'border border-[var(--egvox-border-default)]'
-                  }`}
-                >
-                  {isId ? 'Unggah Rework' : 'Upload Rework'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReworkMode('appeal')}
-                  className={`rounded-xl py-2 text-xs font-semibold ${
-                    reworkMode === 'appeal'
-                      ? 'bg-[#027F86] text-white'
-                      : 'border border-[var(--egvox-border-default)]'
-                  }`}
-                >
-                  {isId ? 'Ajukan Banding QA' : 'Submit QA Appeal'}
-                </button>
-              </div>
-              <textarea
-                rows={3}
-                value={reworkNote}
-                onChange={(e) => setReworkNote(e.target.value)}
-                placeholder={
-                  isId
-                    ? 'Jelaskan perbaikan video atau alasan banding ke tim QA...'
-                    : 'Describe your video rework or QA dispute rationale...'
-                }
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-              >
-                {reworkMode === 'rework'
-                  ? isId
-                    ? 'Kirim Rework ke Karantina'
-                    : 'Submit Rework to Quarantine'
-                  : isId
-                  ? 'Kirim Banding QA'
-                  : 'Submit QA Appeal'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Counter-Offer Modal */}
-      {counterTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Kirim Counter-Offer' : 'Send Rate Counter-Offer'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setCounterTarget(null)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmitCounter} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1">
-                  {isId ? 'Usulan Tarif per Jam (IDR)' : 'Proposed Hourly Rate (IDR)'}
-                </label>
-                <input
-                  type="number"
-                  value={counterRate}
-                  onChange={(e) => setCounterRate(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-bold tabular-nums"
-                />
-                <p className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-[#027F86]/8 px-3 py-1.5 text-[11px] font-semibold text-[#027F86] dark:text-[#04B8B4] tabular-nums">
-                  <span>
-                    {isId ? 'Otomatis di Katalog (USD):' : 'Auto-converted Catalog Price (USD):'}
-                  </span>
-                  <span>
-                    {egvoxFormatUSD(Number(counterRate) || 0)} USD / {isId ? 'jam' : 'hour'}
-                  </span>
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">
-                  {isId ? 'Catatan Penyesuaian' : 'Negotiation Note'}
-                </label>
-                <textarea
-                  rows={3}
-                  value={counterNote}
-                  onChange={(e) => setCounterNote(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                  placeholder={isId ? 'Alasan perubahan tarif per jam...' : 'Rationale for hourly rate adjustment...'}
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-              >
-                {isId ? 'Kirim Counter-Offer' : 'Submit Counter-Offer'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Payout Withdrawal Modal */}
-      {payoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Tarik Dana Layak Payout' : 'Withdraw Payout Balance'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setPayoutOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-xs text-[var(--egvox-text-secondary)] tabular-nums">
-              {isId ? 'Saldo tersedia:' : 'Available balance:'}{' '}
-              <strong className="text-[#027F86] dark:text-[#04B8B4]">
-                {egvoxFormatIDR(availableBalance)} ({egvoxFormatUSD(availableBalance)} USD)
-              </strong>
-            </p>
-            <form onSubmit={handleSubmitPayout} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1">
-                  {isId ? 'Nominal Penarikan (IDR)' : 'Withdrawal Amount (IDR)'}
-                </label>
-                <input
-                  type="number"
-                  value={payoutAmount}
-                  onChange={(e) => setPayoutAmount(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-bold tabular-nums"
-                />
-                <p className="mt-1.5 flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-[#027F86]/8 px-3 py-1.5 text-[11px] font-semibold text-[#027F86] dark:text-[#04B8B4] tabular-nums">
-                  <span>{isId ? 'Nilai setara USD:' : 'Equivalent USD Value:'}</span>
-                  <span>{egvoxFormatUSD(Number(payoutAmount) || 0)} USD</span>
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">
-                  {isId ? 'Rekening / E-Wallet Tujuan' : 'Destination Bank / E-Wallet'}
-                </label>
-                <input
-                  type="text"
-                  value={payoutDest}
-                  onChange={(e) => setPayoutDest(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-              >
-                {isId ? 'Ajukan Penarikan Dana' : 'Confirm Withdrawal'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Leave 5-Star Order Review Modal */}
-      {reviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Berikan Ulasan & Rating' : 'Rate & Review Collaboration'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setReviewOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmitReview} className="space-y-3">
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
+          {/* ================= TEAM & ORGANIZATION ================= */}
+          {activeTab === 'team' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-bold">
+                    {isId ? 'Tim & Manajemen Organisasi' : 'Team & Organization Management'}
+                  </h1>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
+                    {isId ? 'Organisasi aktif:' : 'Active organization:'} <strong>{activeOrg}</strong>
+                  </p>
+                </div>
+                <div className="flex gap-2">
                   <button
-                    key={star}
                     type="button"
-                    onClick={() => setReviewRating(star)}
-                    className="p-1"
+                    onClick={() => setOrgModalOpen(true)}
+                    className="rounded-xl border border-[var(--egvox-border-default)] px-3.5 py-2 text-xs font-semibold"
                   >
-                    <Star
-                      className={`h-6 w-6 ${
-                        star <= reviewRating
-                          ? 'fill-[#F59E0B] text-[#F59E0B]'
-                          : 'text-[var(--egvox-text-muted)]'
-                      }`}
-                    />
+                    {isId ? 'Ganti Organisasi' : 'Switch Org'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamInviteOpen(true)}
+                    className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>{isId ? 'Undang Anggota' : 'Invite Member'}</span>
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] divide-y divide-[var(--egvox-border-default)]">
+                {teamMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="p-4 flex flex-wrap items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <p className="font-bold">{member.name}</p>
+                      <p className="text-[var(--egvox-text-muted)]">{member.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md bg-[#027F86]/10 px-2.5 py-1 font-semibold text-[#027F86]">
+                        {member.role}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeamMembers((prev) =>
+                            prev.filter((m) => m.id !== member.id)
+                          );
+                          showToast(
+                            isId
+                              ? `Akses ${member.name} diperbarui.`
+                              : `Access updated for ${member.name}.`
+                          );
+                        }}
+                        className="rounded-lg border border-[var(--egvox-border-default)] px-2.5 py-1 text-[11px] hover:bg-[var(--egvox-bg-subtle)]"
+                      >
+                        {isId ? 'Cabut' : 'Revoke'}
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
-              <textarea
-                rows={3}
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                placeholder={
-                  isId
-                    ? 'Tulis pengalaman kerja sama, ketepatan waktu, dan kualitas hasil...'
-                    : 'Share your experience on delivery speed and quality...'
-                }
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-              >
-                {isId ? 'Kirim Ulasan' : 'Submit Review'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Create Vendor Project Modal */}
-      {createProjectOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Buat Project Kebutuhan Dataset Baru' : 'Publish New Dataset Project'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setCreateProjectOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
-            <form onSubmit={handleCreateProject} className="space-y-3">
-              <input
-                type="text"
-                required
-                value={newPrjTitle}
-                onChange={(e) => setNewPrjTitle(e.target.value)}
-                placeholder={isId ? 'Judul Project Dataset...' : 'Dataset Project Title...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <select
-                  value={newPrjCat}
-                  onChange={(e) => setNewPrjCat(e.target.value as ActivityCategorySlug)}
-                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                >
-                  <option value="cooking">{isId ? 'Memasak & Dapur' : 'Cooking'}</option>
-                  <option value="manufacturing">{isId ? 'Manufaktur' : 'Manufacturing'}</option>
-                  <option value="automotive">{isId ? 'Otomotif' : 'Automotive'}</option>
-                  <option value="warehouse">{isId ? 'Gudang & Logistik' : 'Warehouse'}</option>
-                </select>
-                <select
-                  value={newPrjType}
-                  onChange={(e) => setNewPrjType(e.target.value as DataModality)}
-                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                >
-                  <option value="Video">Video</option>
-                  <option value="Gambar">{isId ? 'Gambar' : 'Image'}</option>
-                  <option value="Multimodal">Multimodal</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-[var(--egvox-text-muted)] mb-1">
-                    {isId ? 'Target Volume (jam)' : 'Target Volume (hours)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={newPrjHours}
-                    onChange={(e) => setNewPrjHours(e.target.value)}
-                    placeholder={isId ? 'Target Volume (jam)' : 'Target Volume (hours)'}
-                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs tabular-nums"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-[var(--egvox-text-muted)] mb-1">
-                    {isId ? 'Tarif per Jam (IDR)' : 'Hourly Rate (IDR)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={newPrjRate}
-                    onChange={(e) => setNewPrjRate(e.target.value)}
-                    placeholder={isId ? 'Rate per jam (IDR)' : 'Rate per hour (IDR)'}
-                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold tabular-nums"
-                  />
-                </div>
-              </div>
-              <div className="rounded-xl border border-[#027F86]/25 bg-[#027F86]/8 px-3.5 py-2.5 text-[11px] space-y-1 tabular-nums">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[#027F86] dark:text-[#04B8B4] font-semibold">
-                  <span>
+          )}
+
+          {/* ================= PROFILE, PORTFOLIO & KYC ================= */}
+          {activeTab === 'profile' && (
+            <div className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold">
+                      {isId ? 'Verifikasi Identitas (KYC & Consent)' : 'Identity & Consent Verification'}
+                    </h2>
+                    <span className="rounded-md bg-[#16835D]/12 px-2.5 py-1 text-xs font-bold text-[#16835D]">
+                      {kycStatus === 'verified' ? 'Verified' : 'Pending Review'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[var(--egvox-text-secondary)]">
                     {isId
-                      ? 'Auto-Konversi Tarif Katalog (IDR -> USD):'
-                      : 'Auto-Converted Catalog Rate (IDR -> USD):'}
-                  </span>
-                  <span>
-                    {egvoxFormatIDR(Number(newPrjRate) || 0)} &harr;{' '}
-                    {egvoxFormatUSD(Number(newPrjRate) || 0)} USD / {isId ? 'jam' : 'hour'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[var(--egvox-text-secondary)]">
-                  <span>{isId ? 'Estimasi Total Anggaran:' : 'Estimated Total Budget:'}</span>
-                  <span className="font-bold">
-                    {egvoxFormatIDR((Number(newPrjRate) || 0) * (Number(newPrjHours) || 0))}{' '}
-                    ({egvoxFormatUSD((Number(newPrjRate) || 0) * (Number(newPrjHours) || 0))} USD)
-                  </span>
-                </div>
-              </div>
-              <input
-                type="text"
-                value={newPrjLocation}
-                onChange={(e) => setNewPrjLocation(e.target.value)}
-                placeholder={isId ? 'Lokasi pengambilan data' : 'Capture location'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <textarea
-                rows={3}
-                required
-                value={newPrjSummary}
-                onChange={(e) => setNewPrjSummary(e.target.value)}
-                placeholder={isId ? 'Ringkasan kebutuhan dan panduan capture...' : 'Project summary and capture brief...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5"
-              >
-                <span>{isId ? 'Publikasikan ke Project Catalog' : 'Publish to Project Catalog'}</span>
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 7. Create Freelancer Service Modal */}
-      {createServiceOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Buat Listing Jasa Freelancer' : 'Create Freelancer Service Listing'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setCreateServiceOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateService} className="space-y-3">
-              <input
-                type="text"
-                required
-                value={newSrvTitle}
-                onChange={(e) => setNewSrvTitle(e.target.value)}
-                placeholder={isId ? 'Judul Layanan (misal: Jasa Rekam Video Dapur 4K)' : 'Service Title...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-[var(--egvox-text-muted)] mb-1">
-                    {isId ? 'Peran Layanan' : 'Service Role'}
-                  </label>
-                  <select
-                    value={newSrvRole}
-                    onChange={(e) =>
-                      setNewSrvRole(e.target.value as FreelancerServiceListing['roleType'])
-                    }
-                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                      ? 'Verifikasi KYC diperlukan untuk kelayakan payout serta penerimaan Work Order bernilai tinggi.'
+                      : 'KYC verification unlocks payout withdrawals and high-value Work Orders.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setKycOpen(true)}
+                    className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white"
                   >
-                    <option value="Video Contributor">
-                      {isId ? 'Kontributor Video (Video Contributor)' : 'Video Contributor'}
-                    </option>
-                    <option value="Data Annotator">
-                      {isId ? 'Anotator Data (Data Annotator)' : 'Data Annotator'}
-                    </option>
-                    <option value="QA Reviewer">
-                      {isId ? 'Peninjau QA (QA Reviewer)' : 'QA Reviewer'}
-                    </option>
-                  </select>
+                    {isId ? 'Perbarui Dokumen KYC' : 'Upload KYC Document'}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-[var(--egvox-text-muted)] mb-1">
-                    {isId ? 'Isi Harga Rupiah / Jam (IDR)' : 'Enter Rupiah Price / Hour (IDR)'}
-                  </label>
-                  <input
-                    type="number"
-                    value={newSrvRate}
-                    onChange={(e) => setNewSrvRate(e.target.value)}
-                    placeholder={isId ? 'Tarif per jam (IDR)' : 'Rate per hour (IDR)'}
-                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold tabular-nums"
-                  />
+
+                <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base font-bold">{isId ? 'Ulasan & Reputasi' : 'Reviews & Reputation'}</h2>
+                    <button
+                      type="button"
+                      onClick={() => setReviewOpen(true)}
+                      className="rounded-lg border border-[#027F86] px-2.5 py-1 text-[11px] font-semibold text-[#027F86]"
+                    >
+                      {isId ? '+ Tulis Ulasan' : '+ Write Review'}
+                    </button>
+                  </div>
+                  {reviews.map((rev) => (
+                    <div
+                      key={rev.id}
+                      className="rounded-xl bg-[var(--egvox-bg-canvas)] p-3 text-xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold">{rev.targetName}</span>
+                        <span className="inline-flex items-center gap-1 text-[#F59E0B] font-bold">
+                          <Star className="h-3.5 w-3.5 fill-[#F59E0B]" /> {rev.rating}.0
+                        </span>
+                      </div>
+                      <p className="text-[var(--egvox-text-secondary)]">{rev.comment}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="rounded-xl border border-[#027F86]/25 bg-[#027F86]/8 px-3.5 py-2.5 text-[11px] space-y-1 tabular-nums">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 text-[#027F86] dark:text-[#04B8B4] font-semibold">
-                  <span>
-                    {isId
-                      ? 'Auto-Generate Harga Pembeli di Katalog:'
-                      : 'Auto-Generated Catalog Dual Price:'}
-                  </span>
-                  <span>
-                    {egvoxFormatIDR(Number(newSrvRate) || 0)} &harr;{' '}
-                    {egvoxFormatUSD(Number(newSrvRate) || 0)} USD / {isId ? 'jam' : 'hour'}
-                  </span>
+
+              {/* Portfolio Profile & Consented Previews */}
+              <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-bold">
+                      {isId ? 'Portofolio & Profil Publik Talenta' : 'Talent Portfolio & Public Profile'}
+                    </h2>
+                    <p className="text-xs text-[var(--egvox-text-muted)]">
+                      {isId
+                        ? 'Menampilkan keahlian, perangkat, kapasitas, dan cuplikan berizin ber-watermark untuk kebutuhan rekrutmen.'
+                        : 'Displays verified skills, gear, capacity, and consented watermarked previews for recruitment.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCreateServiceOpen(true)}
+                      className="rounded-xl border border-[var(--egvox-border-default)] px-3.5 py-2 text-xs font-semibold"
+                    >
+                      {isId ? '+ Tambah Kapabilitas' : '+ Add Capability'}
+                    </button>
+                    <Link
+                      href="/freelancers/rizal-maulana"
+                      className="rounded-xl bg-[#027F86] px-4 py-2 text-xs font-semibold text-white inline-flex items-center gap-1.5"
+                    >
+                      <span>{isId ? 'Lihat Profil Portofolio Publik' : 'View Public Portfolio Profile'}</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
                 </div>
-                <p className="text-[10px] text-[var(--egvox-text-muted)]">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {activeServicesFiltered
+                    .flatMap((srv) => srv.portfolioPreviews)
+                    .slice(0, 3)
+                    .map((pf) => (
+                      <div
+                        key={pf.id}
+                        className="overflow-hidden rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)]"
+                      >
+                        <div className="relative aspect-[16/9] bg-[#102326]">
+                          <img
+                            src={pf.thumbnail}
+                            alt={isId ? pf.title : pf.titleEn || pf.title}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover"
+                          />
+                          <span className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-0.5 text-[10px] font-mono text-white">
+                            {pf.duration} · Watermarked
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <p className="text-xs font-bold">{isId ? pf.title : pf.titleEn || pf.title}</p>
+                          <p className="mt-0.5 text-[11px] text-[#16835D]">
+                            {isId ? 'Sampel portofolio berizin' : 'Consented portfolio sample'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ================= SETTINGS & SECURITY ================= */}
+          {activeTab === 'settings' && (
+            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4 max-w-2xl">
+              <h1 className="text-xl font-bold">
+                {isId ? 'Pengaturan Keamanan & MFA Workspace' : 'Workspace Security & MFA Settings'}
+              </h1>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-4">
+                <div>
+                  <p className="text-sm font-bold">Two-Factor Authentication (MFA)</p>
+                  <p className="text-xs text-[var(--egvox-text-muted)]">
+                    {isId
+                      ? 'Wajib untuk persetujuan payout dan unduhan manifest dataset.'
+                      : 'Required for payout approvals and dataset manifest downloads.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaEnabled((v) => !v);
+                    showToast(
+                      isId ? 'Pengaturan MFA diperbarui.' : 'MFA security setting updated.'
+                    );
+                  }}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold ${
+                    mfaEnabled
+                      ? 'bg-[#16835D] text-white'
+                      : 'border border-[var(--egvox-border-default)]'
+                  }`}
+                >
+                  {mfaEnabled
+                    ? isId
+                      ? 'MFA Aktif'
+                      : 'MFA Enabled'
+                    : isId
+                    ? 'Aktifkan MFA'
+                    : 'Enable MFA'}
+                </button>
+              </div>
+              <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-4 text-xs space-y-2">
+                <p className="font-bold">{isId ? 'Sesi Aktif & Perangkat' : 'Active Sessions & Devices'}</p>
+                <p className="text-[var(--egvox-text-secondary)]">
                   {isId
-                    ? 'Pembeli internasional melihat kurs Dollar (USD) otomatis bernilai setara (1 USD = Rp 16.000).'
-                    : 'Buyers in the catalog see both Rupiah (IDR) and equivalent Dollar (USD) automatically (1 USD = Rp 16,000).'}
+                    ? 'Browser Desktop (Chrome · Jakarta, Indonesia) · Terakhir aktif sekarang'
+                    : 'Desktop Browser (Chrome · Jakarta, Indonesia) · Active now'}
                 </p>
               </div>
-              <input
-                type="text"
-                value={newSrvLocation}
-                onChange={(e) => setNewSrvLocation(e.target.value)}
-                placeholder={isId ? 'Kota / Area Operasional' : 'City / Operating Region'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <textarea
-                rows={3}
-                required
-                value={newSrvDesc}
-                onChange={(e) => setNewSrvDesc(e.target.value)}
-                placeholder={isId ? 'Deskripsi keahlian, perangkat, dan SLA per jam...' : 'Describe equipment, capabilities, and hourly SLA...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-              >
-                {isId ? 'Terbitkan Layanan ke Marketplace' : 'Publish Service to Marketplace'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 8. Enterprise RFP Modal */}
-      {rfpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Permintaan RFP Enterprise Baru' : 'New Enterprise RFP Request'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setRfpOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
-            <form onSubmit={handleSubmitRfp} className="space-y-3">
-              <input
-                type="text"
-                required
-                value={rfpCompany}
-                onChange={(e) => setRfpCompany(e.target.value)}
-                placeholder={isId ? 'Nama Perusahaan' : 'Company Name'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <input
-                type="email"
-                required
-                value={rfpEmail}
-                onChange={(e) => setRfpEmail(e.target.value)}
-                placeholder="procurement@company.com"
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <select
-                value={rfpVolume}
-                onChange={(e) => setRfpVolume(e.target.value)}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              >
-                <option value="50 – 250 jam">{isId ? '50 – 250 jam' : '50 – 250 hours'}</option>
-                <option value="250 – 1.000 jam">{isId ? '250 – 1.000 jam' : '250 – 1,000 hours'}</option>
-                <option value="1.000+ jam">{isId ? '1.000+ jam' : '1,000+ hours'}</option>
-              </select>
-              <textarea
-                rows={3}
-                required
-                value={rfpSummary}
-                onChange={(e) => setRfpSummary(e.target.value)}
-                placeholder={isId ? 'Ringkasan kebutuhan dataset enterprise...' : 'Enterprise dataset scope summary...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#FC840E] py-2.5 text-xs font-semibold text-white"
-              >
-                {isId ? 'Kirim Permintaan RFP' : 'Submit Enterprise RFP'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* 9. KYC Upload Modal */}
-      {kycOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Unggah Dokumen KYC' : 'Upload KYC Verification Document'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setKycOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
+          {/* ================= REPORTS (ENTERPRISE) ================= */}
+          {activeTab === 'reports' && (
+            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 space-y-4">
+              <h1 className="text-xl font-bold">
+                {isId ? 'Analitik Delivery & QA Enterprise' : 'Enterprise Delivery & QA Analytics'}
+              </h1>
+              <div className="grid gap-4 sm:grid-cols-3 text-xs tabular-nums">
+                <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-4">
+                  <p className="text-[var(--egvox-text-muted)]">
+                    {isId ? 'Total Jam Terkirim' : 'Total Hours Delivered'}
+                  </p>
+                  <p className="text-2xl font-bold mt-1 text-[#027F86]">
+                    {isId ? '1.420 Jam' : '1,420 Hours'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-4">
+                  <p className="text-[var(--egvox-text-muted)]">
+                    {isId ? 'Tingkat Lolos QA Awal' : 'First-Pass QA Rate'}
+                  </p>
+                  <p className="text-2xl font-bold mt-1 text-[#16835D]">94,6%</p>
+                </div>
+                <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-4">
+                  <p className="text-[var(--egvox-text-muted)]">
+                    {isId ? 'SLA Lead Time Rata-rata' : 'Average SLA Lead Time'}
+                  </p>
+                  <p className="text-2xl font-bold mt-1">
+                    {isId ? '4,8 Hari' : '4.8 Days'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <form onSubmit={handleSubmitKyc} className="space-y-3">
-              <select
-                value={kycDocType}
-                onChange={(e) => setKycDocType(e.target.value)}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              >
-                <option value="KTP / National ID">
-                  {isId ? 'KTP / Identitas Nasional' : 'National ID / KTP'}
-                </option>
-                <option value="Passport">{isId ? 'Paspor' : 'Passport'}</option>
-                <option value="NIB / Company Akta">
-                  {isId ? 'NIB / Akta Perusahaan' : 'NIB / Company Registration'}
-                </option>
-              </select>
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
-              >
-                {isId ? 'Kirim Dokumen Verifikasi' : 'Submit Verification Document'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* 10. Switch Organization Modal */}
-      {orgModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Ganti Organisasi Aktif' : 'Switch Active Organization'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setOrgModalOpen(false)}
-                className="rounded-lg p-1.5 hover:bg-[var(--egvox-bg-subtle)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              {['PT Data Visual Indonesia', 'Nusantara Robotics Data', 'EgvoX Enterprise Pilot'].map(
-                (org) => (
-                  <button
-                    key={org}
-                    type="button"
-                    onClick={() => {
-                      setActiveOrg(org);
-                      setOrgModalOpen(false);
-                      showToast(
-                        isId ? `Beralih ke organisasi ${org}.` : `Switched active org to ${org}.`
-                      );
-                    }}
-                    className={`w-full flex items-center justify-between rounded-xl border px-4 py-3 text-xs font-semibold ${
-                      activeOrg === org
-                        ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86]'
-                        : 'border-[var(--egvox-border-default)] hover:bg-[var(--egvox-bg-subtle)]'
-                    }`}
+          {/* ================= SAVED ITEMS ================= */}
+          {activeTab === 'saved' && (
+            <div className="space-y-4">
+              <h1 className="text-xl font-bold">
+                {isId ? 'Item Tersimpan' : 'Saved Items'} ({totalSavedCount})
+              </h1>
+              <div className="grid gap-3 md:grid-cols-2">
+                {savedProjects.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/marketplace/projects/${p.slug}`}
+                    className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 flex items-center gap-3"
                   >
-                    <span>{org}</span>
-                    {activeOrg === org && <CheckCircle2 className="h-4 w-4" />}
-                  </button>
-                )
-              )}
+                    <Heart className="h-4 w-4 text-[#C43D3D] shrink-0" />
+                    <span className="text-sm font-bold">{isId ? p.title : p.titleEn}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+
+          {/* ================= GOOGLE WORKSPACE PLUGINS ================= */}
+          {activeTab === 'plugins' && <GoogleWorkspacePluginPanel />}
+        </main>
+      </div>
+
+      {/* MOBILE BOTTOM NAVIGATION (Persona-aware per Ref Image 2) */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]/95 backdrop-blur grid grid-cols-5 py-1.5 text-[10px]">
+        {(persona === 'freelancer'
+          ? [
+              { id: 'overview' as WorkspaceTab, label: isId ? 'Beranda' : 'Home', icon: Home },
+              { id: 'browse' as WorkspaceTab, label: isId ? 'Proyek' : 'Projects', icon: FolderKanban },
+              { id: 'offers' as WorkspaceTab, label: isId ? 'Penawaran' : 'Offers', icon: Tag },
+              { id: 'tracking' as WorkspaceTab, label: isId ? 'Tugas' : 'Tasks', icon: Briefcase },
+              { id: 'profile' as WorkspaceTab, label: isId ? 'Akun' : 'Account', icon: UserCheck },
+            ]
+          : persona === 'vendor'
+          ? [
+              { id: 'overview' as WorkspaceTab, label: isId ? 'Beranda' : 'Home', icon: Home },
+              { id: 'browse' as WorkspaceTab, label: isId ? 'Proyek' : 'Projects', icon: FolderKanban },
+              { id: 'offers' as WorkspaceTab, label: isId ? 'Rekrut' : 'Recruit', icon: Tag },
+              { id: 'tracking' as WorkspaceTab, label: isId ? 'Order' : 'Orders', icon: Briefcase },
+              { id: 'settings' as WorkspaceTab, label: isId ? 'Akun' : 'Account', icon: Settings },
+            ]
+          : [
+              { id: 'overview' as WorkspaceTab, label: isId ? 'Beranda' : 'Home', icon: Home },
+              { id: 'tracking' as WorkspaceTab, label: isId ? 'Proyek' : 'Projects', icon: ShieldCheck },
+              { id: 'offers' as WorkspaceTab, label: isId ? 'Permintaan' : 'Requests', icon: FileText },
+              { id: 'reports' as WorkspaceTab, label: isId ? 'Laporan' : 'Reports', icon: BarChart3 },
+              { id: 'team' as WorkspaceTab, label: isId ? 'Akun' : 'Account', icon: Users },
+            ]
+        ).map((nav) => {
+          const Icon = nav.icon;
+          const active = activeTab === nav.id;
+          return (
+            <button
+              key={nav.id + nav.label}
+              type="button"
+              onClick={() => setActiveTab(nav.id)}
+              className={`flex flex-col items-center justify-center gap-0.5 py-1 font-semibold ${
+                active ? 'text-[#027F86] dark:text-[#04B8B4]' : 'text-[var(--egvox-text-muted)]'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{nav.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* ALL CUSTOMER WORKSPACE MODALS */}
+      <CustomerModeSelectorModal
+        open={modeSelectorOpen}
+        mode={freelancerMode}
+        onSelect={(m) => {
+          setFreelancerMode(m);
+          if (m === 'annotator') {
+            setActiveTab('annotation');
+          }
+          showToast(
+            isId
+              ? `Mode Freelancer dialihkan ke ${
+                  m === 'contributor'
+                    ? 'Video Contributor'
+                    : m === 'annotator'
+                    ? 'Data Annotator'
+                    : 'QA Specialist'
+                }.`
+              : `Freelancer mode switched to ${m}.`
+          );
+        }}
+        onClose={() => setModeSelectorOpen(false)}
+      />
+
+      <PrivateUploadThreeStepModal
+        open={privateUploadOpen}
+        projectCode={selectedOrder?.code || 'WO-EGX-0256'}
+        onClose={() => setPrivateUploadOpen(false)}
+      />
+
+      <TeamInviteModal
+        open={teamInviteOpen}
+        onClose={() => setTeamInviteOpen(false)}
+      />
+
+      <MilestoneFundingChangeModal
+        order={milestoneModalOrder}
+        onClose={() => setMilestoneModalOrder(null)}
+      />
+
+      <EnterpriseSampleInspectionModal
+        pkg={inspectDeliveryPkg}
+        onClose={() => setInspectDeliveryPkg(null)}
+      />
+
+      <CustomerModalsBundle
+        contractOrder={contractOrder}
+        setContractOrder={setContractOrder}
+        reworkTarget={reworkTarget}
+        setReworkTarget={setReworkTarget}
+        counterTarget={counterTarget}
+        setCounterTarget={setCounterTarget}
+        payoutOpen={payoutOpen}
+        setPayoutOpen={setPayoutOpen}
+        payoutDest="BCA Virtual / Rekening •••• 8821"
+        reviewOpen={reviewOpen}
+        setReviewOpen={setReviewOpen}
+        selectedOrderCode={selectedOrder?.code || 'WO-EGX-0256'}
+        persona={persona}
+        createProjectOpen={createProjectOpen}
+        setCreateProjectOpen={setCreateProjectOpen}
+        createServiceOpen={createServiceOpen}
+        setCreateServiceOpen={setCreateServiceOpen}
+        rfpOpen={rfpOpen}
+        setRfpOpen={setRfpOpen}
+        kycOpen={kycOpen}
+        setKycOpen={setKycOpen}
+        orgModalOpen={orgModalOpen}
+        setOrgModalOpen={setOrgModalOpen}
+        activeOrg={activeOrg}
+        setActiveOrg={setActiveOrg}
+      />
     </div>
   );
 };

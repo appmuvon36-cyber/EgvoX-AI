@@ -8,7 +8,6 @@ import {
   Globe,
   Menu,
   Moon,
-  ShoppingBag,
   Sun,
   X,
 } from 'lucide-react';
@@ -23,13 +22,23 @@ export const SiteHeader: React.FC = () => {
     setLocale,
     theme,
     toggleTheme,
-    cartItems,
-    setCartDrawerOpen,
     notifications,
     setNotificationsModalOpen,
   } = useAppState();
   const t = dictionaries[locale];
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isDedicatedPortal =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/ops') ||
+    pathname.startsWith('/workspace') ||
+    pathname.startsWith('/freelancer/dashboard') ||
+    pathname.startsWith('/vendor/dashboard') ||
+    pathname.startsWith('/enterprise/dashboard');
+
+  if (isDedicatedPortal) {
+    return null;
+  }
 
   const isMarketplaceArea =
     pathname.startsWith('/marketplace') ||
@@ -60,7 +69,6 @@ export const SiteHeader: React.FC = () => {
         { href: '/resources', label: t.nav.resources },
       ];
 
-  const totalCartCount = cartItems.length;
   const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -143,35 +151,19 @@ export const SiteHeader: React.FC = () => {
           </div>
 
           {isMarketplaceArea && (
-            <>
-              <button
-                type="button"
-                onClick={() => setNotificationsModalOpen(true)}
-                aria-label={t.nav.notifications}
-                className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-[var(--egvox-border-default)] text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)] transition-colors shrink-0"
-              >
-                <Bell className="h-4 w-4" />
-                {unreadNotifCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C43D3D] px-1 text-[10px] font-bold text-white tabular-nums">
-                    {unreadNotifCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCartDrawerOpen(true)}
-                aria-label={t.nav.cart}
-                className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-[var(--egvox-border-default)] text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)] transition-colors shrink-0"
-              >
-                <ShoppingBag className="h-4 w-4" />
-                {totalCartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FC840E] px-1 text-[10px] font-bold text-white tabular-nums">
-                    {totalCartCount}
-                  </span>
-                )}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setNotificationsModalOpen(true)}
+              aria-label={t.nav.notifications}
+              className="relative inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-[var(--egvox-border-default)] text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)] transition-colors shrink-0"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C43D3D] px-1 text-[10px] font-bold text-white tabular-nums">
+                  {unreadNotifCount}
+                </span>
+              )}
+            </button>
           )}
 
           <Link

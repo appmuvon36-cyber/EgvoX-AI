@@ -8,14 +8,15 @@ import {
   CheckCircle2,
   Flag,
   Heart,
+  HelpCircle,
+  Lock,
   MapPin,
-  MessageSquare,
   Play,
   ShieldCheck,
   Star,
 } from 'lucide-react';
 import { DualPrice, Modal, egvoxFormatIDR, egvoxFormatUSD } from '@/packages/design-system';
-import { ProjectListing } from '@/packages/shared-types';
+import { ProjectListing, StructuredClarification } from '@/packages/shared-types';
 import { useAppState } from '@/lib/hooks/useAppState';
 
 export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
@@ -27,38 +28,40 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
     toggleSaved,
     openProposalModal,
     openReportModal,
-    showToast,
+    submitClarification,
   } = useAppState();
+  const isId = locale === 'id';
   const [activeTab, setActiveTab] = useState<'summary' | 'spec' | 'terms' | 'faq'>('summary');
-  const [askModalOpen, setAskModalOpen] = useState(false);
-  const [askMessage, setAskMessage] = useState('');
+  const [clarifyModalOpen, setClarifyModalOpen] = useState(false);
+  const [clarifyTopic, setClarifyTopic] = useState<StructuredClarification['topic']>('spec');
+  const [clarifyQuestion, setClarifyQuestion] = useState('');
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
 
   const isSaved = savedSlugs.includes(project.slug);
-  const title = locale === 'id' ? project.title : project.titleEn;
-  const summary = locale === 'id' ? project.summary : project.summaryEn;
-  const unit = locale === 'id' ? project.unitLabel : project.unitLabelEn || 'hour';
-  const loc = locale === 'id' ? project.location : project.locationEn || project.location;
-  const deadline = locale === 'id' ? project.deadline : project.deadlineEn || project.deadline;
-  const appClose =
-    locale === 'id'
-      ? project.applicationCloseDate
-      : project.applicationCloseDateEn || project.applicationCloseDate;
-  const criteria = locale === 'id' ? project.acceptanceCriteria : project.acceptanceCriteriaEn;
-  const rightsSummary = locale === 'id' ? project.rightsSummary : project.rightsSummaryEn;
-  const faqList =
-    locale === 'id' ? project.faq : project.faqEn || project.faq;
+  const title = isId ? project.title : project.titleEn;
+  const summary = isId ? project.summary : project.summaryEn;
+  const unit = isId ? project.unitLabel : project.unitLabelEn || 'hour';
+  const loc = isId ? project.location : project.locationEn || project.location;
+  const deadline = isId ? project.deadline : project.deadlineEn || project.deadline;
+  const appClose = isId
+    ? project.applicationCloseDate
+    : project.applicationCloseDateEn || project.applicationCloseDate;
+  const criteria = isId ? project.acceptanceCriteria : project.acceptanceCriteriaEn;
+  const rightsSummary = isId ? project.rightsSummary : project.rightsSummaryEn;
+  const faqList = isId ? project.faq : project.faqEn || project.faq;
 
-  const handleSendQuestion = (e: React.FormEvent) => {
+  const handleSendClarification = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!askMessage.trim()) return;
-    setAskModalOpen(false);
-    setAskMessage('');
-    showToast(
-      locale === 'id'
-        ? `Pertanyaan Anda telah dikirim ke ${project.vendorName} via EgvoX Messaging.`
-        : `Your question was sent to ${project.vendorName} via EgvoX Messaging.`
+    if (!clarifyQuestion.trim()) return;
+    submitClarification(
+      `PRJ-${project.id.toUpperCase()}`,
+      title,
+      clarifyTopic,
+      clarifyQuestion.trim(),
+      'freelancer'
     );
+    setClarifyModalOpen(false);
+    setClarifyQuestion('');
   };
 
   return (
@@ -69,20 +72,16 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
           className="inline-flex items-center gap-2 text-sm font-medium text-[var(--egvox-text-secondary)] hover:text-[#027F86]"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>
-            {locale === 'id' ? 'Kembali ke Katalog Project' : 'Back to Project Catalog'}
-          </span>
+          <span>{isId ? 'Kembali ke Katalog Project' : 'Back to Project Catalog'}</span>
         </Link>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() =>
-              openReportModal({ type: 'project', slug: project.slug, title })
-            }
+            onClick={() => openReportModal({ type: 'project', slug: project.slug, title })}
             className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--egvox-text-secondary)] hover:text-[#C43D3D]"
           >
             <Flag className="h-3.5 w-3.5" />
-            <span>{locale === 'id' ? 'Laporkan' : 'Report'}</span>
+            <span>{isId ? 'Laporkan' : 'Report'}</span>
           </button>
           <button
             type="button"
@@ -95,13 +94,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
               }`}
             />
             <span>
-              {isSaved
-                ? locale === 'id'
-                  ? 'Tersimpan'
-                  : 'Saved'
-                : locale === 'id'
-                ? 'Simpan'
-                : 'Save'}
+              {isSaved ? (isId ? 'Tersimpan' : 'Saved') : isId ? 'Simpan' : 'Save'}
             </span>
           </button>
         </div>
@@ -120,7 +113,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
             <button
               type="button"
               onClick={() => setIsPlayingPreview((v) => !v)}
-              aria-label={locale === 'id' ? 'Putar ilustrasi preview' : 'Play preview illustration'}
+              aria-label={isId ? 'Putar ilustrasi preview' : 'Play preview illustration'}
               className="absolute inset-0 flex items-center justify-center bg-black/25 hover:bg-black/35 transition-colors"
             >
               <span className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-white/95 text-[#027F86] shadow-lg">
@@ -130,13 +123,13 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
             <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-1.5 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs text-white">
               <span className="font-mono tabular-nums">
                 {isPlayingPreview
-                  ? locale === 'id'
+                  ? isId
                     ? 'Memutar Preview Ilustrasi...'
                     : 'Playing Sample Preview...'
                   : `0:00 / ${project.previewDuration}`}
               </span>
               <span className="rounded bg-black/60 px-2 py-0.5 text-[10px] sm:text-[11px] leading-tight">
-                {locale === 'id'
+                {isId
                   ? 'Preview Ilustrasi · Raw Video Privat'
                   : 'Illustrative Preview · Private Raw Video'}
               </span>
@@ -145,13 +138,13 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
 
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--egvox-text-muted)]">
-              <span>{locale === 'id' ? project.categoryLabel : project.categoryLabelEn || project.categoryLabel}</span>
+              <span>{isId ? project.categoryLabel : project.categoryLabelEn || project.categoryLabel}</span>
               <span aria-hidden="true">·</span>
               <span>{project.captureType}</span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1 text-[#16835D] font-semibold">
                 <ShieldCheck className="h-4 w-4" />
-                {locale === 'id' ? 'Vendor Terverifikasi' : 'Verified Vendor'}
+                {isId ? 'Vendor Terverifikasi KYB' : 'KYB Verified Vendor'}
               </span>
             </div>
             <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-[var(--egvox-text-primary)]">
@@ -163,17 +156,16 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
           <div className="border-b border-[var(--egvox-border-default)] flex gap-5 sm:gap-6 overflow-x-auto">
             {(
               [
-                { id: 'summary', label: locale === 'id' ? 'Ringkasan' : 'Overview' },
+                { id: 'summary', label: isId ? 'Ringkasan' : 'Overview' },
                 {
                   id: 'spec',
-                  label:
-                    locale === 'id'
-                      ? `Spesifikasi (${project.captureSpec.version})`
-                      : `Specifications (${project.captureSpec.version})`,
+                  label: isId
+                    ? `Spesifikasi (${project.captureSpec.version})`
+                    : `Specifications (${project.captureSpec.version})`,
                 },
                 {
                   id: 'terms',
-                  label: locale === 'id' ? 'Ketentuan & Milestones' : 'Terms & Milestones',
+                  label: isId ? 'Ketentuan & Milestones' : 'Terms & Milestones',
                 },
                 { id: 'faq', label: 'FAQ' },
               ] as const
@@ -197,7 +189,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
             <div className="space-y-6 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6">
               <div>
                 <h2 className="text-base font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id' ? 'Ringkasan Project' : 'Project Summary'}
+                  {isId ? 'Ringkasan Project' : 'Project Summary'}
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--egvox-text-secondary)]">
                   {summary}
@@ -209,7 +201,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                   <MapPin className="h-4 w-4 text-[#027F86]" />
                   <div>
                     <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {locale === 'id' ? 'Lokasi' : 'Location'}
+                      {isId ? 'Lokasi' : 'Location'}
                     </p>
                     <p className="font-semibold text-[var(--egvox-text-primary)]">{loc}</p>
                   </div>
@@ -218,7 +210,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                   <Calendar className="h-4 w-4 text-[#027F86]" />
                   <div>
                     <p className="text-xs text-[var(--egvox-text-muted)]">
-                      {locale === 'id' ? 'Batas Waktu' : 'Deadline'}
+                      {isId ? 'Batas Waktu' : 'Deadline'}
                     </p>
                     <p className="font-semibold text-[var(--egvox-text-primary)] tabular-nums">
                       {deadline}
@@ -229,7 +221,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
 
               <div className="border-t border-[var(--egvox-border-default)] pt-5">
                 <h3 className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id'
+                  {isId
                     ? 'Acceptance Criteria (Syarat Penerimaan QA)'
                     : 'Acceptance Criteria (QA Pass Requirements)'}
                 </h3>
@@ -252,9 +244,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
             <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-base font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id'
-                    ? 'Spesifikasi Capture Egocentric'
-                    : 'Egocentric Capture Specification'}
+                  {isId ? 'Spesifikasi Capture Egocentric' : 'Egocentric Capture Specification'}
                 </h2>
                 <span className="font-mono text-xs font-semibold text-[#027F86] dark:text-[#04B8B4]">
                   {project.captureSpec.version}
@@ -263,16 +253,16 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
               <dl className="grid gap-3 sm:grid-cols-2 text-sm">
                 {[
                   [
-                    locale === 'id' ? 'Perspektif' : 'Perspective',
-                    locale === 'id'
+                    isId ? 'Perspektif' : 'Perspective',
+                    isId
                       ? project.captureSpec.perspective === 'Egocentric (First-Person)'
                         ? 'Egocentric (Sudut Pandang Pertama)'
                         : 'Multi-Sudut + Egocentric'
                       : project.captureSpec.perspective,
                   ],
                   [
-                    locale === 'id' ? 'Pemasangan Kamera' : 'Camera Mounting',
-                    locale === 'id'
+                    isId ? 'Pemasangan Kamera' : 'Camera Mounting',
+                    isId
                       ? project.captureSpec.mounting === 'Head-mounted'
                         ? 'Dipasang di Kepala'
                         : project.captureSpec.mounting === 'Chest-mounted'
@@ -283,36 +273,34 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                       : project.captureSpec.mounting,
                   ],
                   [
-                    locale === 'id' ? 'Kebutuhan Perangkat' : 'Device Requirement',
-                    locale === 'id'
+                    isId ? 'Kebutuhan Perangkat' : 'Device Requirement',
+                    isId
                       ? project.captureSpec.deviceRequirement
                       : project.captureSpec.deviceRequirementEn ||
                         project.captureSpec.deviceRequirement,
                   ],
                   [
-                    locale === 'id' ? 'Resolusi' : 'Resolution',
-                    locale === 'id'
+                    isId ? 'Resolusi' : 'Resolution',
+                    isId
                       ? project.captureSpec.resolution
                       : project.captureSpec.resolutionEn || project.captureSpec.resolution,
                   ],
                   [
                     'Frame Rate',
-                    locale === 'id'
+                    isId
                       ? project.captureSpec.frameRate
-                      : project.captureSpec.frameRateEn ||
-                        project.captureSpec.frameRate,
+                      : project.captureSpec.frameRateEn || project.captureSpec.frameRate,
                   ],
                   ['Codec / Format', project.captureSpec.codecFormat],
                   [
-                    locale === 'id' ? 'Durasi Sesi' : 'Session Duration',
-                    locale === 'id'
+                    isId ? 'Durasi Sesi' : 'Session Duration',
+                    isId
                       ? project.captureSpec.clipDuration
-                      : project.captureSpec.clipDurationEn ||
-                        project.captureSpec.clipDuration,
+                      : project.captureSpec.clipDurationEn || project.captureSpec.clipDuration,
                   ],
                   [
-                    locale === 'id' ? 'Kebijakan Audio' : 'Audio Policy',
-                    locale === 'id'
+                    isId ? 'Kebijakan Audio' : 'Audio Policy',
+                    isId
                       ? project.captureSpec.audioPolicy === 'Forbidden'
                         ? 'Dilarang'
                         : project.captureSpec.audioPolicy === 'Required'
@@ -321,32 +309,28 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                       : project.captureSpec.audioPolicy,
                   ],
                   [
-                    locale === 'id' ? 'Stabilisasi' : 'Stabilization',
-                    locale === 'id'
+                    isId ? 'Stabilisasi' : 'Stabilization',
+                    isId
                       ? project.captureSpec.stabilization
-                      : project.captureSpec.stabilizationEn ||
-                        project.captureSpec.stabilization,
+                      : project.captureSpec.stabilizationEn || project.captureSpec.stabilization,
                   ],
                   [
-                    locale === 'id' ? 'Kebijakan GPS / Lokasi' : 'GPS / Location Policy',
-                    locale === 'id'
+                    isId ? 'Kebijakan GPS / Lokasi' : 'GPS / Location Policy',
+                    isId
                       ? project.captureSpec.gpsPolicy
-                      : project.captureSpec.gpsPolicyEn ||
-                        project.captureSpec.gpsPolicy,
+                      : project.captureSpec.gpsPolicyEn || project.captureSpec.gpsPolicy,
                   ],
                   [
-                    locale === 'id' ? 'Persetujuan Peserta' : 'Participant Consent',
-                    locale === 'id'
+                    isId ? 'Persetujuan Peserta' : 'Participant Consent',
+                    isId
                       ? project.captureSpec.consentPolicy
-                      : project.captureSpec.consentPolicyEn ||
-                        project.captureSpec.consentPolicy,
+                      : project.captureSpec.consentPolicyEn || project.captureSpec.consentPolicy,
                   ],
                   [
-                    locale === 'id' ? 'Redaksi Privasi' : 'Privacy Redaction',
-                    locale === 'id'
+                    isId ? 'Redaksi Privasi' : 'Privacy Redaction',
+                    isId
                       ? project.captureSpec.privacyRedaction
-                      : project.captureSpec.privacyRedactionEn ||
-                        project.captureSpec.privacyRedaction,
+                      : project.captureSpec.privacyRedactionEn || project.captureSpec.privacyRedaction,
                   ],
                 ].map(([label, val]) => (
                   <div
@@ -365,9 +349,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
             <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6 space-y-6">
               <div>
                 <h2 className="text-base font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id'
-                    ? 'Jadwal Milestone Work Order'
-                    : 'Work Order Milestone Schedule'}
+                  {isId ? 'Jadwal Milestone Work Order' : 'Work Order Milestone Schedule'}
                 </h2>
                 <div className="mt-3 space-y-3">
                   {project.milestones.map((ms) => (
@@ -377,11 +359,11 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                     >
                       <div>
                         <span className="font-semibold text-[var(--egvox-text-primary)]">
-                          {locale === 'id' ? `Tahap ${ms.step}:` : `Milestone ${ms.step}:`}{' '}
-                          {locale === 'id' ? ms.titleId : ms.titleEn}
+                          {isId ? `Tahap ${ms.step}:` : `Milestone ${ms.step}:`}{' '}
+                          {isId ? ms.titleId : ms.titleEn}
                         </span>
                         <p className="text-xs text-[var(--egvox-text-muted)]">
-                          Target: {locale === 'id' ? ms.dueLabel : ms.dueLabelEn || ms.dueLabel}
+                          Target: {isId ? ms.dueLabel : ms.dueLabelEn || ms.dueLabel}
                         </p>
                       </div>
                       <span className="font-bold text-[#027F86] tabular-nums">
@@ -393,7 +375,7 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
               </div>
               <div className="border-t border-[var(--egvox-border-default)] pt-4">
                 <h3 className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                  {locale === 'id' ? 'Hak Data & Izin Penggunaan' : 'Data Rights & Permitted Use'}
+                  {isId ? 'Hak Data & Izin Penggunaan' : 'Data Rights & Permitted Use'}
                 </h3>
                 <p className="mt-1.5 text-sm text-[var(--egvox-text-secondary)]">
                   {rightsSummary}
@@ -417,26 +399,42 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
         {/* Right Sticky Action Module */}
         <div className="lg:col-span-4 min-w-0">
           <div className="sticky top-20 space-y-5 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 sm:p-6">
-            <div>
-              <p className="text-xs text-[var(--egvox-text-muted)]">
-                {locale === 'id'
-                  ? 'Tarif per jam diterima QA (IDR & USD)'
-                  : 'Rate per QA-accepted hour (IDR & USD)'}
-              </p>
-              <div className="mt-1.5">
-                <DualPrice amountIDR={project.ratePerUnit} unitLabel={unit} size="lg" />
+            {project.showBudgetDisclosure !== false ? (
+              <div>
+                <p className="text-xs font-semibold text-[var(--egvox-text-muted)]">
+                  {isId
+                    ? 'Informasi Budget Proyek Vendor (Referensi Proyek — Bukan Tarif Publik Freelancer)'
+                    : 'Vendor Project Budget Reference (Not Public Freelancer Pricing)'}
+                </p>
+                <div className="mt-1.5">
+                  <DualPrice amountIDR={project.ratePerUnit} unitLabel={unit} size="lg" />
+                </div>
+                <p className="mt-2 text-xs text-[var(--egvox-text-secondary)] tabular-nums">
+                  {isId ? 'Estimasi pagu proyek:' : 'Est. total project cap:'}{' '}
+                  <strong>{egvoxFormatIDR(project.ratePerUnit * project.targetVolume)}</strong>{' '}
+                  ({egvoxFormatUSD(project.ratePerUnit * project.targetVolume)} USD)
+                </p>
               </div>
-              <p className="mt-2 text-xs text-[var(--egvox-text-secondary)] tabular-nums">
-                {locale === 'id' ? 'Estimasi total proyek:' : 'Est. total budget:'}{' '}
-                <strong>{egvoxFormatIDR(project.ratePerUnit * project.targetVolume)}</strong>{' '}
-                ({egvoxFormatUSD(project.ratePerUnit * project.targetVolume)} USD)
-              </p>
-            </div>
+            ) : (
+              <div className="rounded-xl bg-[#027F86]/8 p-3.5 text-xs space-y-1">
+                <p className="font-bold text-[#027F86] inline-flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>
+                    {isId ? 'Kompensasi via Penawaran Privat' : 'Compensation via Private Offer'}
+                  </span>
+                </p>
+                <p className="text-[var(--egvox-text-secondary)]">
+                  {isId
+                    ? 'Vendor mengirimkan penawaran biaya secara privat setelah meninjau aplikasi kualifikasi Anda.'
+                    : 'Vendor sends a private recruitment offer after reviewing your qualifications.'}
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2.5 border-y border-[var(--egvox-border-default)] py-4 text-sm">
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Target Volume' : 'Target Volume'}
+                  {isId ? 'Target Volume' : 'Target Volume'}
                 </span>
                 <span className="font-semibold tabular-nums">
                   {project.targetVolume} {unit}
@@ -444,24 +442,24 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
               </div>
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Batas Aplikasi' : 'Application Close'}
+                  {isId ? 'Batas Aplikasi' : 'Application Close'}
                 </span>
                 <span className="font-semibold tabular-nums">{appClose}</span>
               </div>
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Anotasi' : 'Annotation'}
+                  {isId ? 'Anotasi' : 'Annotation'}
                 </span>
                 <span className="font-semibold sm:text-right">
                   {project.annotationRequired === 'optional'
-                    ? locale === 'id'
+                    ? isId
                       ? 'Opsional (Vendor punya tim internal)'
                       : 'Optional (Vendor has internal annotators)'
                     : project.annotationRequired === 'required'
-                    ? locale === 'id'
+                    ? isId
                       ? 'Termasuk dalam lingkup'
                       : 'Included in scope'
-                    : locale === 'id'
+                    : isId
                     ? 'Hanya Video Mentah'
                     : 'Raw Video Only'}
                 </span>
@@ -474,16 +472,16 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                 onClick={() => openProposalModal(project)}
                 className="w-full rounded-xl bg-[#027F86] py-3 text-sm font-semibold text-white hover:bg-[#039998] transition-colors"
               >
-                {locale === 'id' ? 'Ajukan Proposal' : 'Submit Proposal'}
+                {isId ? 'Ajukan Minat & Kualifikasi' : 'Express Interest & Qualifications'}
               </button>
               <button
                 type="button"
-                onClick={() => setAskModalOpen(true)}
+                onClick={() => setClarifyModalOpen(true)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--egvox-border-default)] py-2.5 text-sm font-semibold text-[var(--egvox-text-primary)] hover:bg-[var(--egvox-bg-subtle)]"
               >
-                <MessageSquare className="h-4 w-4 text-[#027F86]" />
+                <HelpCircle className="h-4 w-4 text-[#027F86]" />
                 <span>
-                  {locale === 'id' ? 'Tanyakan ke Vendor' : 'Ask Vendor'}
+                  {isId ? 'Klarifikasi Spesifikasi Proyek' : 'Structured Project Clarification'}
                 </span>
               </button>
             </div>
@@ -503,62 +501,84 @@ export const ProjectDetailView: React.FC<{ project: ProjectListing }> = ({
                 </span>
               </div>
               <p className="mt-1 text-xs text-[var(--egvox-text-muted)]">
-                {locale === 'id'
-                  ? `Dataset Vendor Terverifikasi · ${project.country}`
-                  : `Verified Dataset Vendor · ${project.country}`}
+                {isId
+                  ? `Dataset Vendor Terverifikasi KYB · ${project.country}`
+                  : `KYB Verified Dataset Vendor · ${project.country}`}
               </p>
               <Link
                 href={`/providers/${project.vendorSlug}`}
                 className="mt-2.5 inline-block text-xs font-semibold text-[#027F86] dark:text-[#04B8B4] hover:underline"
               >
-                {locale === 'id' ? 'Lihat Profil Provider →' : 'View Provider Profile →'}
+                {isId ? 'Lihat Profil Provider →' : 'View Provider Profile →'}
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Ask Vendor Modal */}
+      {/* Structured Clarification Modal (Replaces Free Chat) */}
       <Modal
-        open={askModalOpen}
-        onClose={() => setAskModalOpen(false)}
+        open={clarifyModalOpen}
+        onClose={() => setClarifyModalOpen(false)}
         title={
-          locale === 'id'
-            ? `Tanyakan ke ${project.vendorName}`
-            : `Message ${project.vendorName}`
+          isId
+            ? `Klarifikasi Spesifikasi · ${project.vendorName}`
+            : `Structured Clarification · ${project.vendorName}`
         }
         subtitle={
-          locale === 'id'
-            ? 'Komunikasi berlangsung aman melalui sistem pesan EgvoX'
-            : 'Communication is logged securely via EgvoX Messaging'
+          isId
+            ? 'Platform tidak menyediakan chat bebas. Pilih topik terstruktur terkait spesifikasi proyek.'
+            : 'No free-form messaging. Submit a structured clarification tied to this project.'
         }
       >
-        <form onSubmit={handleSendQuestion} className="space-y-4">
+        <form onSubmit={handleSendClarification} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">
+              {isId ? 'Topik Klarifikasi' : 'Clarification Topic'}
+            </label>
+            <select
+              value={clarifyTopic}
+              onChange={(e) =>
+                setClarifyTopic(e.target.value as StructuredClarification['topic'])
+              }
+              className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold"
+            >
+              <option value="spec">
+                {isId ? 'Spesifikasi Kamera, FPS & Resolusi' : 'Camera Rig, FPS & Resolution Spec'}
+              </option>
+              <option value="schedule">
+                {isId ? 'Jadwal Pengambilan & Deadline Batch' : 'Capture Schedule & Batch Deadline'}
+              </option>
+              <option value="deliverables">
+                {isId ? 'Acceptance Criteria & Format Output' : 'Acceptance Criteria & Deliverables'}
+              </option>
+            </select>
+          </div>
           <textarea
             rows={4}
             required
-            value={askMessage}
-            onChange={(e) => setAskMessage(e.target.value)}
+            value={clarifyQuestion}
+            onChange={(e) => setClarifyQuestion(e.target.value)}
             placeholder={
-              locale === 'id'
-                ? 'Tanyakan detail spesifikasi kamera, format nama file, atau jadwal batch jam...'
-                : 'Ask about camera rig requirements, file naming, or hourly batch milestones...'
+              isId
+                ? 'Tulis pertanyaan teknis singkat mengenai spesifikasi proyek (tanpa negosiasi harga di luar sistem penawaran)...'
+                : 'Ask a concise technical question on capture specs or deliverables...'
             }
             className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 text-sm focus:border-[#027F86] focus:outline-none"
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setAskModalOpen(false)}
+              onClick={() => setClarifyModalOpen(false)}
               className="rounded-lg border border-[var(--egvox-border-default)] px-4 py-2 text-sm"
             >
-              {locale === 'id' ? 'Batal' : 'Cancel'}
+              {isId ? 'Batal' : 'Cancel'}
             </button>
             <button
               type="submit"
               className="rounded-lg bg-[#027F86] px-4 py-2 text-sm font-semibold text-white"
             >
-              {locale === 'id' ? 'Kirim Pesan' : 'Send Message'}
+              {isId ? 'Kirim Klarifikasi Terstruktur' : 'Submit Structured Clarification'}
             </button>
           </div>
         </form>

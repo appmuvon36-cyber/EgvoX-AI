@@ -3,29 +3,33 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
+  AlertTriangle,
   Bell,
   CheckCircle2,
   CreditCard,
   FileUp,
   Flag,
   Lock,
-  Minus,
-  Plus,
   ShieldCheck,
-  Trash2,
+  Wallet,
 } from 'lucide-react';
 import {
-  DualPrice,
   Modal,
   egvoxFormatIDR,
   egvoxFormatUSD,
 } from '@/packages/design-system';
-import { validateProposalForm } from '@/packages/validation-schemas';
+import {
+  validateProposalForm,
+  validateRecruitmentOfferForm,
+} from '@/packages/validation-schemas';
+import { PROJECT_LISTINGS } from '@/lib/catalog-data';
 import { ReportListingTarget, useAppState } from '@/lib/hooks/useAppState';
 import type {
   FreelancerServiceListing,
   Locale,
   ProjectListing,
+  RecruitmentOffer,
+  TopUpRecord,
 } from '@/packages/shared-types';
 
 const ProposalFormContent: React.FC<{
@@ -37,16 +41,20 @@ const ProposalFormContent: React.FC<{
     projectTitle: string;
     vendorName: string;
     volume: number;
-    estimatedTotal: number;
+    weeklyCapacityHours?: number;
+    deviceSummary?: string;
     note: string;
     attachmentName?: string;
   }) => void;
 }> = ({ project, locale, onCancel, onSubmitProposal }) => {
   const [volume, setVolume] = useState(Math.min(20, project.targetVolume));
+  const [deviceSummary, setDeviceSummary] = useState(
+    project.captureSpec.deviceRequirement
+  );
   const [note, setNote] = useState(
     locale === 'id'
-      ? 'Saya siap mengerjakan sesuai spesifikasi capture terbaru menggunakan action camera 1080p60.'
-      : 'Ready to deliver per the locked capture specification using 1080p60 action camera gear.'
+      ? 'Saya memiliki perangkat sesuai spesifikasi capture terbaru dan siap memenuhi kriteria penerimaan.'
+      : 'I operate compliant capture hardware and meet all project acceptance criteria.'
   );
   const [attachmentName, setAttachmentName] = useState('');
   const [specAck, setSpecAck] = useState(true);
@@ -65,7 +73,7 @@ const ProposalFormContent: React.FC<{
       );
       return;
     }
-    const validation = validateProposalForm({ volume, note }, locale);
+    const validation = validateProposalForm({ volume, deviceSummary, note }, locale);
     if (!validation.valid) {
       setProposalError(Object.values(validation.errors)[0]);
       return;
@@ -75,7 +83,8 @@ const ProposalFormContent: React.FC<{
       projectTitle: locale === 'id' ? project.title : project.titleEn,
       vendorName: project.vendorName,
       volume,
-      estimatedTotal: volume * project.ratePerUnit,
+      weeklyCapacityHours: volume,
+      deviceSummary,
       note,
       attachmentName: attachmentName || undefined,
     });
@@ -84,64 +93,77 @@ const ProposalFormContent: React.FC<{
 
   return (
     <form onSubmit={handleProposalSubmit} className="space-y-4">
-      <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 text-xs text-[var(--egvox-text-secondary)]">
+      <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 text-xs text-[var(--egvox-text-secondary)] space-y-1.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>
-            {locale === 'id' ? `Tarif per ${unit}` : `Rate per ${unit}`}
-          </span>
-          <span className="font-semibold text-[var(--egvox-text-primary)] tabular-nums">
-            {egvoxFormatIDR(project.ratePerUnit)} ({egvoxFormatUSD(project.ratePerUnit)} USD)
-          </span>
-        </div>
-        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-          <span>
-            {locale === 'id' ? 'Spesifikasi Acuan' : 'Specification Version'}
-          </span>
-          <span className="font-mono font-medium text-[#027F86] dark:text-[#04B8B4]">
+          <span>{locale === 'id' ? 'Spesifikasi Acuan' : 'Specification Version'}</span>
+          <span className="font-mono font-semibold text-[#027F86] dark:text-[#04B8B4]">
             {project.captureSpec.version}
           </span>
         </div>
-      </div>
-
-      <div>
-        <label
-          htmlFor="proposal-volume"
-          className="block text-sm font-medium text-[var(--egvox-text-primary)]"
-        >
+        {project.showBudgetDisclosure && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {locale === 'id'
+                ? 'Info Budget Proyek Vendor (Referensi)'
+                : 'Vendor Project Budget Info (Reference)'}
+            </span>
+            <span className="font-semibold text-[var(--egvox-text-primary)] tabular-nums">
+              {egvoxFormatIDR(project.ratePerUnit)} ({egvoxFormatUSD(project.ratePerUnit)} USD) / {unit}
+            </span>
+          </div>
+        )}
+        <p className="text-[11px] text-[var(--egvox-text-muted)]">
           {locale === 'id'
-            ? `Volume yang Diajukan (${unit})`
-            : `Proposed Volume (${unit})`}
-        </label>
-        <input
-          id="proposal-volume"
-          type="number"
-          min={1}
-          max={project.targetVolume}
-          value={volume}
-          onChange={(e) => setVolume(Number(e.target.value) || 0)}
-          className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm tabular-nums focus:border-[#027F86] focus:outline-none focus:ring-2 focus:ring-[#04B8B4]/25"
-        />
+            ? 'Pengajuan minat menilai kualifikasi teknis, kapasitas, dan perangkat Anda — tanpa public price bidding. Penawaran fee dikirim privat oleh Vendor.'
+            : 'Applications are evaluated on technical qualification, capacity, and gear — without public price bidding.'}
+        </p>
       </div>
 
-      <div className="rounded-xl bg-[#027F86]/8 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-medium text-[var(--egvox-text-secondary)]">
-          {locale === 'id' ? 'Estimasi Pendapatan Kotor' : 'Estimated Gross Value'}
-        </span>
-        <DualPrice
-          amountIDR={volume * project.ratePerUnit}
-          size="md"
-          accent="orange"
-        />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor="proposal-volume"
+            className="block text-xs font-semibold text-[var(--egvox-text-primary)]"
+          >
+            {locale === 'id'
+              ? `Kapasitas Kesiapan (${unit} / minggu)`
+              : `Weekly Capacity (${unit} / week)`}
+          </label>
+          <input
+            id="proposal-volume"
+            type="number"
+            min={1}
+            max={project.targetVolume}
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value) || 0)}
+            className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm tabular-nums focus:border-[#027F86] focus:outline-none"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="proposal-device"
+            className="block text-xs font-semibold text-[var(--egvox-text-primary)]"
+          >
+            {locale === 'id' ? 'Perangkat Kamera / Tools' : 'Camera Gear / Tools'}
+          </label>
+          <input
+            id="proposal-device"
+            type="text"
+            value={deviceSummary}
+            onChange={(e) => setDeviceSummary(e.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
+          />
+        </div>
       </div>
 
       <div>
         <label
           htmlFor="proposal-note"
-          className="block text-sm font-medium text-[var(--egvox-text-primary)]"
+          className="block text-xs font-semibold text-[var(--egvox-text-primary)]"
         >
           {locale === 'id'
-            ? 'Pesan Kesiapan & Perangkat'
-            : 'Readiness & Equipment Note'}
+            ? 'Ringkasan Kualifikasi & Pengalaman Relevan'
+            : 'Qualification & Experience Summary'}
         </label>
         <textarea
           id="proposal-note"
@@ -150,18 +172,18 @@ const ProposalFormContent: React.FC<{
           onChange={(e) => setNote(e.target.value)}
           placeholder={
             locale === 'id'
-              ? 'Jelaskan pengalaman capture, jenis kamera, dan ketersediaan jam mingguan Anda...'
-              : 'Describe your capture experience, camera rig, and weekly hourly capacity...'
+              ? 'Jelaskan pengalaman capture, mounting, pencahayaan, atau sertifikasi QA Anda...'
+              : 'Describe your capture setup, mounting, lighting, or QA audit experience...'
           }
-          className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none focus:ring-2 focus:ring-[#04B8B4]/25"
+          className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-[var(--egvox-text-primary)]">
+        <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
           {locale === 'id'
-            ? 'Lampiran Portofolio / Izin Lokasi (Opsional)'
-            : 'Portfolio / Site Permission Attachment (Optional)'}
+            ? 'Lampiran Sampel Berizin / Izin Lokasi (Opsional)'
+            : 'Consented Sample / Site Permission (Optional)'}
         </label>
         <label className="mt-1.5 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-4 py-3 text-xs font-medium text-[var(--egvox-text-secondary)] hover:border-[#027F86]">
           <FileUp className="h-4 w-4 text-[#027F86]" />
@@ -220,146 +242,802 @@ const ProposalFormContent: React.FC<{
           type="submit"
           className="rounded-lg bg-[#027F86] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#039998] transition-colors"
         >
-          {locale === 'id' ? 'Kirim Proposal' : 'Submit Proposal'}
+          {locale === 'id' ? 'Ajukan Minat' : 'Express Interest'}
         </button>
       </div>
     </form>
   );
 };
 
-const ServiceOrderFormContent: React.FC<{
-  service: FreelancerServiceListing;
+const RecruitFreelancerModalContent: React.FC<{
+  freelancer: FreelancerServiceListing;
   locale: Locale;
-  onConfirm: (
-    orderQty: number,
-    includeAnnotation: boolean,
-    goToCheckout: boolean
-  ) => void;
-}> = ({ service, locale, onConfirm }) => {
-  const [orderQty, setOrderQty] = useState(5);
-  const [includeAnnotation, setIncludeAnnotation] = useState(false);
-  const [orderBrief, setOrderBrief] = useState('');
+  onClose: () => void;
+  onOpenTopUp: () => void;
+}> = ({ freelancer, locale, onClose, onOpenTopUp }) => {
+  const {
+    recruiterWallet,
+    createRecruitmentOffer,
+    customProjects,
+  } = useAppState();
+  const isId = locale === 'id';
 
-  const unit =
-    locale === 'id' ? service.unitLabel : service.unitLabelEn || 'hour';
-  const sla =
-    locale === 'id'
-      ? service.deliverySla
-      : service.deliverySlaEn || service.deliverySla;
+  const defaultWorkType: RecruitmentOffer['workType'] =
+    freelancer.roleType === 'Data Annotator'
+      ? 'Data Annotation'
+      : freelancer.roleType === 'QA Specialist'
+      ? 'QA Specialist'
+      : 'Video Capture';
 
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5">
-        <p className="text-sm font-semibold text-[var(--egvox-text-primary)]">
-          {locale === 'id' ? service.title : service.titleEn}
-        </p>
-        <p className="mt-1 text-xs text-[var(--egvox-text-muted)] tabular-nums">
-          {locale === 'id' ? 'Tarif dasar' : 'Base rate'}{' '}
-          {egvoxFormatIDR(service.pricePerUnit)} ({egvoxFormatUSD(service.pricePerUnit)} USD) / {unit} · SLA {sla}
-        </p>
-      </div>
+  const allProjects = [...customProjects, ...PROJECT_LISTINGS];
 
-      <div>
-        <label className="block text-sm font-medium text-[var(--egvox-text-primary)]">
-          {locale === 'id' ? `Jumlah Durasi (${unit})` : `Duration Quantity (${unit})`}
-        </label>
-        <div className="mt-1.5 flex items-center gap-3">
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [selectedProjectSlug, setSelectedProjectSlug] = useState(
+    allProjects[0]?.slug || ''
+  );
+  const [workType, setWorkType] =
+    useState<RecruitmentOffer['workType']>(defaultWorkType);
+  const [volumeHours, setVolumeHours] = useState(50);
+  const [deadline, setDeadline] = useState(isId ? '15 Des 2026' : 'Dec 15, 2026');
+  const [acceptanceSummary, setAcceptanceSummary] = useState(
+    workType === 'QA Specialist'
+      ? isId
+        ? 'Audit teknis, capture-spec, consent & redaksi PII 100% terdokumentasi.'
+        : '100% documented technical, capture-spec, consent & PII redaction audit.'
+      : isId
+      ? 'Sesuai spesifikasi capture terbaru, checksum SHA-256 valid & bebas PII.'
+      : 'Per latest capture specification, valid SHA-256 checksum & PII-free.'
+  );
+  const [conflictChecked, setConflictChecked] = useState(
+    workType !== 'QA Specialist'
+  );
+
+  // Step 2
+  const [bindingType, setBindingType] = useState<'binding' | 'screening'>(
+    'binding'
+  );
+  const [grossFeeIDR, setGrossFeeIDR] = useState(10000000);
+
+  // Step 3
+  const [milestonesSummary, setMilestonesSummary] = useState(
+    isId
+      ? 'Milestone 1 (30% Pilot Batch) · Milestone 2 (70% Final QA Diterima)'
+      : 'Milestone 1 (30% Pilot Batch) · Milestone 2 (70% Final QA Accepted)'
+  );
+  const [revisionsCount, setRevisionsCount] = useState(2);
+  const [expiresAt, setExpiresAt] = useState(isId ? '30 Nov 2026' : 'Nov 30, 2026');
+  const [offerNote, setOfferNote] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submittedCode, setSubmittedCode] = useState<string | null>(null);
+
+  const selectedProject =
+    allProjects.find((p) => p.slug === selectedProjectSlug) || allProjects[0];
+
+  const adminFee = Math.round(grossFeeIDR * 0.08);
+  const paymentFee = Math.round(grossFeeIDR * 0.015);
+  const netFreelancer = Math.max(0, grossFeeIDR - adminFee - paymentFee);
+  const isBinding = bindingType === 'binding';
+  const needsConflictCheck =
+    workType === 'QA Specialist' || freelancer.roleType === 'QA Specialist';
+
+  const hasMinPolicy =
+    recruiterWallet.settledBalanceIDR >= recruiterWallet.minPolicyIDR;
+  const hasAvailableFunds =
+    !isBinding || recruiterWallet.availableBalanceIDR >= grossFeeIDR;
+  const canSendBinding =
+    recruiterWallet.vendorKybVerified && hasMinPolicy && hasAvailableFunds;
+
+  const handleNextStep1 = () => {
+    setFormError(null);
+    if (needsConflictCheck && !conflictChecked) {
+      setFormError(
+        isId
+          ? 'Centang verifikasi anti konflik kepentingan untuk QA Specialist.'
+          : 'Confirm the QA Specialist conflict-of-interest independence check.'
+      );
+      return;
+    }
+    if (volumeHours < 1 || !deadline.trim()) {
+      setFormError(
+        isId
+          ? 'Lengkapi volume dan tenggat waktu pekerjaan.'
+          : 'Please complete volume and target deadline.'
+      );
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleNextStep2 = () => {
+    setFormError(null);
+    if (isBinding && grossFeeIDR < 100000) {
+      setFormError(
+        isId
+          ? 'Penawaran Fee (Gross) minimal Rp 100.000.'
+          : 'Gross offer fee must be at least Rp 100,000.'
+      );
+      return;
+    }
+    setStep(3);
+  };
+
+  const handleSubmitOffer = (saveAsDraft: boolean) => {
+    setFormError(null);
+    const projectTitle = selectedProject
+      ? isId
+        ? selectedProject.title
+        : selectedProject.titleEn
+      : freelancer.title;
+
+    const validation = validateRecruitmentOfferForm(
+      {
+        projectTitle,
+        volumeHours,
+        grossFeeIDR,
+        bindingType,
+        requiresConflictCheck: needsConflictCheck,
+        conflictChecked,
+        deadline,
+      },
+      locale
+    );
+    if (!validation.valid) {
+      setFormError(Object.values(validation.errors)[0]);
+      return;
+    }
+
+    const res = createRecruitmentOffer({
+      freelancer,
+      workType,
+      projectTitle,
+      projectSlug: selectedProject?.slug,
+      volumeHours,
+      specVersion: selectedProject?.captureSpec.version || 'SPEC-EGV-v1.3',
+      deadline,
+      grossFeeIDR: isBinding ? grossFeeIDR : 0,
+      bindingType,
+      milestonesSummary,
+      revisionsCount,
+      acceptanceSummary,
+      expiresAt,
+      saveAsDraft,
+      conflictCheckPassed: needsConflictCheck ? conflictChecked : undefined,
+      note: offerNote,
+    });
+
+    if (!res.ok) {
+      setFormError(
+        res.error || (isId ? 'Gagal mengirim penawaran.' : 'Failed to send offer.')
+      );
+      return;
+    }
+    setSubmittedCode(res.offerCode || 'VO-2026-NEW');
+  };
+
+  if (submittedCode) {
+    return (
+      <div className="py-4 text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#16835D]/12 text-[#16835D]">
+          <CheckCircle2 className="h-8 w-8" />
+        </div>
+        <div>
+          <p className="text-xs font-mono font-bold text-[#027F86]">{submittedCode}</p>
+          <h3 className="mt-1 text-lg font-bold text-[var(--egvox-text-primary)]">
+            {isId ? 'Penawaran Rekrutmen Privat Tercatat' : 'Private Recruitment Offer Recorded'}
+          </h3>
+          <p className="mt-1 text-xs text-[var(--egvox-text-secondary)]">
+            {isId
+              ? `Penawaran hanya dapat dilihat oleh ${freelancer.freelancerName}. Pantau status dan versi negosiasi di Workspace.`
+              : `This private offer is visible solely to ${freelancer.freelancerName}. Track negotiation versions inside Workspace.`}
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-center gap-2.5 pt-2">
+          <Link
+            href="/workspace?tab=offers"
+            onClick={onClose}
+            className="rounded-xl bg-[#027F86] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#039998]"
+          >
+            {isId ? 'Buka Recruitment Hub' : 'Open Recruitment Hub'}
+          </Link>
           <button
             type="button"
-            onClick={() => setOrderQty((q) => Math.max(1, q - 1))}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--egvox-border-default)] hover:bg-[var(--egvox-bg-subtle)]"
+            onClick={onClose}
+            className="rounded-xl border border-[var(--egvox-border-default)] px-4 py-2.5 text-xs font-semibold"
           >
-            <Minus className="h-4 w-4" />
-          </button>
-          <input
-            type="number"
-            min={1}
-            value={orderQty}
-            onChange={(e) => setOrderQty(Math.max(1, Number(e.target.value) || 1))}
-            className="w-24 rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-center text-sm font-semibold tabular-nums"
-          />
-          <button
-            type="button"
-            onClick={() => setOrderQty((q) => q + 1)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--egvox-border-default)] hover:bg-[var(--egvox-bg-subtle)]"
-          >
-            <Plus className="h-4 w-4" />
+            {isId ? 'Tutup' : 'Close'}
           </button>
         </div>
       </div>
+    );
+  }
 
-      {service.roleType === 'Video Contributor' && (
-        <label className="flex items-start gap-2.5 rounded-xl border border-[var(--egvox-border-default)] p-3 text-xs">
-          <input
-            type="checkbox"
-            checked={includeAnnotation}
-            onChange={(e) => setIncludeAnnotation(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded text-[#027F86]"
+  return (
+    <div className="space-y-4">
+      {/* Stepper */}
+      <div className="grid grid-cols-3 gap-2 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-2">
+        {[
+          { num: 1 as const, label: isId ? '1. Detail Pekerjaan' : '1. Job Scope' },
+          { num: 2 as const, label: isId ? '2. Penawaran' : '2. Private Offer' },
+          { num: 3 as const, label: isId ? '3. Kesepakatan' : '3. Agreement' },
+        ].map((st) => (
+          <button
+            key={st.num}
+            type="button"
+            onClick={() => {
+              if (st.num < step) setStep(st.num);
+            }}
+            className={`rounded-lg px-2.5 py-2 text-xs font-bold transition-colors ${
+              step === st.num
+                ? 'bg-[#027F86] text-white'
+                : step > st.num
+                ? 'bg-[#16835D]/12 text-[#16835D]'
+                : 'text-[var(--egvox-text-muted)]'
+            }`}
+          >
+            {st.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Candidate header */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <img
+            src={freelancer.avatar}
+            alt={freelancer.freelancerName}
+            referrerPolicy="no-referrer"
+            className="h-10 w-10 rounded-full object-cover shrink-0 border border-[var(--egvox-border-default)]"
           />
-          <div>
-            <span className="font-semibold text-[var(--egvox-text-primary)]">
-              {locale === 'id'
-                ? 'Tambahkan Layanan Anotasi Freelance Opsional (+Rp 75.000 / $4.69 USD per jam)'
-                : 'Add Optional Freelance Annotation (+Rp 75,000 / $4.69 USD per hour)'}
-            </span>
-            <p className="mt-0.5 text-[var(--egvox-text-muted)]">
-              {locale === 'id'
-                ? 'Opsional sesuai PRD: pilih hanya jika tim Anda tidak memakai annotator internal.'
-                : 'Optional per PRD: select only if your team does not use internal annotators.'}
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-[var(--egvox-text-primary)] truncate">
+              {freelancer.freelancerName}
+            </p>
+            <p className="text-[11px] text-[#027F86] font-semibold">
+              {freelancer.roleType} · {freelancer.rating.toFixed(1)} ({freelancer.completedOrders}{' '}
+              {isId ? 'pekerjaan' : 'jobs'})
             </p>
           </div>
-        </label>
+        </div>
+        <span className="rounded-md bg-[#16835D]/12 px-2 py-1 text-[10px] font-bold text-[#16835D] shrink-0">
+          {isId ? 'Penawaran Privat' : 'Private Offer'}
+        </span>
+      </div>
+
+      {/* STEP 1 */}
+      {step === 1 && (
+        <div className="space-y-3.5 text-xs">
+          <div>
+            <label className="block font-semibold text-[var(--egvox-text-primary)]">
+              {isId ? 'Pilih Proyek Terkait' : 'Select Linked Project'}
+            </label>
+            <select
+              value={selectedProjectSlug}
+              onChange={(e) => setSelectedProjectSlug(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+            >
+              {allProjects.map((p) => (
+                <option key={p.slug} value={p.slug}>
+                  {isId ? p.title : p.titleEn} ({p.captureSpec.version})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block font-semibold text-[var(--egvox-text-primary)]">
+                {isId ? 'Jenis Pekerjaan' : 'Work Type'}
+              </label>
+              <select
+                value={workType}
+                onChange={(e) =>
+                  setWorkType(e.target.value as RecruitmentOffer['workType'])
+                }
+                className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+              >
+                <option value="Video Capture">Video Capture</option>
+                <option value="Data Annotation">Data Annotation</option>
+                <option value="QA Specialist">QA Specialist</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-[var(--egvox-text-primary)]">
+                {isId ? 'Target Volume (Video / Jam)' : 'Target Volume (Units)'}
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={volumeHours}
+                onChange={(e) => setVolumeHours(Number(e.target.value) || 1)}
+                className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-[var(--egvox-text-primary)]">
+                {isId ? 'Tenggat Waktu' : 'Deadline'}
+              </label>
+              <input
+                type="text"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-[var(--egvox-text-primary)]">
+              {isId ? 'Kriteria Penerimaan (Acceptance Criteria)' : 'Objective Acceptance Criteria'}
+            </label>
+            <textarea
+              rows={2}
+              value={acceptanceSummary}
+              onChange={(e) => setAcceptanceSummary(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+            />
+          </div>
+
+          {needsConflictCheck && (
+            <label className="flex items-start gap-2.5 rounded-xl border border-[#FC840E]/40 bg-[#FC840E]/8 p-3 text-xs">
+              <input
+                type="checkbox"
+                checked={conflictChecked}
+                onChange={(e) => setConflictChecked(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded text-[#027F86]"
+              />
+              <span>
+                <strong>{isId ? 'Deklarasi Independensi QA Specialist:' : 'QA Independence Check:'}</strong>{' '}
+                {isId
+                  ? 'Kandidat tidak terlibat dalam perekaman atau anotasi batch yang akan diperiksa (bebas konflik kepentingan).'
+                  : 'Candidate did not capture or annotate the assigned batch (zero conflict of interest).'}
+              </span>
+            </label>
+          )}
+
+          {formError && <p className="text-xs font-medium text-[#C43D3D]">{formError}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-[var(--egvox-border-default)] px-4 py-2 font-semibold"
+            >
+              {isId ? 'Batal' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={handleNextStep1}
+              className="rounded-lg bg-[#027F86] px-5 py-2 font-semibold text-white hover:bg-[#039998]"
+            >
+              {isId ? 'Lanjut Penawaran' : 'Next: Private Offer'}
+            </button>
+          </div>
+        </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-[var(--egvox-text-primary)]">
-          {locale === 'id'
-            ? 'Catatan Brief & Acceptance Criteria'
-            : 'Brief & Acceptance Criteria Notes'}
-        </label>
-        <textarea
-          rows={3}
-          value={orderBrief}
-          onChange={(e) => setOrderBrief(e.target.value)}
-          placeholder={
-            locale === 'id'
-              ? 'Tulis detail sudut kamera, lokasi, atau skema pelabelan yang diharapkan...'
-              : 'Specify camera angle, venue requirements, or expected labeling schema...'
-          }
-          className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
-        />
-      </div>
+      {/* STEP 2 */}
+      {step === 2 && (
+        <div className="space-y-4 text-xs">
+          <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 space-y-2">
+            <p className="font-bold text-[var(--egvox-text-primary)]">
+              {isId
+                ? 'Penawaran Rekrutmen (Private Offer)'
+                : 'Private Recruitment Offer'}
+            </p>
+            <p className="text-[11px] text-[var(--egvox-text-muted)]">
+              {isId
+                ? 'Ajukan penawaran kepada freelancer terpilih. Penawaran ini bersifat privat dan hanya dapat dilihat oleh freelancer tersebut.'
+                : 'Send a private offer directly to the selected freelancer. Pricing is never exposed publicly.'}
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setBindingType('binding')}
+                className={`rounded-lg border px-3 py-2 text-left font-semibold ${
+                  bindingType === 'binding'
+                    ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86] dark:text-[#04B8B4]'
+                    : 'border-[var(--egvox-border-default)]'
+                }`}
+              >
+                {isId ? 'Penawaran Mengikat (Reservasi)' : 'Binding Offer (Reserved)'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBindingType('screening')}
+                className={`rounded-lg border px-3 py-2 text-left font-semibold ${
+                  bindingType === 'screening'
+                    ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86] dark:text-[#04B8B4]'
+                    : 'border-[var(--egvox-border-default)]'
+                }`}
+              >
+                {isId ? 'Undangan Screening (Non-Binding)' : 'Screening Invite (Non-Binding)'}
+              </button>
+            </div>
+          </div>
 
-      <div className="rounded-xl bg-[#027F86]/8 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-medium text-[var(--egvox-text-secondary)]">
-          {locale === 'id'
-            ? 'Estimasi Subtotal Work Order'
-            : 'Estimated Work Order Subtotal'}
+          {isBinding && (
+            <>
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="font-semibold text-[var(--egvox-text-primary)]">
+                    {isId ? 'Penawaran Fee (Gross IDR)' : 'Gross Fee Offer (IDR)'}
+                  </label>
+                  <span className="text-[11px] text-[#027F86] font-mono tabular-nums">
+                    ≈ {egvoxFormatUSD(grossFeeIDR)} USD
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min={100000}
+                  step={100000}
+                  value={grossFeeIDR}
+                  onChange={(e) => setGrossFeeIDR(Number(e.target.value) || 0)}
+                  className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm font-bold tabular-nums"
+                />
+              </div>
+
+              {/* Fee Waterfall */}
+              <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-4 space-y-2 tabular-nums">
+                <div className="flex justify-between">
+                  <span className="text-[var(--egvox-text-secondary)]">
+                    {isId ? 'Penawaran Fee (Gross)' : 'Gross Fee Offer'}
+                  </span>
+                  <span className="font-semibold">{egvoxFormatIDR(grossFeeIDR)}</span>
+                </div>
+                <div className="flex justify-between text-[#C43D3D]">
+                  <span>{isId ? 'Biaya Admin EgvoX (8%)' : 'EgvoX Admin Fee (8%)'}</span>
+                  <span>- {egvoxFormatIDR(adminFee)}</span>
+                </div>
+                <div className="flex justify-between text-[#C43D3D]">
+                  <span>{isId ? 'Biaya Pembayaran (±1,5%)' : 'Payment Fee (±1.5%)'}</span>
+                  <span>- {egvoxFormatIDR(paymentFee)}</span>
+                </div>
+                <div className="border-t border-[var(--egvox-border-default)] pt-2 flex justify-between font-bold text-[#FC840E]">
+                  <span>{isId ? 'Total Komitmen Rekruter' : 'Recruiter Commitment Total'}</span>
+                  <span>{egvoxFormatIDR(grossFeeIDR)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-[#16835D]">
+                  <span>
+                    {isId ? 'Estimasi Pendapatan Bersih Freelancer' : 'Estimated Freelancer Net'}
+                  </span>
+                  <span>{egvoxFormatIDR(netFreelancer)}</span>
+                </div>
+              </div>
+
+              {/* Recruiter Wallet & KYB Guard */}
+              <div
+                className={`rounded-xl border p-3.5 space-y-2 ${
+                  canSendBinding
+                    ? 'border-[#16835D]/35 bg-[#16835D]/8'
+                    : 'border-[#C43D3D]/35 bg-[#C43D3D]/8'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold inline-flex items-center gap-1.5 text-[var(--egvox-text-primary)]">
+                    <Wallet className="h-4 w-4 text-[#027F86]" />
+                    {isId
+                      ? 'Saldo Tersedia Rekruter (Settled Cleared)'
+                      : 'Available Recruiter Balance (Settled)'}
+                  </span>
+                  <span className="font-bold tabular-nums text-sm">
+                    {egvoxFormatIDR(recruiterWallet.availableBalanceIDR)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--egvox-text-secondary)]">
+                  {isId
+                    ? 'Dana akan dicatat sebagai Reservasi Dana Terotorisasi Payment Provider setelah penawaran dikirim. Pencairan ke freelancer dilakukan bertahap sesuai milestone QA.'
+                    : 'Funds are placed under Authorized Payment Provider Reservation once sent and disbursed per QA milestone.'}
+                </p>
+                {!canSendBinding && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <span className="text-[11px] font-semibold text-[#C43D3D] inline-flex items-center gap-1">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {!hasMinPolicy
+                        ? isId
+                          ? 'Min. saldo Rp 5.000.000 belum terpenuhi.'
+                          : 'Below Rp 5,000,000 policy minimum.'
+                        : isId
+                        ? 'Saldo tersedia kurang dari total komitmen.'
+                        : 'Available balance below commitment total.'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onOpenTopUp}
+                      className="rounded-lg bg-[#027F86] px-3 py-1.5 text-[11px] font-semibold text-white"
+                    >
+                      {isId ? 'Top Up Saldo' : 'Top Up Balance'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {formError && <p className="text-xs font-medium text-[#C43D3D]">{formError}</p>}
+
+          <div className="flex justify-between gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="rounded-lg border border-[var(--egvox-border-default)] px-4 py-2 font-semibold"
+            >
+              {isId ? 'Kembali' : 'Back'}
+            </button>
+            <button
+              type="button"
+              onClick={handleNextStep2}
+              className="rounded-lg bg-[#027F86] px-5 py-2 font-semibold text-white hover:bg-[#039998]"
+            >
+              {isId ? 'Lanjut Kesepakatan' : 'Next: Agreement'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3 */}
+      {step === 3 && (
+        <div className="space-y-3.5 text-xs">
+          <div>
+            <label className="block font-semibold text-[var(--egvox-text-primary)]">
+              {isId ? 'Skema Milestone & Pembayaran' : 'Milestones & Disbursement'}
+            </label>
+            <input
+              type="text"
+              value={milestonesSummary}
+              onChange={(e) => setMilestonesSummary(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-[var(--egvox-text-primary)]">
+                {isId ? 'Batas Revisi Maksimal' : 'Max Revisions'}
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={5}
+                value={revisionsCount}
+                onChange={(e) => setRevisionsCount(Number(e.target.value) || 0)}
+                className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-[var(--egvox-text-primary)]">
+                {isId ? 'Batas Berlaku Penawaran' : 'Offer Expiry'}
+              </label>
+              <input
+                type="text"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-[var(--egvox-text-primary)]">
+              {isId ? 'Catatan Terstruktur (Opsional)' : 'Structured Scope Note (Optional)'}
+            </label>
+            <textarea
+              rows={2}
+              value={offerNote}
+              onChange={(e) => setOfferNote(e.target.value)}
+              placeholder={
+                isId
+                  ? 'Tambahkan catatan SLA, hak lisensi, atau ketentuan pembatalan...'
+                  : 'Add SLA notes, rights summary, or cancellation terms...'
+              }
+              className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 text-[11px] text-[var(--egvox-text-secondary)]">
+            <p className="font-bold text-[var(--egvox-text-primary)]">
+              {isId ? 'Ringkasan Hak, Privasi & Pembatalan' : 'Rights, Privacy & Cancellation Summary'}
+            </p>
+            <p className="mt-1">
+              {isId
+                ? 'Raw video dikirim eksklusif via sesi private upload SHA-256. Pembatalan sebelum submission melepaskan reservasi dana kembali ke Saldo Tersedia Rekruter.'
+                : 'Raw footage uploads exclusively via private SHA-256 sessions. Pre-submission cancellation releases reserved funds back to Recruiter Available Balance.'}
+            </p>
+          </div>
+
+          {formError && (
+            <div className="rounded-lg bg-[#C43D3D]/10 px-3 py-2 text-xs font-medium text-[#C43D3D] flex items-center justify-between gap-2">
+              <span>{formError}</span>
+              {!canSendBinding && isBinding && (
+                <button
+                  type="button"
+                  onClick={onOpenTopUp}
+                  className="rounded bg-[#027F86] px-2.5 py-1 text-[11px] font-semibold text-white shrink-0"
+                >
+                  Top Up
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="rounded-lg border border-[var(--egvox-border-default)] px-4 py-2 font-semibold"
+            >
+              {isId ? 'Kembali' : 'Back'}
+            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleSubmitOffer(true)}
+                className="rounded-lg border border-[#027F86] px-4 py-2 font-semibold text-[#027F86] dark:text-[#04B8B4]"
+              >
+                {isId ? 'Simpan Draft' : 'Save Draft'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSubmitOffer(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#027F86] px-5 py-2 font-semibold text-white hover:bg-[#039998]"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                <span>
+                  {isBinding
+                    ? isId
+                      ? 'Kirim Penawaran & Reservasi'
+                      : 'Send Offer & Reserve'
+                    : isId
+                    ? 'Kirim Undangan Screening'
+                    : 'Send Screening Invite'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TopUpWalletModalContent: React.FC<{
+  locale: Locale;
+  onClose: () => void;
+}> = ({ locale, onClose }) => {
+  const { recruiterWallet, submitWalletTopUp } = useAppState();
+  const isId = locale === 'id';
+  const [amountIDR, setAmountIDR] = useState(10000000);
+  const [method, setMethod] = useState<TopUpRecord['method']>('va');
+  const [immediateSettle, setImmediateSettle] = useState(true);
+
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[var(--egvox-text-muted)]">
+            {isId ? 'Saldo Tersedia Saat Ini (Settled)' : 'Current Available Balance (Settled)'}
+          </p>
+          <p className="text-lg font-bold tabular-nums text-[#027F86] dark:text-[#04B8B4]">
+            {egvoxFormatIDR(recruiterWallet.availableBalanceIDR)}
+          </p>
+        </div>
+        <span className="rounded-md bg-[#16835D]/12 px-2.5 py-1 text-[10px] font-bold text-[#16835D]">
+          {isId ? 'Min. Saldo Rp 5.000.000' : 'Min. Balance Rp 5,000,000'}
         </span>
-        <DualPrice
-          amountIDR={
-            orderQty * service.pricePerUnit +
-            (includeAnnotation ? orderQty * 75000 : 0)
-          }
-          size="md"
-          accent="teal"
+      </div>
+
+      <div>
+        <label className="block font-semibold text-[var(--egvox-text-primary)] mb-1.5">
+          {isId ? 'Nominal Top Up Saldo Rekruter (IDR)' : 'Top-Up Amount (IDR)'}
+        </label>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {[5000000, 10000000, 25000000].map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setAmountIDR(preset)}
+              className={`rounded-lg border py-2 font-bold tabular-nums ${
+                amountIDR === preset
+                  ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86] dark:text-[#04B8B4]'
+                  : 'border-[var(--egvox-border-default)]'
+              }`}
+            >
+              {egvoxFormatIDR(preset)}
+            </button>
+          ))}
+        </div>
+        <input
+          type="number"
+          min={500000}
+          step={500000}
+          value={amountIDR}
+          onChange={(e) => setAmountIDR(Number(e.target.value) || 0)}
+          className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm font-bold tabular-nums"
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+      <div className="space-y-1.5">
+        <p className="font-semibold text-[var(--egvox-text-primary)]">
+          {isId ? 'Channel Payment Provider (PSP Adapter)' : 'Payment Provider Channel'}
+        </p>
+        {(
+          [
+            {
+              id: 'va',
+              label: isId
+                ? 'Virtual Account Korporat (BCA / Mandiri / BNI)'
+                : 'Corporate Virtual Account (BCA / Mandiri / BNI)',
+            },
+            { id: 'qris', label: isId ? 'QRIS Instan' : 'Instant QRIS' },
+            {
+              id: 'ewallet',
+              label: isId
+                ? 'Transfer Bank / Corporate E-Wallet'
+                : 'Bank Transfer / Corporate E-Wallet',
+            },
+            {
+              id: 'card',
+              label: isId
+                ? 'Kartu Kredit / Debit Korporat'
+                : 'Corporate Credit / Debit Card',
+            },
+          ] as const
+        ).map((ch) => (
+          <button
+            key={ch.id}
+            type="button"
+            onClick={() => setMethod(ch.id)}
+            className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left font-medium ${
+              method === ch.id
+                ? 'border-[#027F86] bg-[#027F86]/8 text-[#027F86] dark:text-[#04B8B4]'
+                : 'border-[var(--egvox-border-default)]'
+            }`}
+          >
+            <span>{ch.label}</span>
+            <CreditCard className="h-4 w-4" />
+          </button>
+        ))}
+      </div>
+
+      <label className="flex items-start gap-2 rounded-lg bg-[var(--egvox-bg-canvas)] p-2.5 text-[11px] text-[var(--egvox-text-secondary)]">
+        <input
+          type="checkbox"
+          checked={immediateSettle}
+          onChange={(e) => setImmediateSettle(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded text-[#027F86]"
+        />
+        <span>
+          {isId
+            ? 'Konfirmasi Webhook Settlement Instan (nonaktifkan untuk menguji status Pending Settlement yang belum dihitung sebagai dana tersedia).'
+            : 'Simulate instant PSP webhook settlement (uncheck to test Pending Settlement exclusion).'}
+        </span>
+      </label>
+
+      <div className="flex items-start gap-2 rounded-xl bg-[#027F86]/8 p-3 text-[11px] text-[var(--egvox-text-secondary)]">
+        <ShieldCheck className="h-4 w-4 shrink-0 text-[#027F86] mt-0.5" />
+        <span>
+          {isId
+            ? 'Saldo Ledger Rekruter mencerminkan kapasitas pendanaan terotorisasi Payment Provider — bukan produk uang elektronik terpisah.'
+            : 'Recruiter Ledger Balance tracks Payment Provider authorized funding capacity.'}
+        </span>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
         <button
           type="button"
-          onClick={() => onConfirm(orderQty, includeAnnotation, false)}
-          className="rounded-lg border border-[#027F86] px-4 py-2.5 text-sm font-semibold text-[#027F86] dark:text-[#04B8B4] hover:bg-[#027F86]/8"
+          onClick={onClose}
+          className="rounded-lg border border-[var(--egvox-border-default)] px-4 py-2 font-semibold"
         >
-          {locale === 'id' ? '+ Keranjang Order' : '+ Add to Cart'}
+          {isId ? 'Batal' : 'Cancel'}
         </button>
         <button
           type="button"
-          onClick={() => onConfirm(orderQty, includeAnnotation, true)}
-          className="rounded-lg bg-[#027F86] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#039998]"
+          onClick={() => {
+            submitWalletTopUp(amountIDR, method, immediateSettle);
+            onClose();
+          }}
+          className="rounded-lg bg-[#027F86] px-5 py-2 font-semibold text-white hover:bg-[#039998]"
         >
-          {locale === 'id' ? 'Lanjut Checkout' : 'Proceed to Checkout'}
+          {isId ? 'Konfirmasi Top Up' : 'Confirm Top Up'}
         </button>
       </div>
     </div>
@@ -413,8 +1091,8 @@ const ReportListingFormContent: React.FC<{
           </option>
           <option>
             {locale === 'id'
-              ? 'Ketidaksesuaian spesifikasi / tarif tidak wajar'
-              : 'Misleading specification / unrealistic rates'}
+              ? 'Pencantuman harga atau kontak di luar platform'
+              : 'Prohibited public pricing or off-platform contact'}
           </option>
           <option>
             {locale === 'id'
@@ -468,15 +1146,10 @@ export const GlobalActionModals: React.FC = () => {
     proposalModalProject,
     openProposalModal,
     submitProposal,
-    serviceOrderModal,
-    openServiceOrderModal,
-    addToCart,
-    cartDrawerOpen,
-    setCartDrawerOpen,
-    cartItems,
-    updateCartQty,
-    removeFromCart,
-    clearCart,
+    recruitModalTarget,
+    openRecruitModal,
+    topUpModalOpen,
+    setTopUpModalOpen,
     notifications,
     markNotificationRead,
     markAllNotificationsRead,
@@ -487,74 +1160,17 @@ export const GlobalActionModals: React.FC = () => {
     showToast,
   } = useAppState();
 
-  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment' | 'done'>('cart');
-  const [paymentMethod, setPaymentMethod] = useState<'va' | 'qris' | 'ewallet' | 'card'>('va');
-
-  const handleAddServiceOrder = (
-    orderQty: number,
-    includeAnnotation: boolean,
-    goToCheckout: boolean
-  ) => {
-    if (!serviceOrderModal) return;
-    addToCart({
-      id: serviceOrderModal.id,
-      kind: 'service_order',
-      title: serviceOrderModal.title,
-      titleEn: serviceOrderModal.titleEn,
-      subtitle: `${serviceOrderModal.freelancerName} · ${orderQty} ${serviceOrderModal.unitLabel}`,
-      subtitleEn: `${serviceOrderModal.freelancerName} · ${orderQty} ${serviceOrderModal.unitLabelEn || 'hour'}`,
-      unitPrice: serviceOrderModal.pricePerUnit,
-      quantity: orderQty,
-      unitLabel: serviceOrderModal.unitLabel,
-      unitLabelEn: serviceOrderModal.unitLabelEn || 'hour',
-      thumbnail: serviceOrderModal.avatar,
-    });
-    if (includeAnnotation) {
-      addToCart({
-        id: `${serviceOrderModal.id}-ann`,
-        kind: 'annotation_addon',
-        title: `Add-on Anotasi Opsional (${serviceOrderModal.freelancerName})`,
-        titleEn: `Optional Annotation Add-on (${serviceOrderModal.freelancerName})`,
-        subtitle: `Skema Temporal + Bounding Box · ${orderQty} jam`,
-        subtitleEn: `Temporal + Bounding Box Schema · ${orderQty} hours`,
-        unitPrice: 75000,
-        quantity: orderQty,
-        unitLabel: 'jam',
-        unitLabelEn: 'hour',
-        thumbnail: '/images/capture_manufacturing_pov_1795676770652.jpg',
-      });
-    }
-    openServiceOrderModal(null);
-    if (goToCheckout) {
-      setCheckoutStep('cart');
-      setCartDrawerOpen(true);
-    }
-  };
-
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.unitPrice * item.quantity,
-    0
-  );
-  const platformFee = Math.round(subtotal * 0.05);
-  const grandTotal = subtotal + platformFee;
-
-  const handlePayNow = () => {
-    setCheckoutStep('done');
-    clearCart();
-    showToast(
-      locale === 'id'
-        ? 'Work Order terkonfirmasi dan sesi private upload telah dibuat.'
-        : 'Work Order confirmed and private upload session provisioned.'
-    );
-  };
-
   return (
     <>
-      {/* Modal 1: Ajukan Proposal (Project Catalog) */}
+      {/* Modal 1: Ajukan Minat / Kualifikasi (Project Catalog - Tanpa Bidding Harga) */}
       <Modal
         open={!!proposalModalProject}
         onClose={() => openProposalModal(null)}
-        title={locale === 'id' ? 'Ajukan Proposal Project' : 'Submit Project Proposal'}
+        title={
+          locale === 'id'
+            ? 'Ajukan Minat & Kualifikasi Proyek'
+            : 'Express Interest & Qualification'
+        }
         subtitle={
           proposalModalProject
             ? `${locale === 'id' ? proposalModalProject.title : proposalModalProject.titleEn} · ${proposalModalProject.captureSpec.version}`
@@ -572,325 +1188,53 @@ export const GlobalActionModals: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal 2: Request Order (Freelancer Service Catalog) */}
+      {/* Modal 2: 3-Step Recruit Freelancer Modal */}
       <Modal
-        open={!!serviceOrderModal}
-        onClose={() => openServiceOrderModal(null)}
+        open={!!recruitModalTarget}
+        onClose={() => openRecruitModal(null)}
         title={
           locale === 'id'
-            ? 'Pesan Layanan Freelancer'
-            : 'Request Freelancer Service Order'
+            ? 'Rekrutmen Freelancer Terstruktur (Private Offer)'
+            : 'Structured Freelancer Recruitment (Private Offer)'
         }
         subtitle={
-          serviceOrderModal
-            ? `${serviceOrderModal.freelancerName} · ${serviceOrderModal.roleType}`
+          recruitModalTarget
+            ? `${recruitModalTarget.freelancerName} · ${recruitModalTarget.roleType}`
             : undefined
         }
+        maxWidthClass="max-w-xl"
       >
-        {serviceOrderModal && (
-          <ServiceOrderFormContent
-            key={`${serviceOrderModal.id}-${locale}`}
-            service={serviceOrderModal}
+        {recruitModalTarget && (
+          <RecruitFreelancerModalContent
+            key={`${recruitModalTarget.id}-${locale}`}
+            freelancer={recruitModalTarget}
             locale={locale}
-            onConfirm={handleAddServiceOrder}
+            onClose={() => openRecruitModal(null)}
+            onOpenTopUp={() => setTopUpModalOpen(true)}
           />
         )}
       </Modal>
 
-      {/* Modal 3: Keranjang, Checkout & Pembayaran */}
+      {/* Modal 3: Top Up Dompet Rekruter */}
       <Modal
-        open={cartDrawerOpen}
-        onClose={() => {
-          setCartDrawerOpen(false);
-          setCheckoutStep('cart');
-        }}
+        open={topUpModalOpen}
+        onClose={() => setTopUpModalOpen(false)}
         title={
-          checkoutStep === 'cart'
-            ? locale === 'id'
-              ? 'Keranjang Work Order'
-              : 'Work Order Cart'
-            : checkoutStep === 'payment'
-            ? locale === 'id'
-              ? 'Pembayaran & Pendanaan Order'
-              : 'Order Payment & Funding'
-            : locale === 'id'
-            ? 'Work Order Terkonfirmasi'
-            : 'Work Order Confirmed'
+          locale === 'id'
+            ? 'Top Up Saldo Ledger Rekruter'
+            : 'Top Up Recruiter Ledger Balance'
         }
         subtitle={
           locale === 'id'
-            ? 'Rincian biaya platform ditampilkan transparan sebelum persetujuan'
-            : 'Platform service fees are disclosed transparently prior to authorization'
+            ? 'Pembayaran terotorisasi Payment Provider · Minimum kebijakan saldo Rp 5.000.000'
+            : 'Payment Provider authorized settlement · Minimum balance policy Rp 5,000,000'
         }
+        maxWidthClass="max-w-md"
       >
-        {checkoutStep === 'done' ? (
-          <div className="py-4 text-center space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#16835D]/12 text-[#16835D]">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-[var(--egvox-text-primary)]">
-                {locale === 'id'
-                  ? 'Order Terdaftar & Terotorisasi'
-                  : 'Order Registered & Authorized'}
-              </h3>
-              <p className="mt-1 text-sm text-[var(--egvox-text-secondary)]">
-                {locale === 'id'
-                  ? 'Sesi private upload dan milestone Work Order Anda kini tersedia di Workspace.'
-                  : 'Your private upload session and Work Order milestones are now live in Workspace.'}
-              </p>
-            </div>
-            <div className="flex justify-center gap-3 pt-2">
-              <Link
-                href="/workspace?tab=tracking"
-                onClick={() => {
-                  setCartDrawerOpen(false);
-                  setCheckoutStep('cart');
-                }}
-                className="rounded-lg bg-[#027F86] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#039998]"
-              >
-                {locale === 'id' ? 'Buka Tracking Produksi' : 'Open Production Tracking'}
-              </Link>
-            </div>
-          </div>
-        ) : cartItems.length === 0 ? (
-          <div className="py-8 text-center space-y-3">
-            <p className="text-sm text-[var(--egvox-text-secondary)]">
-              {locale === 'id'
-                ? 'Belum ada item layanan di keranjang Work Order Anda.'
-                : 'No service items in your Work Order cart yet.'}
-            </p>
-            <Link
-              href="/marketplace/services"
-              onClick={() => setCartDrawerOpen(false)}
-              className="inline-flex rounded-lg bg-[#027F86] px-4 py-2 text-sm font-semibold text-white"
-            >
-              {locale === 'id'
-                ? 'Jelajahi Katalog Freelancer'
-                : 'Explore Freelancer Catalog'}
-            </Link>
-          </div>
-        ) : checkoutStep === 'cart' ? (
-          <div className="space-y-4">
-            <div className="divide-y divide-[var(--egvox-border-default)]">
-              {cartItems.map((item) => {
-                const title =
-                  locale === 'id' ? item.title : item.titleEn || item.title;
-                const sub =
-                  locale === 'id'
-                    ? item.subtitle
-                    : item.subtitleEn || item.subtitle;
-                const unit =
-                  locale === 'id'
-                    ? item.unitLabel
-                    : item.unitLabelEn || 'hour';
-                return (
-                  <div key={item.id} className="flex flex-col sm:flex-row sm:items-start gap-3 py-3">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <img
-                        src={item.thumbnail}
-                        alt={title}
-                        referrerPolicy="no-referrer"
-                        className="h-14 w-16 rounded-lg object-cover shrink-0 border border-[var(--egvox-border-default)]"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-[var(--egvox-text-primary)] line-clamp-1">
-                          {title}
-                        </p>
-                        <p className="text-xs text-[var(--egvox-text-muted)]">
-                          {sub}
-                        </p>
-                        <div className="mt-1">
-                          <DualPrice
-                            amountIDR={item.unitPrice}
-                            unitLabel={unit}
-                            size="sm"
-                            layout="inline"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => updateCartQty(item.id, -1)}
-                        className="h-7 w-7 rounded border border-[var(--egvox-border-default)] flex items-center justify-center text-xs"
-                      >
-                        -
-                      </button>
-                      <span className="w-6 text-center text-xs font-semibold tabular-nums">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => updateCartQty(item.id, 1)}
-                        className="h-7 w-7 rounded border border-[var(--egvox-border-default)] flex items-center justify-center text-xs"
-                      >
-                        +
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.id)}
-                        aria-label={locale === 'id' ? 'Hapus item' : 'Remove item'}
-                        className="ml-1 text-[var(--egvox-text-muted)] hover:text-[#C43D3D]"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-4 space-y-2 text-sm">
-              <div className="flex flex-wrap justify-between gap-2 text-[var(--egvox-text-secondary)]">
-                <span>{locale === 'id' ? 'Subtotal Jasa' : 'Services Subtotal'}</span>
-                <span className="tabular-nums text-right">
-                  {egvoxFormatIDR(subtotal)}{' '}
-                  <span className="text-xs text-[#027F86] dark:text-[#04B8B4]">
-                    ({egvoxFormatUSD(subtotal)} USD)
-                  </span>
-                </span>
-              </div>
-              <div className="flex flex-wrap justify-between gap-2 text-[var(--egvox-text-secondary)]">
-                <span>
-                  {locale === 'id'
-                    ? 'Biaya Platform & QA (5%)'
-                    : 'Platform & QA Fee (5%)'}
-                </span>
-                <span className="tabular-nums text-right">
-                  {egvoxFormatIDR(platformFee)}{' '}
-                  <span className="text-xs text-[#027F86] dark:text-[#04B8B4]">
-                    ({egvoxFormatUSD(platformFee)} USD)
-                  </span>
-                </span>
-              </div>
-              <div className="flex flex-wrap justify-between items-center gap-2 border-t border-[var(--egvox-border-default)] pt-2 font-bold text-[var(--egvox-text-primary)]">
-                <span>{locale === 'id' ? 'Total Pesanan' : 'Order Total'}</span>
-                <DualPrice amountIDR={grandTotal} size="sm" accent="teal" layout="inline" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <Link
-                href="/checkout"
-                onClick={() => setCartDrawerOpen(false)}
-                className="inline-flex items-center justify-center rounded-lg border border-[#027F86] py-3 text-sm font-semibold text-[#027F86] dark:text-[#04B8B4] hover:bg-[#027F86]/8 transition-colors"
-              >
-                {locale === 'id' ? 'Buka Halaman Checkout' : 'Full Checkout Page'}
-              </Link>
-              <button
-                type="button"
-                onClick={() => setCheckoutStep('payment')}
-                className="w-full rounded-lg bg-[#027F86] py-3 text-sm font-semibold text-white hover:bg-[#039998] transition-colors"
-              >
-                {locale === 'id' ? 'Lanjut ke Pembayaran' : 'Proceed to Payment'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--egvox-text-muted)]">
-                {locale === 'id'
-                  ? 'Pilih Metode Pembayaran (Adapter PSP Indonesia)'
-                  : 'Select Payment Method (Licensed PSP Adapter)'}
-              </p>
-              {[
-                {
-                  id: 'va' as const,
-                  label: 'Virtual Account (BCA / Mandiri / BNI / BRI)',
-                  note:
-                    locale === 'id'
-                      ? 'IDR · Verifikasi otomatis via webhook'
-                      : 'IDR · Automated webhook verification',
-                },
-                {
-                  id: 'qris' as const,
-                  label: locale === 'id' ? 'QRIS Instan' : 'Instant QRIS',
-                  note:
-                    locale === 'id'
-                      ? 'Mendukung seluruh aplikasi pembayaran Indonesia'
-                      : 'Supported across Indonesian payment apps',
-                },
-                {
-                  id: 'ewallet' as const,
-                  label:
-                    locale === 'id'
-                      ? 'E-Wallet Korporat & Dompet Digital'
-                      : 'Corporate & Digital E-Wallet',
-                  note:
-                    locale === 'id' ? 'Konfirmasi instan' : 'Instant confirmation',
-                },
-                {
-                  id: 'card' as const,
-                  label:
-                    locale === 'id'
-                      ? 'Kartu Kredit / Debit (Adapter Terlisensi)'
-                      : 'Credit / Debit Card (Licensed Adapter)',
-                  note:
-                    locale === 'id'
-                      ? 'Tergantung kelayakan mata uang'
-                      : 'Subject to currency eligibility',
-                },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setPaymentMethod(m.id)}
-                  className={`w-full flex items-center justify-between rounded-xl border p-3.5 text-left transition-colors ${
-                    paymentMethod === m.id
-                      ? 'border-[#027F86] bg-[#027F86]/8'
-                      : 'border-[var(--egvox-border-default)] hover:bg-[var(--egvox-bg-canvas)]'
-                  }`}
-                >
-                  <span className="block">
-                    <span className="block text-sm font-semibold text-[var(--egvox-text-primary)]">
-                      {m.label}
-                    </span>
-                    <span className="block text-xs text-[var(--egvox-text-muted)]">{m.note}</span>
-                  </span>
-                  <CreditCard className="h-4 w-4 text-[#027F86]" />
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-start gap-2 rounded-xl bg-[var(--egvox-bg-canvas)] p-3 text-xs text-[var(--egvox-text-secondary)]">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-[#16835D] mt-0.5" />
-              <span>
-                {locale === 'id'
-                  ? 'Dana Work Order dicatat pada ledger transaksi terpisah; kelayakan payout dihitung berdasarkan unit yang lolos QA Acceptance Criteria.'
-                  : 'Work Order funds are tracked in a dedicated transaction ledger; payout eligibility follows QA-accepted units.'}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--egvox-border-default)] pt-3">
-              <div>
-                <p className="text-xs text-[var(--egvox-text-muted)]">
-                  {locale === 'id' ? 'Total Pembayaran' : 'Payment Total'}
-                </p>
-                <DualPrice amountIDR={grandTotal} size="md" accent="teal" />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCheckoutStep('cart')}
-                  className="rounded-lg border border-[var(--egvox-border-default)] px-3.5 py-2.5 text-sm font-medium"
-                >
-                  {locale === 'id' ? 'Kembali' : 'Back'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePayNow}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#027F86] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#039998]"
-                >
-                  <Lock className="h-4 w-4" />
-                  <span>{locale === 'id' ? 'Bayar Sekarang' : 'Authorize & Pay'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <TopUpWalletModalContent
+          locale={locale}
+          onClose={() => setTopUpModalOpen(false)}
+        />
       </Modal>
 
       {/* Modal 4: Notifications Center */}
@@ -900,8 +1244,8 @@ export const GlobalActionModals: React.FC = () => {
         title={locale === 'id' ? 'Pusat Notifikasi EgvoX' : 'EgvoX Notification Center'}
         subtitle={
           locale === 'id'
-            ? 'Pembaruan QA, negosiasi penawaran, dan status delivery paket'
-            : 'QA updates, offer negotiations, and dataset package deliveries'
+            ? 'Pembaruan QA, penawaran rekrutmen privat, dan status delivery paket'
+            : 'QA updates, private recruitment offers, and dataset package deliveries'
         }
       >
         <div className="space-y-4">

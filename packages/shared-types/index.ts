@@ -104,6 +104,7 @@ export interface ProjectListing {
   rightsSummary: string;
   rightsSummaryEn: string;
   milestones: ProjectMilestone[];
+  showBudgetDisclosure?: boolean;
   faq: { q: string; a: string }[];
   faqEn?: { q: string; a: string }[];
 }
@@ -139,12 +140,16 @@ export interface FreelancerServiceListing {
   verified: boolean;
   kycStatus: 'verified' | 'pending';
   available: boolean;
-  roleType: 'Video Contributor' | 'Data Annotator' | 'QA Reviewer';
+  roleType: 'Video Contributor' | 'Data Annotator' | 'QA Specialist';
   levelBadge: 'Level Expert' | 'Level Pro' | 'Verified Talent';
   rating: number;
   reviewCount: number;
   completedOrders: number;
   slaPercent: number;
+  acceptanceRatePercent?: number;
+  conflictDisclosureDeclared?: boolean;
+  conflictDisclosureText?: string;
+  conflictDisclosureTextEn?: string;
   title: string;
   titleEn: string;
   description: string;
@@ -213,7 +218,9 @@ export interface SavedProposal {
   projectTitleEn?: string;
   vendorName: string;
   volume: number;
-  estimatedTotal: number;
+  weeklyCapacityHours?: number;
+  deviceSummary?: string;
+  estimatedTotal?: number;
   note: string;
   noteEn?: string;
   attachmentName?: string;
@@ -288,6 +295,87 @@ export interface SubmissionFileItem {
   qaReasonEn?: string;
 }
 
+export interface RecruiterWalletBalance {
+  settledBalanceIDR: number;
+  availableBalanceIDR: number;
+  reservedBalanceIDR: number;
+  committedBalanceIDR: number;
+  paidOutIDR: number;
+  pendingTopUpIDR: number;
+  minPolicyIDR: number;
+  vendorKybVerified: boolean;
+}
+
+export interface TopUpRecord {
+  id: string;
+  code: string;
+  amountIDR: number;
+  method: 'va' | 'qris' | 'ewallet' | 'card';
+  status: 'pending_settlement' | 'settled';
+  createdAt: string;
+  settledAt?: string;
+}
+
+export interface RecruitmentOfferVersion {
+  version: number;
+  actorRole: 'recruiter' | 'freelancer';
+  actorName: string;
+  grossFeeIDR: number;
+  adminFeeIDR: number;
+  paymentFeeIDR: number;
+  netFreelancerIDR: number;
+  recruiterTotalIDR: number;
+  volumeHours: number;
+  note: string;
+  noteEn?: string;
+  scopeDelta?: string;
+  timestamp: string;
+}
+
+export interface RecruitmentOffer {
+  id: string;
+  code: string;
+  workType: 'Video Capture' | 'Data Annotation' | 'QA Specialist';
+  projectTitle: string;
+  projectTitleEn?: string;
+  projectSlug?: string;
+  recruiterOrg: string;
+  freelancerUsername: string;
+  freelancerName: string;
+  bindingType: 'binding' | 'screening';
+  status: 'draft' | 'sent' | 'negotiating' | 'accepted' | 'rejected' | 'withdrawn' | 'expired';
+  grossFeeIDR: number;
+  adminFeeIDR: number;
+  paymentFeeIDR: number;
+  feePayer: 'shared_transparent';
+  recruiterTotalIDR: number;
+  freelancerNetIDR: number;
+  volumeHours: number;
+  specVersion: string;
+  deadline: string;
+  milestonesSummary: string;
+  revisionsCount: number;
+  acceptanceSummary: string;
+  expiresAt: string;
+  conflictCheckPassed?: boolean;
+  reservedAmountIDR: number;
+  versions: RecruitmentOfferVersion[];
+  updatedAt: string;
+}
+
+export interface StructuredClarification {
+  id: string;
+  offerCode: string;
+  projectTitle: string;
+  senderName: string;
+  senderRole: 'recruiter' | 'freelancer';
+  topic: 'spec' | 'schedule' | 'deliverables' | 'conflict_check';
+  question: string;
+  answer?: string;
+  status: 'open' | 'resolved';
+  createdAt: string;
+}
+
 export interface NegotiationOffer {
   id: string;
   projectTitle: string;
@@ -359,3 +447,232 @@ export interface WorkspaceTaskListItem {
   status?: string;
   due?: string;
 }
+
+// ================= DATA OPERATIONS WORKSPACE (ops.egvox.ai) =================
+
+export type OpsStaffRole =
+  | 'data_operations'
+  | 'qa_reviewer'
+  | 'project_manager'
+  | 'annotation_ops';
+
+export interface OpsProjectPackage {
+  id: string;
+  projectCode: string;
+  nameId: string;
+  nameEn: string;
+  clientName: string;
+  specVersion: string;
+  totalPackages: number;
+  completedPackages: number;
+  progressPercent: number;
+  stage: 'collection' | 'review' | 'qa' | 'packaging' | 'completed';
+  slaPercent: number;
+  deadline: string;
+}
+
+export interface OpsUploadSession {
+  id: string;
+  sessionCode: string;
+  projectCode: string;
+  uploaderName: string;
+  uploadedFiles: number;
+  totalFiles: number;
+  uploadedSizeGb: number;
+  totalSizeGb: number;
+  progressPercent: number;
+  status: 'uploading' | 'quarantine' | 'validating' | 'completed';
+  startedAt: string;
+}
+
+export interface OpsQuarantineItem {
+  id: string;
+  fileName: string;
+  projectCode: string;
+  sessionCode: string;
+  resolution: string;
+  duration: string;
+  codec: string;
+  fps: number;
+  sizeLabel: string;
+  sha256: string;
+  uploader: string;
+  status:
+    | 'quarantine'
+    | 'technical_validation'
+    | 'human_review'
+    | 'accepted'
+    | 'rework_required'
+    | 'rejected';
+  techChecks: {
+    formatOk: boolean;
+    resolutionOk: boolean;
+    fpsOk: boolean;
+    durationOk: boolean;
+    codecOk: boolean;
+    checksumOk: boolean;
+  };
+  contentChecks: {
+    matchesSpec: boolean;
+    piiFree: boolean;
+    consentValid: boolean;
+  };
+  reasonCode?: string;
+  thumbnail: string;
+}
+
+export interface AnnotationBoundingBox {
+  id: string;
+  trackId: string;
+  label: string;
+  category: 'object' | 'ingredient' | 'hand';
+  color: string;
+  confidence: number;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  note?: string;
+}
+
+export interface AnnotationTemporalSegment {
+  id: string;
+  code: string;
+  label: string;
+  startSec: number;
+  endSec: number;
+  color: string;
+  trackType: 'segment' | 'hand' | 'knife' | 'object';
+}
+
+export interface OpsAnnotationProject {
+  id: string;
+  code: string;
+  titleId: string;
+  titleEn: string;
+  projectCode: string;
+  schemaVersion: string;
+  annotatorName: string;
+  reviewerName: string;
+  taskCount: number;
+  completedTasks: number;
+  progressPercent: number;
+  status: 'in_progress' | 'assigned' | 'review' | 'finalized';
+  videoDurationSec: number;
+  previewImage: string;
+}
+
+export interface OpsDeliveryPackage {
+  id: string;
+  packageCode: string;
+  titleId: string;
+  titleEn: string;
+  buyerName: string;
+  version: string;
+  totalFiles: number;
+  totalSizeGb: number;
+  status: 'ready_for_delivery' | 'packaging' | 'delivered';
+  manifestReady: boolean;
+  annotationExportReady: boolean;
+  rightsManifestReady: boolean;
+  qaValidated: boolean;
+  exportFormat: 'MP4 + JSONL' | 'MP4 + COCO JSON' | 'MP4 + CSV';
+}
+
+// ================= SUPER ADMIN CONTROL PLANE (admin.egvox.ai) =================
+
+export interface AdminVerificationCase {
+  id: string;
+  entityName: string;
+  email: string;
+  roleType: 'Freelancer' | 'Vendor' | 'Enterprise';
+  documentType: string;
+  submittedAt: string;
+  country: string;
+  status: 'pending' | 'verified' | 'revision_requested' | 'rejected';
+  riskTier: 'Low' | 'Standard' | 'Elevated';
+}
+
+export interface AdminModerationListing {
+  id: string;
+  code: string;
+  titleId: string;
+  titleEn: string;
+  listingType: 'project' | 'service';
+  ownerName: string;
+  category: string;
+  rateIDR: number;
+  status: 'pending' | 'review' | 'approved' | 'revision_requested' | 'rejected';
+  thumbnail: string;
+  hasConsentEvidence: boolean;
+}
+
+export interface AdminEnterpriseDeal {
+  id: string;
+  companyName: string;
+  briefSummary: string;
+  estimatedHours: number;
+  stage: 'request' | 'negotiation' | 'managed';
+  contractValueIDR: number;
+  picEmail: string;
+  picName?: string;
+  picPhone?: string;
+  attachmentName?: string;
+  officialProjectCode?: string;
+}
+
+export interface AdminFinanceRecord {
+  id: string;
+  code: string;
+  kind: 'invoice' | 'payout' | 'reconciliation';
+  counterparty: string;
+  amountIDR: number;
+  status: 'pending_dual_approval' | 'approved' | 'settled' | 'flagged';
+  dateLabel: string;
+  requiresDualApproval?: boolean;
+}
+
+export interface AdminRightsRecord {
+  id: string;
+  code: string;
+  kind: 'consent' | 'license' | 'permitted_use';
+  subjectTitle: string;
+  projectCode: string;
+  territory: string;
+  retentionLabel: string;
+  status: 'valid' | 'review' | 'revoked';
+}
+
+export interface AdminDisputeCase {
+  id: string;
+  code: string;
+  workOrderCode: string;
+  titleId: string;
+  titleEn: string;
+  claimant: string;
+  severity: 'high' | 'medium' | 'low';
+  status: 'open' | 'in_progress' | 'resolved';
+  amountAtRiskIDR: number;
+  rationale: string;
+}
+
+export interface AdminAuditLogEntry {
+  id: string;
+  timestamp: string;
+  actorCode: string;
+  actorRole: string;
+  activity: string;
+  target: string;
+  ipAddress: string;
+  isBreakGlass?: boolean;
+}
+
+export interface AdminRbacRole {
+  id: string;
+  name: string;
+  descriptionId: string;
+  descriptionEn: string;
+  userCount: number;
+  permissions: string[];
+}
+

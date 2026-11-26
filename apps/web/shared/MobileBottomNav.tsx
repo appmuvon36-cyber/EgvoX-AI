@@ -4,11 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Briefcase,
   Compass,
   FolderKanban,
   Heart,
   LayoutDashboard,
+  Users,
 } from 'lucide-react';
 import { useAppState } from '@/lib/hooks/useAppState';
 
@@ -16,18 +16,23 @@ export const MobileBottomNav: React.FC = () => {
   const pathname = usePathname();
   const { savedSlugs, locale } = useAppState();
 
-  const showBar =
-    pathname.startsWith('/marketplace') ||
-    pathname.startsWith('/projects') ||
-    pathname.startsWith('/services') ||
-    pathname.startsWith('/providers') ||
-    pathname.startsWith('/freelancers') ||
-    pathname.startsWith('/categories') ||
-    pathname.startsWith('/checkout') ||
+  const isDedicatedPortal =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/ops') ||
+    pathname.startsWith('/workspace') ||
     pathname.startsWith('/freelancer/dashboard') ||
     pathname.startsWith('/vendor/dashboard') ||
-    pathname.startsWith('/enterprise/dashboard') ||
-    pathname.startsWith('/workspace');
+    pathname.startsWith('/enterprise/dashboard');
+
+  const showBar =
+    !isDedicatedPortal &&
+    (pathname.startsWith('/marketplace') ||
+      pathname.startsWith('/projects') ||
+      pathname.startsWith('/services') ||
+      pathname.startsWith('/providers') ||
+      pathname.startsWith('/freelancers') ||
+      pathname.startsWith('/categories') ||
+      pathname.startsWith('/checkout'));
 
   if (!showBar) return null;
 
@@ -48,8 +53,8 @@ export const MobileBottomNav: React.FC = () => {
     },
     {
       href: '/marketplace/services',
-      label: locale === 'id' ? 'Layanan' : 'Services',
-      icon: Briefcase,
+      label: 'Freelancer',
+      icon: Users,
       active:
         pathname.startsWith('/marketplace/services') ||
         pathname.startsWith('/services'),

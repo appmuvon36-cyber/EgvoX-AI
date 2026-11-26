@@ -62,7 +62,9 @@ export const GoogleWorkspacePluginPanel: React.FC = () => {
   );
   const [newEventTitle, setNewEventTitle] = useState('EgvoX Enterprise QA & Discovery Sync');
   const [emailTo, setEmailTo] = useState('');
-  const [emailSubject, setEmailSubject] = useState('Update Work Order EgvoX');
+  const [emailSubject, setEmailSubject] = useState(
+    locale === 'id' ? 'Update Work Order EgvoX' : 'EgvoX Work Order Update'
+  );
   const [emailBody, setEmailBody] = useState(
     locale === 'id'
       ? 'Halo tim, berikut pembaruan pengiriman batch video per jam terbaru.'

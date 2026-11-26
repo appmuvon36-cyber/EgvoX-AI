@@ -13,6 +13,7 @@ import {
   Database,
   Factory,
   FileCheck2,
+  FileUp,
   FolderKanban,
   GraduationCap,
   Heart,
@@ -196,6 +197,7 @@ export const CorporateLandingView: React.FC = () => {
     savedSlugs,
     toggleSaved,
     openProposalModal,
+    openRecruitModal,
     submitEnterpriseInquiry,
     customProjects,
     customServices,
@@ -205,7 +207,7 @@ export const CorporateLandingView: React.FC = () => {
   const [benefitPersona, setBenefitPersona] = useState<'contributor' | 'vendor' | 'enterprise'>('contributor');
   const [catalogTab, setCatalogTab] = useState<'projects' | 'freelancers'>('projects');
   const [modalityFilter, setModalityFilter] = useState<'Semua' | 'Video' | 'Gambar' | 'Multimodal'>('Semua');
-  const [freelancerRoleTab, setFreelancerRoleTab] = useState<'Semua' | 'Video Contributor' | 'Data Annotator'>('Semua');
+  const [freelancerRoleTab, setFreelancerRoleTab] = useState<'Semua' | 'Video Contributor' | 'Data Annotator' | 'QA Specialist'>('Semua');
   const [activeAnnotationId, setActiveAnnotationId] = useState<string>('cooking');
   const [showOverlayBoxes, setShowOverlayBoxes] = useState<boolean>(true);
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
@@ -215,8 +217,10 @@ export const CorporateLandingView: React.FC = () => {
   const [country, setCountry] = useState('Indonesia');
   const [businessEmail, setBusinessEmail] = useState('');
   const [contactPerson, setContactPerson] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [estimatedVolume, setEstimatedVolume] = useState('50 – 250 jam');
   const [requirementSummary, setRequirementSummary] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
   const [consentToContact, setConsentToContact] = useState(false);
   const [inquiryErrors, setInquiryErrors] = useState<Record<string, string>>({});
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
@@ -243,6 +247,7 @@ export const CorporateLandingView: React.FC = () => {
         companyName,
         businessEmail,
         contactPerson,
+        contactPhone,
         country,
         estimatedVolume,
         requirementSummary,
@@ -260,14 +265,18 @@ export const CorporateLandingView: React.FC = () => {
       country,
       businessEmail,
       contactPerson,
+      contactPhone: contactPhone.trim(),
       estimatedVolume,
       requirementSummary,
+      attachmentName: attachmentName || undefined,
     });
     setInquirySubmitted(true);
     setCompanyName('');
     setBusinessEmail('');
     setContactPerson('');
+    setContactPhone('');
     setRequirementSummary('');
+    setAttachmentName('');
     setConsentToContact(false);
   };
 
@@ -610,23 +619,23 @@ export const CorporateLandingView: React.FC = () => {
               },
               {
                 num: '02.',
-                title: 'Freelancer Service Order',
+                title: locale === 'id' ? 'Rekrutmen Freelancer Privat' : 'Private Freelancer Recruitment',
                 steps:
                   locale === 'id'
                     ? [
-                        'Contributor & Annotator menerbitkan jasa per jam dengan portfolio preview berizin.',
-                        'Vendor memesan langsung jasa capture atau anotasi opsional.',
-                        'Milestone & acceptance criteria mengikat kedua pihak.',
-                        'Payout diproses berdasarkan jam/unit yang lolos verifikasi QA.',
+                        'Contributor, Annotator & QA Specialist menampilkan keahlian, perangkat & portfolio terverifikasi.',
+                        'Vendor terverifikasi KYB (min. saldo Rp 5 jt) mengirim penawaran rekrutmen privat.',
+                        'Negosiasi berversi membentuk Work Order & reservasi dana terotorisasi di ledger.',
+                        'Payout diproses bertahap sesuai unit yang lolos QA Acceptance Criteria.',
                       ]
                     : [
-                        'Contributors & Annotators publish hourly service packages with consented previews.',
-                        'Vendors order capture hours or optional annotation directly.',
-                        'Milestones and objective acceptance criteria bind delivery.',
-                        'Payouts clear based on QA-accepted hours.',
+                        'Contributors, Annotators & QA Specialists showcase verified skills, equipment & consented portfolios.',
+                        'KYB-verified Vendors (min. Rp 5M settled balance) send private recruitment offers.',
+                        'Versioned negotiation locks the Work Order & authorized ledger fund reservation.',
+                        'Payouts settle per unit passing objective QA Acceptance Criteria.',
                       ],
                 ctaHref: '/marketplace/services',
-                ctaLabel: locale === 'id' ? 'Lihat Freelancer Catalog' : 'Browse Freelancer Catalog',
+                ctaLabel: locale === 'id' ? 'Jelajahi Katalog Freelancer' : 'Browse Freelancer Catalog',
               },
               {
                 num: '03.',
@@ -692,31 +701,38 @@ export const CorporateLandingView: React.FC = () => {
                 {
                   name: 'Freelancer Network',
                   desc: locale === 'id' ? 'Contributor & Annotator terverifikasi' : 'Verified Contributors & Annotators',
+                  href: '/workspace?role=freelancer',
                 },
                 {
                   name: 'Project Catalog',
                   desc: locale === 'id' ? 'Listing kebutuhan dataset Vendor' : 'Vendor dataset collection briefs',
+                  href: '/marketplace/projects',
                 },
                 {
                   name: 'Service Catalog',
                   desc: locale === 'id' ? 'Jasa perekaman & anotasi per jam' : 'Hourly capture & annotation services',
+                  href: '/marketplace/services',
                 },
                 {
                   name: 'Data Operations',
                   desc: locale === 'id' ? 'Validasi media, QA & packaging' : 'Media validation, QA & packaging',
+                  href: '/ops',
                 },
                 {
                   name: 'Enterprise Hub',
                   desc: locale === 'id' ? 'RFP, kontrak & Official Project' : 'RFP, contracts & Official Projects',
+                  href: '/workspace?role=enterprise',
                 },
                 {
                   name: 'Control Plane',
                   desc: locale === 'id' ? 'Moderasi, rights, ledger & audit' : 'Moderation, rights, ledger & audit',
+                  href: '/admin',
                 },
               ].map((sys) => (
-                <div
+                <Link
                   key={sys.name}
-                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5"
+                  href={sys.href}
+                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 hover:border-[#027F86] transition-colors block"
                 >
                   <p className="text-xs font-bold text-[#027F86] dark:text-[#04B8B4]">
                     {sys.name}
@@ -724,7 +740,7 @@ export const CorporateLandingView: React.FC = () => {
                   <p className="mt-1 text-xs text-[var(--egvox-text-secondary)]">
                     {sys.desc}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -806,7 +822,7 @@ export const CorporateLandingView: React.FC = () => {
         ) : (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              {(['Semua', 'Video Contributor', 'Data Annotator'] as const).map((r) => (
+              {(['Semua', 'Video Contributor', 'Data Annotator', 'QA Specialist'] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -892,7 +908,18 @@ export const CorporateLandingView: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--egvox-border-default)] px-4 sm:px-5 py-3.5">
-                      <DualPrice amountIDR={prj.ratePerUnit} unitLabel={unit} size="sm" />
+                      {prj.showBudgetDisclosure !== false ? (
+                        <div>
+                          <span className="block text-[10px] text-[var(--egvox-text-muted)]">
+                            {locale === 'id' ? 'Ref. Budget Vendor' : 'Vendor Budget Ref.'}
+                          </span>
+                          <DualPrice amountIDR={prj.ratePerUnit} unitLabel={unit} size="sm" />
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-[#027F86]">
+                          {locale === 'id' ? 'Penawaran Privat' : 'Private Offer'}
+                        </span>
+                      )}
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -916,7 +943,8 @@ export const CorporateLandingView: React.FC = () => {
             : filteredFreelancers.map((srv) => {
                 const title = locale === 'id' ? srv.title : srv.titleEn;
                 const desc = locale === 'id' ? srv.description : srv.descriptionEn;
-                const unit = locale === 'id' ? srv.unitLabel : srv.unitLabelEn || 'hour';
+                const cap = locale === 'id' ? srv.capacityLabel : srv.capacityLabelEn || srv.capacityLabel;
+                const accRate = srv.acceptanceRatePercent ?? srv.slaPercent;
                 return (
                   <article
                     key={srv.id}
@@ -940,17 +968,17 @@ export const CorporateLandingView: React.FC = () => {
                                 {srv.freelancerName}
                               </Link>
                               {srv.verified && (
-                                <ShieldCheck className="h-4 w-4 text-[#2563A6]" />
+                                <ShieldCheck className="h-4 w-4 text-[#16835D]" />
                               )}
                             </div>
-                            <p className="text-xs text-[var(--egvox-text-muted)]">
+                            <p className="text-xs font-medium text-[#027F86]">
                               {srv.roleType} · {srv.levelBadge}
                             </p>
                           </div>
                         </div>
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--egvox-text-primary)] tabular-nums">
                           <Star className="h-3.5 w-3.5 fill-[#FDBA27] text-[#FDBA27]" />
-                          {srv.rating} ({srv.reviewCount})
+                          {srv.rating} ({srv.completedOrders})
                         </span>
                       </div>
 
@@ -969,13 +997,27 @@ export const CorporateLandingView: React.FC = () => {
                     </div>
 
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--egvox-border-default)] pt-3.5">
-                      <DualPrice amountIDR={srv.pricePerUnit} unitLabel={unit} size="sm" />
-                      <Link
-                        href={`/marketplace/services/${srv.slug}`}
-                        className="rounded-lg border border-[#027F86] px-3 py-1.5 text-xs font-semibold text-[#027F86] dark:text-[#04B8B4] hover:bg-[#027F86]/8"
-                      >
-                        {locale === 'id' ? 'Lihat Layanan' : 'View Service'}
-                      </Link>
+                      <div className="text-xs tabular-nums">
+                        <span className="block font-semibold text-[#16835D]">
+                          {accRate}% {locale === 'id' ? 'Penerimaan' : 'Acceptance'}
+                        </span>
+                        <span className="text-[11px] text-[var(--egvox-text-muted)]">{cap}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/marketplace/services/${srv.slug}`}
+                          className="rounded-lg border border-[var(--egvox-border-default)] px-3 py-1.5 text-xs font-semibold hover:bg-[var(--egvox-bg-subtle)]"
+                        >
+                          {locale === 'id' ? 'Detail' : 'Details'}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => openRecruitModal(srv)}
+                          className="rounded-lg bg-[#027F86] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
+                        >
+                          {locale === 'id' ? 'Rekrut' : 'Recruit'}
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -991,7 +1033,7 @@ export const CorporateLandingView: React.FC = () => {
             >
               <span>
                 {locale === 'id'
-                  ? 'Lihat Semua Freelancer (More Freelancer) di Marketplace'
+                  ? 'Lihat Semua Freelancer di Marketplace'
                   : 'More Freelancers — View Full Marketplace Catalog'}
               </span>
               <ArrowRight className="h-4 w-4" />
@@ -1539,25 +1581,42 @@ export const CorporateLandingView: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
-                    {locale === 'id' ? 'Estimasi Volume / Durasi (Per Jam) *' : 'Estimated Volume (Hours) *'}
-                  </label>
-                  <select
-                    value={estimatedVolume}
-                    onChange={(e) => setEstimatedVolume(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
-                  >
-                    <option value="20 – 50 jam">
-                      {locale === 'id' ? '20 – 50 jam video tervalidasi' : '20 – 50 verified video hours'}
-                    </option>
-                    <option value="50 – 250 jam">
-                      {locale === 'id' ? '50 – 250 jam video tervalidasi' : '50 – 250 verified video hours'}
-                    </option>
-                    <option value="250+ jam">
-                      {locale === 'id' ? '250+ jam (Skala Enterprise)' : '250+ hours (Enterprise Scale)'}
-                    </option>
-                  </select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? 'Nomor Telepon / WhatsApp PIC *' : 'PIC Phone / WhatsApp Number *'}
+                    </label>
+                    <input
+                      type="tel"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      placeholder={locale === 'id' ? 'Contoh: +62 812-3456-7890' : 'e.g. +62 812-3456-7890'}
+                      className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm tabular-nums focus:border-[#027F86] focus:outline-none"
+                    />
+                    {inquiryErrors.contactPhone && (
+                      <p className="mt-1 text-xs text-[#C43D3D]">{inquiryErrors.contactPhone}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? 'Estimasi Volume / Durasi (Per Jam) *' : 'Estimated Volume (Hours) *'}
+                    </label>
+                    <select
+                      value={estimatedVolume}
+                      onChange={(e) => setEstimatedVolume(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
+                    >
+                      <option value="20 – 50 jam">
+                        {locale === 'id' ? '20 – 50 jam video tervalidasi' : '20 – 50 verified video hours'}
+                      </option>
+                      <option value="50 – 250 jam">
+                        {locale === 'id' ? '50 – 250 jam video tervalidasi' : '50 – 250 verified video hours'}
+                      </option>
+                      <option value="250+ jam">
+                        {locale === 'id' ? '250+ jam (Skala Enterprise)' : '250+ hours (Enterprise Scale)'}
+                      </option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
@@ -1578,6 +1637,41 @@ export const CorporateLandingView: React.FC = () => {
                   {inquiryErrors.requirementSummary && (
                     <p className="mt-1 text-xs text-[#C43D3D]">{inquiryErrors.requirementSummary}</p>
                   )}
+                </div>
+
+                <div className="rounded-xl border border-dashed border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      <FileUp className="h-4 w-4 text-[#027F86]" />
+                      <span>
+                        {locale === 'id'
+                          ? 'Upload Dokumen Penawaran / Brief Teknis (Opsional)'
+                          : 'Upload Proposal / Technical Brief Document (Optional)'}
+                      </span>
+                    </label>
+                    {attachmentName && (
+                      <button
+                        type="button"
+                        onClick={() => setAttachmentName('')}
+                        className="text-[11px] font-semibold text-[#C43D3D] hover:underline"
+                      >
+                        {locale === 'id' ? 'Hapus' : 'Remove'}
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt"
+                    onChange={(e) => setAttachmentName(e.target.files?.[0]?.name || '')}
+                    className="block w-full text-xs text-[var(--egvox-text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[#027F86]/12 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#027F86] hover:file:bg-[#027F86]/20"
+                  />
+                  <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                    {attachmentName
+                      ? `${locale === 'id' ? 'Dokumen terpilih:' : 'Selected file:'} ${attachmentName}`
+                      : locale === 'id'
+                      ? 'Opsional (tidak wajib). Format: PDF, DOCX, XLSX, PPTX, atau ZIP.'
+                      : 'Optional (not mandatory). Formats: PDF, DOCX, XLSX, PPTX, or ZIP.'}
+                  </p>
                 </div>
 
                 <label className="flex items-start gap-2.5 text-xs text-[var(--egvox-text-secondary)]">

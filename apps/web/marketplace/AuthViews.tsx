@@ -8,9 +8,13 @@ import {
   Building2,
   Camera,
   CheckCircle2,
+  Eye,
+  EyeOff,
   FileCheck2,
+  GitBranch,
   Lock,
   Mail,
+  RefreshCw,
 } from 'lucide-react';
 import { EgvoXLogo } from '@/packages/design-system';
 import { googleSignIn } from '@/lib/google-workspace/auth';
@@ -88,6 +92,31 @@ export const GoogleSignInOfficialButton: React.FC<{
   );
 };
 
+const GitHubAuthButton: React.FC<{
+  onSuccess?: () => void;
+  label?: string;
+}> = ({ onSuccess, label }) => {
+  const { locale, showToast } = useAppState();
+  const displayLabel = label ?? (locale === 'id' ? 'Masuk dengan GitHub' : 'Sign in with GitHub');
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        showToast(
+          locale === 'id'
+            ? 'Autentikasi GitHub OAuth terhubung dengan Workspace.'
+            : 'GitHub OAuth authenticated with Workspace.'
+        );
+        onSuccess?.();
+      }}
+      className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-4 text-sm font-semibold text-[var(--egvox-text-primary)] hover:bg-[var(--egvox-bg-subtle)] transition-colors"
+    >
+      <GitBranch className="h-4 w-4 shrink-0" />
+      <span>{displayLabel}</span>
+    </button>
+  );
+};
+
 export const RegisterView: React.FC<{ initialType?: string }> = ({
   initialType,
 }) => {
@@ -106,6 +135,7 @@ export const RegisterView: React.FC<{ initialType?: string }> = ({
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(true);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -247,15 +277,33 @@ export const RegisterView: React.FC<{ initialType?: string }> = ({
               <label className="block text-xs font-semibold">
                 {locale === 'id' ? 'Kata Sandi' : 'Password'}
               </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={locale === 'id' ? 'Minimal 8 karakter' : 'Minimum 8 characters'}
-                className="mt-1 w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm"
-              />
+              <div className="relative mt-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={locale === 'id' ? 'Minimal 8 karakter' : 'Minimum 8 characters'}
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] pl-3.5 pr-10 py-2.5 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--egvox-text-muted)] hover:text-[var(--egvox-text-primary)]"
+                  aria-label={
+                    locale === 'id'
+                      ? showPassword
+                        ? 'Sembunyikan kata sandi'
+                        : 'Tampilkan kata sandi'
+                      : showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <label className="flex items-start gap-2 text-xs text-[var(--egvox-text-secondary)]">
               <input
@@ -286,13 +334,22 @@ export const RegisterView: React.FC<{ initialType?: string }> = ({
               <div className="flex-grow border-t border-[var(--egvox-border-default)]" />
             </div>
 
-            <GoogleSignInOfficialButton
-              label={locale === 'id' ? 'Daftar dengan Google' : 'Sign up with Google'}
-              onSuccess={() => {
-                setActiveRole(selectedRole);
-                router.push(`/onboarding/${selectedRole}`);
-              }}
-            />
+            <div className="space-y-2.5">
+              <GoogleSignInOfficialButton
+                label={locale === 'id' ? 'Daftar dengan Google' : 'Sign up with Google'}
+                onSuccess={() => {
+                  setActiveRole(selectedRole);
+                  router.push(`/onboarding/${selectedRole}`);
+                }}
+              />
+              <GitHubAuthButton
+                label={locale === 'id' ? 'Daftar dengan GitHub' : 'Sign up with GitHub'}
+                onSuccess={() => {
+                  setActiveRole(selectedRole);
+                  router.push(`/onboarding/${selectedRole}`);
+                }}
+              />
+            </div>
 
             <button
               type="button"
@@ -320,6 +377,8 @@ export const LoginView: React.FC = () => {
   const { locale, setActiveRole, showToast } = useAppState();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,14 +433,41 @@ export const LoginView: React.FC = () => {
                 {locale === 'id' ? 'Lupa kata sandi?' : 'Forgot password?'}
               </Link>
             </div>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="mt-1 w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm"
-            />
+            <div className="relative mt-1">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] pl-3.5 pr-10 py-2.5 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--egvox-text-muted)] hover:text-[var(--egvox-text-primary)]"
+                aria-label={
+                  locale === 'id'
+                    ? showPassword
+                      ? 'Sembunyikan kata sandi'
+                      : 'Tampilkan kata sandi'
+                    : showPassword
+                    ? 'Hide password'
+                    : 'Show password'
+                }
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <label className="mt-2.5 flex items-center gap-2 text-xs text-[var(--egvox-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded text-[#027F86]"
+              />
+              <span>{locale === 'id' ? 'Ingat saya di perangkat ini' : 'Remember me on this device'}</span>
+            </label>
           </div>
           <button
             type="submit"
@@ -400,12 +486,20 @@ export const LoginView: React.FC = () => {
           <div className="flex-grow border-t border-[var(--egvox-border-default)]" />
         </div>
 
-        <GoogleSignInOfficialButton
-          onSuccess={() => {
-            setActiveRole('freelancer');
-            router.push('/workspace');
-          }}
-        />
+        <div className="space-y-2.5">
+          <GoogleSignInOfficialButton
+            onSuccess={() => {
+              setActiveRole('freelancer');
+              router.push('/workspace');
+            }}
+          />
+          <GitHubAuthButton
+            onSuccess={() => {
+              setActiveRole('freelancer');
+              router.push('/workspace');
+            }}
+          />
+        </div>
 
         <p className="text-center text-xs text-[var(--egvox-text-muted)]">
           {locale === 'id' ? 'Belum punya akun?' : "Don't have an account?"}{' '}
@@ -481,7 +575,10 @@ export const ForgotPasswordView: React.FC = () => {
 };
 
 export const VerifyEmailView: React.FC = () => {
-  const { locale } = useAppState();
+  const { locale, showToast } = useAppState();
+  const [resentCount, setResentCount] = useState(0);
+  const [openedInbox, setOpenedInbox] = useState(false);
+
   return (
     <div className="mx-auto max-w-md px-4 py-12">
       <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-8 text-center space-y-4">
@@ -489,19 +586,64 @@ export const VerifyEmailView: React.FC = () => {
           <Mail className="h-7 w-7" />
         </div>
         <h1 className="text-xl font-bold">
-          {locale === 'id' ? 'Verifikasi Alamat Email Anda' : 'Verify Your Email Address'}
+          {locale === 'id' ? 'Periksa Email Anda' : 'Check Your Email'}
         </h1>
         <p className="text-sm text-[var(--egvox-text-secondary)]">
           {locale === 'id'
-            ? 'Kami telah mengirimkan kode verifikasi ke email Anda untuk mengaktifkan akses Marketplace dan Workspace.'
-            : 'We sent a verification code to your email to activate Marketplace and Workspace access.'}
+            ? 'Kami telah mengirimkan tautan verifikasi aman ke rizal@egvox.ai untuk mengaktifkan akses Marketplace dan Workspace.'
+            : 'We sent a secure verification link to rizal@egvox.ai to activate your Marketplace and Workspace access.'}
         </p>
-        <Link
-          href="/workspace"
-          className="inline-flex h-11 items-center justify-center rounded-xl bg-[#027F86] px-6 text-sm font-semibold text-white"
-        >
-          {locale === 'id' ? 'Lanjutkan ke Workspace' : 'Continue to Workspace'}
-        </Link>
+        {openedInbox && (
+          <div className="rounded-xl border border-[#16835D]/30 bg-[#16835D]/10 px-3 py-2 text-xs font-semibold text-[#16835D]">
+            {locale === 'id'
+              ? 'Kotak masuk terdeteksi. Silakan klik tombol Lanjutkan ke Workspace di bawah.'
+              : 'Inbox verification acknowledged. Continue to Workspace below.'}
+          </div>
+        )}
+        <div className="space-y-2.5 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              setOpenedInbox(true);
+              showToast(
+                locale === 'id'
+                  ? 'Membuka klien email terdaftar (rizal@egvox.ai)...'
+                  : 'Opening registered email client...'
+              );
+            }}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#027F86] px-6 text-sm font-semibold text-white hover:bg-[#039998]"
+          >
+            <Mail className="h-4 w-4" />
+            <span>{locale === 'id' ? 'Buka Email' : 'Open Email'}</span>
+          </button>
+
+          <Link
+            href="/workspace"
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-[#027F86] px-6 text-sm font-semibold text-[#027F86] hover:bg-[#027F86]/8"
+          >
+            {locale === 'id' ? 'Lanjutkan ke Workspace' : 'Continue to Workspace'}
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              setResentCount((c) => c + 1);
+              showToast(
+                locale === 'id'
+                  ? 'Tautan verifikasi baru telah dikirim ulang ke email Anda.'
+                  : 'A fresh verification link has been resent to your email.'
+              );
+            }}
+            className="inline-flex w-full items-center justify-center gap-1.5 pt-1 text-xs font-semibold text-[#027F86] hover:underline"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span>
+              {locale === 'id'
+                ? `Kirim Ulang Tautan${resentCount > 0 ? ` (${resentCount})` : ''}`
+                : `Resend Verification Link${resentCount > 0 ? ` (${resentCount})` : ''}`}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

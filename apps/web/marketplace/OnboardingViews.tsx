@@ -13,6 +13,8 @@ export const FreelancerOnboardingView: React.FC = () => {
   const [step, setStep] = useState(1);
   const [isContributor, setIsContributor] = useState(true);
   const [isAnnotator, setIsAnnotator] = useState(false);
+  const [isQaSpecialist, setIsQaSpecialist] = useState(false);
+  const [qaConflictAccepted, setQaConflictAccepted] = useState(true);
   const [cameraSpec, setCameraSpec] = useState('GoPro Hero 12 (Head/Chest Rig)');
   const [city, setCity] = useState('Jabodetabek');
   const [portfolioConsent, setPortfolioConsent] = useState(true);
@@ -26,8 +28,8 @@ export const FreelancerOnboardingView: React.FC = () => {
     setActiveRole('freelancer');
     showToast(
       locale === 'id'
-        ? 'Profil Freelancer dikirim untuk moderasi listing.'
-        : 'Freelancer profile submitted for listing moderation.'
+        ? 'Profil Talenta Freelancer dikirim untuk moderasi ke katalog rekrutmen.'
+        : 'Freelancer Talent profile submitted for catalog moderation.'
     );
     router.push('/workspace');
   };
@@ -37,12 +39,12 @@ export const FreelancerOnboardingView: React.FC = () => {
       <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 sm:p-8 space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">
-            {locale === 'id' ? 'Onboarding Freelancer' : 'Freelancer Onboarding'}
+            {locale === 'id' ? 'Onboarding Talenta Freelancer' : 'Freelancer Talent Onboarding'}
           </h1>
           <p className="mt-1 text-xs text-[var(--egvox-text-muted)]">
             {locale === 'id'
-              ? 'Lengkapi kapabilitas per jam agar jasa Anda tampil di Freelancer Service Catalog setelah moderasi.'
-              : 'Complete your hourly capabilities to publish your services in the Freelancer Catalog.'}
+              ? 'Lengkapi spesialisasi, perangkat, kapasitas, dan portfolio berizin. Kompensasi dibahas melalui penawaran rekrutmen privat.'
+              : 'Complete your specialization, equipment, capacity, and consented portfolio. Compensation is discussed via private recruitment offers.'}
           </p>
         </div>
 
@@ -73,7 +75,7 @@ export const FreelancerOnboardingView: React.FC = () => {
         {step === 1 && (
           <div className="space-y-3">
             <p className="text-sm font-semibold">
-              {locale === 'id' ? 'Pilih Jenis Layanan Anda' : 'Select Your Service Types'}
+              {locale === 'id' ? 'Pilih Kategori Talenta Anda' : 'Select Your Talent Roles'}
             </p>
             <label className="flex items-start gap-3 rounded-xl border border-[var(--egvox-border-default)] p-4 cursor-pointer">
               <input
@@ -107,6 +109,37 @@ export const FreelancerOnboardingView: React.FC = () => {
                 </p>
               </div>
             </label>
+            <label className="flex items-start gap-3 rounded-xl border border-[var(--egvox-border-default)] p-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isQaSpecialist}
+                onChange={(e) => setIsQaSpecialist(e.target.checked)}
+                className="mt-1 h-4 w-4 text-[#027F86]"
+              />
+              <div>
+                <p className="text-sm font-bold">QA Specialist</p>
+                <p className="text-xs text-[var(--egvox-text-secondary)]">
+                  {locale === 'id'
+                    ? 'Pemeriksaan kualitas video, anotasi, PII, dan metadata sesuai standar acceptance criteria.'
+                    : 'Quality audit of video, annotations, PII compliance, and dataset metadata.'}
+                </p>
+              </div>
+            </label>
+            {isQaSpecialist && (
+              <label className="flex items-start gap-2.5 rounded-xl bg-[#2563A6]/8 border border-[#2563A6]/25 p-3 text-xs">
+                <input
+                  type="checkbox"
+                  checked={qaConflictAccepted}
+                  onChange={(e) => setQaConflictAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 text-[#027F86]"
+                />
+                <span>
+                  {locale === 'id'
+                    ? 'Saya menyetujui Deklarasi Anti-Konflik Kepentingan: tidak akan melakukan QA pada rekaman/anotasi milik sendiri di Work Order yang sama.'
+                    : 'I agree to the Anti-Conflict Policy: never auditing my own footage or annotations within the same Work Order.'}
+                </span>
+              </label>
+            )}
           </div>
         )}
 
@@ -378,9 +411,11 @@ export const EnterprisePartnershipView: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
   const [contactPerson, setContactPerson] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [country, setCountry] = useState('Indonesia');
   const [estimatedVolume, setEstimatedVolume] = useState('50 – 250 jam');
   const [requirementSummary, setRequirementSummary] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
   const [consentToContact, setConsentToContact] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -392,6 +427,7 @@ export const EnterprisePartnershipView: React.FC = () => {
         companyName,
         businessEmail,
         contactPerson,
+        contactPhone,
         country,
         estimatedVolume,
         requirementSummary,
@@ -409,8 +445,10 @@ export const EnterprisePartnershipView: React.FC = () => {
       country,
       businessEmail,
       contactPerson,
+      contactPhone: contactPhone.trim(),
       estimatedVolume,
       requirementSummary,
+      attachmentName: attachmentName || undefined,
     });
     setSubmitted(true);
   };
@@ -499,7 +537,7 @@ export const EnterprisePartnershipView: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold">
                   {locale === 'id' ? 'Kontak PIC *' : 'Contact Person *'}
@@ -515,6 +553,24 @@ export const EnterprisePartnershipView: React.FC = () => {
                   <p className="mt-1 text-xs text-[#C43D3D]">{errors.contactPerson}</p>
                 )}
               </div>
+              <div>
+                <label className="block text-xs font-semibold">
+                  {locale === 'id' ? 'Nomor Telepon / WhatsApp PIC *' : 'PIC Phone / WhatsApp Number *'}
+                </label>
+                <input
+                  type="tel"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  placeholder={locale === 'id' ? 'Contoh: +62 812-3456-7890' : 'e.g. +62 812-3456-7890'}
+                  className="mt-1 w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm tabular-nums"
+                />
+                {errors.contactPhone && (
+                  <p className="mt-1 text-xs text-[#C43D3D]">{errors.contactPhone}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold">
                   {locale === 'id' ? 'Negara *' : 'Country *'}
@@ -572,6 +628,41 @@ export const EnterprisePartnershipView: React.FC = () => {
               {errors.requirementSummary && (
                 <p className="mt-1 text-xs text-[#C43D3D]">{errors.requirementSummary}</p>
               )}
+            </div>
+
+            <div className="rounded-xl border border-dashed border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--egvox-text-primary)]">
+                  <FileUp className="h-4 w-4 text-[#027F86]" />
+                  <span>
+                    {locale === 'id'
+                      ? 'Upload Dokumen Penawaran / Brief RFP (Opsional)'
+                      : 'Upload Proposal / RFP Brief Document (Optional)'}
+                  </span>
+                </label>
+                {attachmentName && (
+                  <button
+                    type="button"
+                    onClick={() => setAttachmentName('')}
+                    className="text-[11px] font-semibold text-[#C43D3D] hover:underline"
+                  >
+                    {locale === 'id' ? 'Hapus Lampiran' : 'Remove'}
+                  </button>
+                )}
+              </div>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt"
+                onChange={(e) => setAttachmentName(e.target.files?.[0]?.name || '')}
+                className="block w-full text-xs text-[var(--egvox-text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[#027F86]/12 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#027F86] hover:file:bg-[#027F86]/20"
+              />
+              <p className="text-[11px] text-[var(--egvox-text-muted)]">
+                {attachmentName
+                  ? `${locale === 'id' ? 'Dokumen terpilih:' : 'Selected file:'} ${attachmentName}`
+                  : locale === 'id'
+                  ? 'Tidak wajib diisi. Mendukung PDF, DOCX, XLSX, PPTX, atau ZIP spesifikasi teknis.'
+                  : 'Optional. Supports PDF, DOCX, XLSX, PPTX, or technical spec ZIP.'}
+              </p>
             </div>
 
             <label className="flex items-start gap-2.5 text-xs text-[var(--egvox-text-secondary)]">

@@ -3,28 +3,62 @@
 import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import {
   ActiveWorkOrder,
-  CartOrderItem,
+  AdminAuditLogEntry,
+  AdminDisputeCase,
+  AdminEnterpriseDeal,
+  AdminFinanceRecord,
+  AdminModerationListing,
+  AdminRbacRole,
+  AdminRightsRecord,
+  AdminVerificationCase,
+  CaptureSpecification,
   FreelancerServiceListing,
   Locale,
   NegotiationOffer,
+  OpsAnnotationProject,
+  OpsDeliveryPackage,
+  OpsProjectPackage,
+  OpsQuarantineItem,
+  OpsUploadSession,
   OrderReviewRecord,
   PayoutRequestRecord,
   ProjectListing,
   PublicUserRole,
+  RecruiterWalletBalance,
+  RecruitmentOffer,
   SavedProposal,
+  StructuredClarification,
   SubmissionFileItem,
-  WorkspaceConversation,
+  TopUpRecord,
   WorkspaceNotification,
 } from '@/packages/shared-types';
 import {
-  INITIAL_CONVERSATIONS,
+  INITIAL_CLARIFICATIONS,
   INITIAL_NOTIFICATIONS,
   INITIAL_OFFERS,
   INITIAL_PAYOUT_HISTORY,
+  INITIAL_RECRUITER_WALLET,
+  INITIAL_RECRUITMENT_OFFERS,
   INITIAL_REVIEWS,
   INITIAL_SUBMISSION_FILES,
+  INITIAL_TOPUP_HISTORY,
   INITIAL_WORK_ORDERS,
 } from '@/lib/catalog-data';
+import {
+  INITIAL_ADMIN_AUDIT_LOGS,
+  INITIAL_ADMIN_DISPUTES,
+  INITIAL_ADMIN_ENTERPRISE_DEALS,
+  INITIAL_ADMIN_FINANCE,
+  INITIAL_ADMIN_MODERATION,
+  INITIAL_ADMIN_RBAC_ROLES,
+  INITIAL_ADMIN_RIGHTS,
+  INITIAL_ADMIN_VERIFICATIONS,
+  INITIAL_OPS_ANNOTATION_PROJECTS,
+  INITIAL_OPS_DELIVERY_PACKAGES,
+  INITIAL_OPS_PROJECTS,
+  INITIAL_OPS_QUARANTINE_ITEMS,
+  INITIAL_OPS_UPLOAD_SESSIONS,
+} from '@/lib/ops-admin-data';
 
 interface EnterpriseInquiryRecord {
   id: string;
@@ -32,8 +66,10 @@ interface EnterpriseInquiryRecord {
   country: string;
   businessEmail: string;
   contactPerson: string;
+  contactPhone?: string;
   estimatedVolume: string;
   requirementSummary: string;
+  attachmentName?: string;
   status: 'submitted';
   createdAt: string;
 }
@@ -42,6 +78,25 @@ export interface ReportListingTarget {
   type: 'project' | 'service';
   slug: string;
   title: string;
+}
+
+export interface CreateRecruitmentOfferInput {
+  freelancer: FreelancerServiceListing;
+  workType: RecruitmentOffer['workType'];
+  projectTitle: string;
+  projectSlug?: string;
+  volumeHours: number;
+  specVersion: string;
+  deadline: string;
+  grossFeeIDR: number;
+  bindingType: 'binding' | 'screening';
+  milestonesSummary: string;
+  revisionsCount: number;
+  acceptanceSummary: string;
+  expiresAt: string;
+  saveAsDraft?: boolean;
+  conflictCheckPassed?: boolean;
+  note?: string;
 }
 
 interface AppStateContextValue {
@@ -53,25 +108,22 @@ interface AppStateContextValue {
   setActiveRole: (r: PublicUserRole) => void;
   savedSlugs: string[];
   toggleSaved: (slug: string, label?: string) => void;
-  cartItems: CartOrderItem[];
-  addToCart: (item: CartOrderItem) => void;
-  updateCartQty: (id: string, delta: number) => void;
-  removeFromCart: (id: string) => void;
-  clearCart: () => void;
   proposals: SavedProposal[];
   submitProposal: (p: Omit<SavedProposal, 'id' | 'status' | 'createdAt'>) => void;
+  withdrawProposal: (proposalId: string) => void;
   inquiries: EnterpriseInquiryRecord[];
   submitEnterpriseInquiry: (
     inq: Omit<EnterpriseInquiryRecord, 'id' | 'status' | 'createdAt'>
   ) => void;
   workOrders: ActiveWorkOrder[];
+  acknowledgedOrderIds: string[];
+  acknowledgeOrderSpec: (orderId: string) => void;
+  recordMilestoneFunding: (orderCode: string, note: string, amountIDR: number) => void;
   notifications: WorkspaceNotification[];
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   notificationsModalOpen: boolean;
   setNotificationsModalOpen: (open: boolean) => void;
-  conversations: WorkspaceConversation[];
-  sendMessage: (conversationId: string, text: string) => void;
   submissionFiles: SubmissionFileItem[];
   submitReworkOrDispute: (fileId: string, note: string, mode: 'rework' | 'appeal') => void;
   offers: NegotiationOffer[];
@@ -81,6 +133,44 @@ interface AppStateContextValue {
     counterRate?: number,
     note?: string
   ) => void;
+  // v1.3 Recruitment & Recruiter Wallet Ledger
+  recruiterWallet: RecruiterWalletBalance;
+  topUpHistory: TopUpRecord[];
+  submitWalletTopUp: (
+    amountIDR: number,
+    method: TopUpRecord['method'],
+    immediateSettle?: boolean
+  ) => void;
+  settlePendingTopUp: (topUpId: string) => void;
+  topUpModalOpen: boolean;
+  setTopUpModalOpen: (open: boolean) => void;
+  recruitmentOffers: RecruitmentOffer[];
+  createRecruitmentOffer: (input: CreateRecruitmentOfferInput) => {
+    ok: boolean;
+    error?: string;
+    offerCode?: string;
+  };
+  respondRecruitmentOffer: (
+    offerId: string,
+    decision: 'accepted' | 'rejected' | 'withdrawn' | 'countered',
+    counterPayload?: {
+      grossFeeIDR: number;
+      scopeDelta: string;
+      note: string;
+      actorRole: 'recruiter' | 'freelancer';
+    }
+  ) => void;
+  clarifications: StructuredClarification[];
+  submitClarification: (
+    offerCode: string,
+    projectTitle: string,
+    topic: StructuredClarification['topic'],
+    question: string,
+    senderRole?: 'recruiter' | 'freelancer'
+  ) => void;
+  resolveClarification: (clarificationId: string, answer: string) => void;
+  recruitModalTarget: FreelancerServiceListing | null;
+  openRecruitModal: (service: FreelancerServiceListing | null) => void;
   availableBalance: number;
   payoutHistory: PayoutRequestRecord[];
   requestPayout: (amount: number, destination: string) => void;
@@ -98,16 +188,26 @@ interface AppStateContextValue {
     dataType: ProjectListing['dataType'];
     targetVolume: number;
     ratePerUnit: number;
+    showBudgetDisclosure?: boolean;
     location: string;
     summary: string;
+    perspective?: CaptureSpecification['perspective'];
+    mounting?: CaptureSpecification['mounting'];
+    resolution?: string;
+    frameRate?: string;
+    annotationRequired?: ProjectListing['annotationRequired'];
   }) => void;
   customServices: FreelancerServiceListing[];
+  pausedServiceIds: string[];
+  toggleServiceAvailability: (serviceId: string, title?: string) => void;
   createFreelancerService: (input: {
     title: string;
     roleType: FreelancerServiceListing['roleType'];
-    pricePerUnit: number;
     location: string;
     description: string;
+    capacityLabel?: string;
+    equipmentSummary?: string;
+    conflictDisclosureDeclared?: boolean;
   }) => void;
   kycStatus: 'verified' | 'pending_review';
   submitKyc: (docType: string) => void;
@@ -115,12 +215,72 @@ interface AppStateContextValue {
   showToast: (msg: string) => void;
   proposalModalProject: ProjectListing | null;
   openProposalModal: (project: ProjectListing | null) => void;
-  serviceOrderModal: FreelancerServiceListing | null;
-  openServiceOrderModal: (service: FreelancerServiceListing | null) => void;
   reportListingModal: ReportListingTarget | null;
   openReportModal: (target: ReportListingTarget | null) => void;
-  cartDrawerOpen: boolean;
-  setCartDrawerOpen: (open: boolean) => void;
+  // Data Operations Workspace State
+  opsProjects: OpsProjectPackage[];
+  createOpsWorkPackage: (input: {
+    nameId: string;
+    clientName: string;
+    totalPackages: number;
+    specVersion: string;
+    deadline: string;
+  }) => void;
+  opsUploadSessions: OpsUploadSession[];
+  opsQuarantineItems: OpsQuarantineItem[];
+  opsAnnotationProjects: OpsAnnotationProject[];
+  opsDeliveryPackages: OpsDeliveryPackage[];
+  acceptedEnterpriseDeliveries: string[];
+  acceptEnterpriseDelivery: (pkgId: string, decision?: 'accepted' | 'revision') => void;
+  createOpsUploadSession: (projectCode: string, fileName: string, sizeLabel: string) => void;
+  updateQuarantineDecision: (
+    itemId: string,
+    nextStatus: OpsQuarantineItem['status'],
+    reasonCode?: string
+  ) => void;
+  updateAnnotationProjectStatus: (
+    projectId: string,
+    status: OpsAnnotationProject['status'],
+    progressPercent?: number
+  ) => void;
+  dispatchDeliveryPackage: (pkgId: string) => void;
+  // Super Admin Control Plane State
+  adminVerifications: AdminVerificationCase[];
+  decideVerification: (
+    id: string,
+    status: AdminVerificationCase['status']
+  ) => void;
+  adminModerations: AdminModerationListing[];
+  decideModeration: (
+    id: string,
+    status: AdminModerationListing['status'],
+    note?: string
+  ) => void;
+  adminEnterpriseDeals: AdminEnterpriseDeal[];
+  advanceEnterpriseDeal: (
+    id: string,
+    stage: AdminEnterpriseDeal['stage']
+  ) => void;
+  adminFinanceRecords: AdminFinanceRecord[];
+  approveFinanceRecord: (id: string) => void;
+  adminRightsRecords: AdminRightsRecord[];
+  updateRightsStatus: (id: string, status: AdminRightsRecord['status']) => void;
+  adminDisputes: AdminDisputeCase[];
+  resolveDisputeCase: (
+    id: string,
+    status: AdminDisputeCase['status'],
+    rationale: string
+  ) => void;
+  adminAuditLogs: AdminAuditLogEntry[];
+  appendAuditLog: (
+    activity: string,
+    target: string,
+    actorCode?: string,
+    actorRole?: string,
+    isBreakGlass?: boolean
+  ) => void;
+  adminRbacRoles: AdminRbacRole[];
+  updateRbacRolePermissions: (roleId: string, permissions: string[]) => void;
 }
 
 const AppStateContext = createContext<AppStateContextValue | null>(null);
@@ -184,34 +344,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     'dataset-memasak-egocentric-cooking',
     'jasa-pengambilan-video-aktivitas-memasak-egocentric',
   ]);
-  const [cartItems, setCartItems] = useState<CartOrderItem[]>([
-    {
-      id: 'srv-001',
-      kind: 'service_order',
-      title: 'Jasa Pengambilan Video Aktivitas Memasak & Dapur (Egocentric)',
-      titleEn: 'Egocentric Cooking & Kitchen Video Capture Service',
-      subtitle: 'Rizal Maulana · 5 jam awal',
-      subtitleEn: 'Rizal Maulana · 5 initial hours',
-      unitPrice: 150000,
-      quantity: 5,
-      unitLabel: 'jam',
-      unitLabelEn: 'hour',
-      thumbnail: '/images/capture_cooking_pov_1795676769816.jpg',
-    },
-    {
-      id: 'srv-002',
-      kind: 'annotation_addon',
-      title: 'Opsional: Anotasi Bounding Box & Temporal Action',
-      titleEn: 'Optional: Bounding Box & Temporal Action Annotation',
-      subtitle: 'Salsa Fitriani · 3 jam teranotasi',
-      subtitleEn: 'Salsa Fitriani · 3 annotated hours',
-      unitPrice: 180000,
-      quantity: 3,
-      unitLabel: 'jam',
-      unitLabelEn: 'hour',
-      thumbnail: '/images/capture_manufacturing_pov_1795676770652.jpg',
-    },
-  ]);
   const [proposals, setProposals] = useState<SavedProposal[]>([
     {
       id: 'prop-101',
@@ -220,7 +352,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       projectTitleEn: 'Egocentric Cooking & Kitchen Activity Dataset',
       vendorName: 'PT Data Visual Indonesia',
       volume: 25,
-      estimatedTotal: 3750000,
+      weeklyCapacityHours: 20,
+      deviceSummary: 'GoPro Hero 12 Black + Chest/Head Mount',
       note: 'Siap mengerjakan dengan GoPro Hero 12 head-mounted 1080p60 sesuai SPEC-COOK-v2.1.',
       noteEn: 'Ready to deliver with head-mounted GoPro Hero 12 at 1080p60 per SPEC-COOK-v2.1.',
       attachmentName: 'Portofolio_Dapur_Rizal.pdf',
@@ -230,18 +363,26 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   ]);
   const [inquiries, setInquiries] = useState<EnterpriseInquiryRecord[]>([]);
-  const [workOrders] = useState<ActiveWorkOrder[]>(INITIAL_WORK_ORDERS);
+  const [workOrders, setWorkOrders] = useState<ActiveWorkOrder[]>(INITIAL_WORK_ORDERS);
   const [notifications, setNotifications] = useState<WorkspaceNotification[]>(
     INITIAL_NOTIFICATIONS
   );
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
-  const [conversations, setConversations] = useState<WorkspaceConversation[]>(
-    INITIAL_CONVERSATIONS
-  );
   const [submissionFiles, setSubmissionFiles] = useState<SubmissionFileItem[]>(
     INITIAL_SUBMISSION_FILES
   );
   const [offers, setOffers] = useState<NegotiationOffer[]>(INITIAL_OFFERS);
+  const [recruiterWallet, setRecruiterWallet] = useState<RecruiterWalletBalance>(
+    INITIAL_RECRUITER_WALLET
+  );
+  const [topUpHistory, setTopUpHistory] = useState<TopUpRecord[]>(INITIAL_TOPUP_HISTORY);
+  const [topUpModalOpen, setTopUpModalOpen] = useState(false);
+  const [recruitmentOffers, setRecruitmentOffers] = useState<RecruitmentOffer[]>(
+    INITIAL_RECRUITMENT_OFFERS
+  );
+  const [clarifications, setClarifications] = useState<StructuredClarification[]>(
+    INITIAL_CLARIFICATIONS
+  );
   const [availableBalance, setAvailableBalance] = useState<number>(2450000);
   const [payoutHistory, setPayoutHistory] = useState<PayoutRequestRecord[]>(
     INITIAL_PAYOUT_HISTORY
@@ -249,16 +390,58 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
   const [reviews, setReviews] = useState<OrderReviewRecord[]>(INITIAL_REVIEWS);
   const [customProjects, setCustomProjects] = useState<ProjectListing[]>([]);
   const [customServices, setCustomServices] = useState<FreelancerServiceListing[]>([]);
+  const [pausedServiceIds, setPausedServiceIds] = useState<string[]>([]);
+  const [acknowledgedOrderIds, setAcknowledgedOrderIds] = useState<string[]>([]);
+  const [acceptedEnterpriseDeliveries, setAcceptedEnterpriseDeliveries] = useState<string[]>([]);
   const [kycStatus, setKycStatus] = useState<'verified' | 'pending_review'>('verified');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [proposalModalProject, setProposalModalProject] =
     useState<ProjectListing | null>(null);
-  const [serviceOrderModal, setServiceOrderModal] =
+  const [recruitModalTarget, setRecruitModalTarget] =
     useState<FreelancerServiceListing | null>(null);
   const [reportListingModal, setReportListingModal] =
     useState<ReportListingTarget | null>(null);
-  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+
+  // Data Operations Shared State
+  const [opsProjects, setOpsProjects] =
+    useState<OpsProjectPackage[]>(INITIAL_OPS_PROJECTS);
+  const [opsUploadSessions, setOpsUploadSessions] = useState<OpsUploadSession[]>(
+    INITIAL_OPS_UPLOAD_SESSIONS
+  );
+  const [opsQuarantineItems, setOpsQuarantineItems] = useState<
+    OpsQuarantineItem[]
+  >(INITIAL_OPS_QUARANTINE_ITEMS);
+  const [opsAnnotationProjects, setOpsAnnotationProjects] = useState<
+    OpsAnnotationProject[]
+  >(INITIAL_OPS_ANNOTATION_PROJECTS);
+  const [opsDeliveryPackages, setOpsDeliveryPackages] = useState<
+    OpsDeliveryPackage[]
+  >(INITIAL_OPS_DELIVERY_PACKAGES);
+
+  // Super Admin Control Plane Shared State
+  const [adminVerifications, setAdminVerifications] = useState<
+    AdminVerificationCase[]
+  >(INITIAL_ADMIN_VERIFICATIONS);
+  const [adminModerations, setAdminModerations] = useState<
+    AdminModerationListing[]
+  >(INITIAL_ADMIN_MODERATION);
+  const [adminEnterpriseDeals, setAdminEnterpriseDeals] = useState<
+    AdminEnterpriseDeal[]
+  >(INITIAL_ADMIN_ENTERPRISE_DEALS);
+  const [adminFinanceRecords, setAdminFinanceRecords] = useState<
+    AdminFinanceRecord[]
+  >(INITIAL_ADMIN_FINANCE);
+  const [adminRightsRecords, setAdminRightsRecords] = useState<
+    AdminRightsRecord[]
+  >(INITIAL_ADMIN_RIGHTS);
+  const [adminDisputes, setAdminDisputes] = useState<AdminDisputeCase[]>(
+    INITIAL_ADMIN_DISPUTES
+  );
+  const [adminAuditLogs, setAdminAuditLogs] = useState<AdminAuditLogEntry[]>(
+    INITIAL_ADMIN_AUDIT_LOGS
+  );
+  const [adminRbacRoles, setAdminRbacRoles] = useState<AdminRbacRole[]>(INITIAL_ADMIN_RBAC_ROLES);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -315,37 +498,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
-  const addToCart = (item: CartOrderItem) => {
-    setCartItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
-        );
-      }
-      return [...prev, item];
-    });
-    showToast(
-      locale === 'id'
-        ? `${item.title} ditambahkan ke keranjang Work Order.`
-        : `${item.titleEn || item.title} added to Work Order cart.`
-    );
-  };
-
-  const updateCartQty = (id: string, delta: number) => {
-    setCartItems((prev) =>
-      prev
-        .map((i) => (i.id === id ? { ...i, quantity: i.quantity + delta } : i))
-        .filter((i) => i.quantity > 0)
-    );
-  };
-
-  const removeFromCart = (id: string) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const clearCart = () => setCartItems([]);
-
   const submitProposal = (
     p: Omit<SavedProposal, 'id' | 'status' | 'createdAt'>
   ) => {
@@ -358,9 +510,76 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     setProposals((prev) => [next, ...prev]);
     showToast(
       locale === 'id'
-        ? 'Proposal berhasil dikirim dan berstatus Submitted.'
-        : 'Proposal submitted successfully (status: submitted).'
+        ? 'Pengajuan minat & kualifikasi berhasil dikirim ke Vendor.'
+        : 'Qualification application submitted to Vendor.'
     );
+  };
+
+  const withdrawProposal = (proposalId: string) => {
+    setProposals((prev) => prev.filter((p) => p.id !== proposalId));
+    showToast(
+      locale === 'id'
+        ? 'Pengajuan minat berhasil ditarik (Withdrawn) dari peninjauan vendor.'
+        : 'Application withdrawn from vendor review.'
+    );
+  };
+
+  const acknowledgeOrderSpec = (orderId: string) => {
+    setAcknowledgedOrderIds((prev) =>
+      prev.includes(orderId) ? prev : [...prev, orderId]
+    );
+    showToast(
+      locale === 'id'
+        ? 'Capture Specification Work Order telah dikonfirmasi & disetujui.'
+        : 'Work Order Capture Specification acknowledged & confirmed.'
+    );
+  };
+
+  const recordMilestoneFunding = (
+    orderCode: string,
+    note: string,
+    amountIDR: number
+  ) => {
+    const recId = `fin-ms-${Date.now().toString().slice(-4)}`;
+    setAdminFinanceRecords((prev) => [
+      {
+        id: recId,
+        code: `RES-${Date.now().toString().slice(-4)}`,
+        kind: 'invoice',
+        counterparty: `${orderCode} · ${note}`,
+        amountIDR,
+        status: 'approved',
+        dateLabel: locale === 'id' ? 'Hari ini' : 'Today',
+      },
+      ...prev,
+    ]);
+    showToast(
+      locale === 'id'
+        ? `Reservasi Dana Terotorisasi Ledger Work Order ${orderCode} berhasil dicatat.`
+        : `Authorized Work Order Ledger reservation for ${orderCode} recorded.`
+    );
+  };
+
+  const acceptEnterpriseDelivery = (
+    pkgId: string,
+    decision: 'accepted' | 'revision' = 'accepted'
+  ) => {
+    if (decision === 'accepted') {
+      setAcceptedEnterpriseDeliveries((prev) =>
+        prev.includes(pkgId) ? prev : [...prev, pkgId]
+      );
+      showToast(
+        locale === 'id'
+          ? 'Paket dataset & Rights Manifest resmi diterima (Enterprise Acceptance Confirmed).'
+          : 'Dataset delivery & Rights Manifest formally accepted.'
+      );
+    } else {
+      showToast(
+        locale === 'id'
+          ? 'Permintaan revisi sampel dikirim ke tim Data Operations.'
+          : 'Sample revision request sent to Data Operations.'
+      );
+    }
   };
 
   const submitEnterpriseInquiry = (
@@ -373,10 +592,29 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       createdAt: locale === 'id' ? 'Hari ini' : 'Today',
     };
     setInquiries((prev) => [next, ...prev]);
+    setAdminEnterpriseDeals((prev) => [
+      {
+        id: next.id,
+        companyName: inq.companyName,
+        briefSummary: inq.requirementSummary,
+        estimatedHours: 250,
+        stage: 'request',
+        contractValueIDR: 240000000,
+        picEmail: inq.businessEmail,
+        picName: inq.contactPerson,
+        picPhone: inq.contactPhone,
+        attachmentName: inq.attachmentName,
+      },
+      ...prev,
+    ]);
     showToast(
       locale === 'id'
-        ? 'Permintaan kemitraan Enterprise tercatat (status: submitted). Tim kami akan menghubungi Anda.'
-        : 'Enterprise partnership inquiry recorded (status: submitted). Our team will reach out.'
+        ? `Permintaan kemitraan Enterprise tercatat${
+            inq.attachmentName ? ` (lampiran: ${inq.attachmentName})` : ''
+          }. Tim kami akan menghubungi PIC Anda.`
+        : `Enterprise partnership inquiry recorded${
+            inq.attachmentName ? ` (attachment: ${inq.attachmentName})` : ''
+          }. Our team will reach out.`
     );
   };
 
@@ -390,33 +628,408 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
-  const sendMessage = (conversationId: string, text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== conversationId) return conv;
+  const submitWalletTopUp = (
+    amountIDR: number,
+    method: TopUpRecord['method'],
+    immediateSettle = true
+  ) => {
+    if (!Number.isFinite(amountIDR) || amountIDR < 500000) return;
+    const code = `TOP-2026-${Date.now().toString().slice(-4)}`;
+    const record: TopUpRecord = {
+      id: `top-${Date.now()}`,
+      code,
+      amountIDR,
+      method,
+      status: immediateSettle ? 'settled' : 'pending_settlement',
+      createdAt: locale === 'id' ? 'Hari ini' : 'Today',
+      settledAt: immediateSettle ? (locale === 'id' ? 'Hari ini' : 'Today') : undefined,
+    };
+    setTopUpHistory((prev) => [record, ...prev]);
+    setRecruiterWallet((prev) =>
+      immediateSettle
+        ? {
+            ...prev,
+            settledBalanceIDR: prev.settledBalanceIDR + amountIDR,
+            availableBalanceIDR: prev.availableBalanceIDR + amountIDR,
+          }
+        : {
+            ...prev,
+            pendingTopUpIDR: prev.pendingTopUpIDR + amountIDR,
+          }
+    );
+    showToast(
+      immediateSettle
+        ? locale === 'id'
+          ? `Top-up ${code} berhasil settled ke Saldo Tersedia Rekruter.`
+          : `Top-up ${code} settled into Available Recruiter Balance.`
+        : locale === 'id'
+        ? `Top-up ${code} berstatus Pending Settlement (tidak dihitung sebagai dana tersedia hingga settled).`
+        : `Top-up ${code} pending settlement (excluded from available balance until cleared).`
+    );
+  };
+
+  const settlePendingTopUp = (topUpId: string) => {
+    const target = topUpHistory.find((t) => t.id === topUpId && t.status === 'pending_settlement');
+    if (!target) return;
+    setTopUpHistory((prev) =>
+      prev.map((t) =>
+        t.id === topUpId
+          ? { ...t, status: 'settled', settledAt: locale === 'id' ? 'Baru saja' : 'Just now' }
+          : t
+      )
+    );
+    setRecruiterWallet((prev) => ({
+      ...prev,
+      pendingTopUpIDR: Math.max(0, prev.pendingTopUpIDR - target.amountIDR),
+      settledBalanceIDR: prev.settledBalanceIDR + target.amountIDR,
+      availableBalanceIDR: prev.availableBalanceIDR + target.amountIDR,
+    }));
+    showToast(
+      locale === 'id'
+        ? `Settlement ${target.code} dikonfirmasi Payment Provider.`
+        : `Settlement ${target.code} confirmed by Payment Provider.`
+    );
+  };
+
+  const createRecruitmentOffer = (input: CreateRecruitmentOfferInput) => {
+    const isDraft = Boolean(input.saveAsDraft);
+    const isBinding = input.bindingType === 'binding';
+    const gross = input.grossFeeIDR;
+    const adminFee = Math.round(gross * 0.08);
+    const paymentFee = Math.round(gross * 0.015);
+    const netFreelancer = Math.max(0, gross - adminFee - paymentFee);
+
+    if (!isDraft && isBinding) {
+      if (!recruiterWallet.vendorKybVerified) {
         return {
-          ...conv,
-          unread: 0,
-          messages: [
-            ...conv.messages,
-            {
-              id: `msg-${Date.now()}`,
-              sender: locale === 'id' ? 'Anda' : 'You',
-              senderRole: 'freelancer',
-              text: trimmed,
-              timestamp: locale === 'id' ? 'Baru saja' : 'Just now',
-              isOwn: true,
-            },
-          ],
+          ok: false,
+          error:
+            locale === 'id'
+              ? 'Organisasi perekrut harus melewati verifikasi KYB sebelum mengirim penawaran mengikat.'
+              : 'Recruiter organization must pass KYB verification before sending binding offers.',
         };
-      })
+      }
+      if (recruiterWallet.settledBalanceIDR < recruiterWallet.minPolicyIDR) {
+        return {
+          ok: false,
+          error:
+            locale === 'id'
+              ? 'Saldo settled belum memenuhi kebijakan minimum saldo rekrutmen (Rp 5.000.000).'
+              : 'Settled balance is below the minimum recruitment balance policy (Rp 5,000,000).',
+        };
+      }
+      if (recruiterWallet.availableBalanceIDR < gross) {
+        return {
+          ok: false,
+          error:
+            locale === 'id'
+              ? 'Saldo Tersedia (Cleared) tidak mencukupi untuk mereservasi komitmen penawaran ini. Lakukan Top Up Saldo terlebih dahulu.'
+              : 'Insufficient Available Balance to reserve this binding offer. Please Top Up first.',
+        };
+      }
+    }
+
+    const prefix =
+      input.workType === 'Data Annotation'
+        ? 'AN'
+        : input.workType === 'QA Specialist'
+        ? 'QA'
+        : 'VO';
+    const offerCode = `${prefix}-2026-${Date.now().toString().slice(-3)}`;
+    const reserveAmount = !isDraft && isBinding ? gross : 0;
+
+    const newOffer: RecruitmentOffer = {
+      id: `rec-${Date.now()}`,
+      code: offerCode,
+      workType: input.workType,
+      projectTitle: input.projectTitle,
+      projectTitleEn: input.projectTitle,
+      projectSlug: input.projectSlug,
+      recruiterOrg: 'PT Data Visual Indonesia',
+      freelancerUsername: input.freelancer.username,
+      freelancerName: input.freelancer.freelancerName,
+      bindingType: input.bindingType,
+      status: isDraft ? 'draft' : 'sent',
+      grossFeeIDR: gross,
+      adminFeeIDR: adminFee,
+      paymentFeeIDR: paymentFee,
+      feePayer: 'shared_transparent',
+      recruiterTotalIDR: gross,
+      freelancerNetIDR: netFreelancer,
+      volumeHours: input.volumeHours,
+      specVersion: input.specVersion,
+      deadline: input.deadline,
+      milestonesSummary: input.milestonesSummary,
+      revisionsCount: input.revisionsCount,
+      acceptanceSummary: input.acceptanceSummary,
+      expiresAt: input.expiresAt,
+      conflictCheckPassed:
+        input.workType === 'QA Specialist' ? Boolean(input.conflictCheckPassed) : undefined,
+      reservedAmountIDR: reserveAmount,
+      updatedAt: locale === 'id' ? 'Baru saja' : 'Just now',
+      versions: [
+        {
+          version: 1,
+          actorRole: 'recruiter',
+          actorName: 'PT Data Visual Indonesia',
+          grossFeeIDR: gross,
+          adminFeeIDR: adminFee,
+          paymentFeeIDR: paymentFee,
+          netFreelancerIDR: netFreelancer,
+          recruiterTotalIDR: gross,
+          volumeHours: input.volumeHours,
+          note:
+            input.note ||
+            (input.bindingType === 'binding'
+              ? `Penawaran rekrutmen privat ${offerCode} (${input.volumeHours} unit).`
+              : `Undangan screening non-binding ${offerCode}.`),
+          timestamp: locale === 'id' ? 'Baru saja' : 'Just now',
+        },
+      ],
+    };
+
+    setRecruitmentOffers((prev) => [newOffer, ...prev]);
+
+    if (reserveAmount > 0) {
+      setRecruiterWallet((prev) => ({
+        ...prev,
+        availableBalanceIDR: Math.max(0, prev.availableBalanceIDR - reserveAmount),
+        reservedBalanceIDR: prev.reservedBalanceIDR + reserveAmount,
+      }));
+    }
+
+    showToast(
+      isDraft
+        ? locale === 'id'
+          ? `Draft penawaran ${offerCode} disimpan tanpa menahan saldo.`
+          : `Offer draft ${offerCode} saved without fund reservation.`
+        : locale === 'id'
+        ? `Penawaran privat ${offerCode} dikirim ke ${input.freelancer.freelancerName}.`
+        : `Private offer ${offerCode} sent to ${input.freelancer.freelancerName}.`
+    );
+
+    return { ok: true, offerCode };
+  };
+
+  const respondRecruitmentOffer = (
+    offerId: string,
+    decision: 'accepted' | 'rejected' | 'withdrawn' | 'countered',
+    counterPayload?: {
+      grossFeeIDR: number;
+      scopeDelta: string;
+      note: string;
+      actorRole: 'recruiter' | 'freelancer';
+    }
+  ) => {
+    const target = recruitmentOffers.find((o) => o.id === offerId);
+    if (!target) return;
+
+    if (decision === 'countered' && counterPayload) {
+      const nextGross = counterPayload.grossFeeIDR;
+      const nextAdmin = Math.round(nextGross * 0.08);
+      const nextPayment = Math.round(nextGross * 0.015);
+      const nextNet = Math.max(0, nextGross - nextAdmin - nextPayment);
+      const nextVerNumber = target.versions.length + 1;
+      const deltaReserve =
+        target.bindingType === 'binding' && target.status !== 'draft'
+          ? nextGross - target.reservedAmountIDR
+          : 0;
+
+      if (deltaReserve > 0 && recruiterWallet.availableBalanceIDR < deltaReserve && counterPayload.actorRole === 'recruiter') {
+        showToast(
+          locale === 'id'
+            ? 'Saldo Tersedia tidak mencukupi untuk menaikkan reservasi counteroffer.'
+            : 'Insufficient Available Balance to increase offer reservation.'
+        );
+        return;
+      }
+
+      setRecruitmentOffers((prev) =>
+        prev.map((off) =>
+          off.id === offerId
+            ? {
+                ...off,
+                status: 'negotiating',
+                grossFeeIDR: nextGross,
+                adminFeeIDR: nextAdmin,
+                paymentFeeIDR: nextPayment,
+                recruiterTotalIDR: nextGross,
+                freelancerNetIDR: nextNet,
+                reservedAmountIDR:
+                  counterPayload.actorRole === 'recruiter' && target.bindingType === 'binding'
+                    ? nextGross
+                    : off.reservedAmountIDR,
+                updatedAt: locale === 'id' ? 'Baru saja' : 'Just now',
+                versions: [
+                  ...off.versions,
+                  {
+                    version: nextVerNumber,
+                    actorRole: counterPayload.actorRole,
+                    actorName:
+                      counterPayload.actorRole === 'recruiter'
+                        ? off.recruiterOrg
+                        : off.freelancerName,
+                    grossFeeIDR: nextGross,
+                    adminFeeIDR: nextAdmin,
+                    paymentFeeIDR: nextPayment,
+                    netFreelancerIDR: nextNet,
+                    recruiterTotalIDR: nextGross,
+                    volumeHours: off.volumeHours,
+                    scopeDelta: counterPayload.scopeDelta,
+                    note: counterPayload.note,
+                    timestamp: locale === 'id' ? 'Baru saja' : 'Just now',
+                  },
+                ],
+              }
+            : off
+        )
+      );
+
+      if (counterPayload.actorRole === 'recruiter' && deltaReserve !== 0 && target.bindingType === 'binding') {
+        setRecruiterWallet((prev) => ({
+          ...prev,
+          availableBalanceIDR: Math.max(0, prev.availableBalanceIDR - deltaReserve),
+          reservedBalanceIDR: Math.max(0, prev.reservedBalanceIDR + deltaReserve),
+        }));
+      }
+
+      showToast(
+        locale === 'id'
+          ? `Versi V${nextVerNumber} Counteroffer tercatat pada ${target.code}.`
+          : `Counteroffer V${nextVerNumber} recorded on ${target.code}.`
+      );
+      return;
+    }
+
+    if (decision === 'accepted') {
+      const committedAmt = target.grossFeeIDR;
+      const releasedDiff = Math.max(0, target.reservedAmountIDR - committedAmt);
+      setRecruitmentOffers((prev) =>
+        prev.map((off) =>
+          off.id === offerId
+            ? {
+                ...off,
+                status: 'accepted',
+                reservedAmountIDR: 0,
+                updatedAt: locale === 'id' ? 'Baru saja' : 'Just now',
+              }
+            : off
+        )
+      );
+      if (target.reservedAmountIDR > 0) {
+        setRecruiterWallet((prev) => ({
+          ...prev,
+          reservedBalanceIDR: Math.max(0, prev.reservedBalanceIDR - target.reservedAmountIDR),
+          committedBalanceIDR: prev.committedBalanceIDR + committedAmt,
+          availableBalanceIDR: prev.availableBalanceIDR + releasedDiff,
+        }));
+      }
+      const woCode = target.code.replace(/^(VO|AN|QA)-/, 'WO-');
+      setWorkOrders((prev) => [
+        {
+          id: `wo-${Date.now()}`,
+          code: woCode,
+          title: target.projectTitle,
+          titleEn: target.projectTitleEn || target.projectTitle,
+          counterparty: target.recruiterOrg,
+          rolePerspective: 'freelancer',
+          specVersion: target.specVersion,
+          stage: 'order_confirmed',
+          progressPercent: 10,
+          acceptedUnits: 0,
+          totalUnits: target.volumeHours,
+          unitLabel: 'unit',
+          unitLabelEn: 'units',
+          amount: target.grossFeeIDR,
+          deadline: target.deadline,
+          deadlineEn: target.deadline,
+        },
+        ...prev,
+      ]);
+      showToast(
+        locale === 'id'
+          ? `Kesepakatan tercapai! Work Order ${woCode} aktif dengan reservasi dana terotorisasi.`
+          : `Agreement signed! Work Order ${woCode} active.`
+      );
+      return;
+    }
+
+    if (decision === 'countered') return;
+    const finalStatus: 'rejected' | 'withdrawn' =
+      decision === 'withdrawn' ? 'withdrawn' : 'rejected';
+
+    // rejected or withdrawn -> release reserved balance
+    setRecruitmentOffers((prev) =>
+      prev.map((off) =>
+        off.id === offerId
+          ? {
+              ...off,
+              status: finalStatus,
+              reservedAmountIDR: 0,
+              updatedAt: locale === 'id' ? 'Baru saja' : 'Just now',
+            }
+          : off
+      )
+    );
+    if (target.reservedAmountIDR > 0) {
+      setRecruiterWallet((prev) => ({
+        ...prev,
+        reservedBalanceIDR: Math.max(0, prev.reservedBalanceIDR - target.reservedAmountIDR),
+        availableBalanceIDR: prev.availableBalanceIDR + target.reservedAmountIDR,
+      }));
+    }
+    showToast(
+      locale === 'id'
+        ? decision === 'rejected'
+          ? `Penawaran ${target.code} ditolak dan reservasi dana dilepaskan.`
+          : `Penawaran ${target.code} ditarik dan reservasi dana dikembalikan ke saldo tersedia.`
+        : `Offer ${target.code} ${decision} and reserved funds released.`
+    );
+  };
+
+  const submitClarification = (
+    offerCode: string,
+    projectTitle: string,
+    topic: StructuredClarification['topic'],
+    question: string,
+    senderRole: 'recruiter' | 'freelancer' = 'freelancer'
+  ) => {
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    setClarifications((prev) => [
+      {
+        id: `clr-${Date.now()}`,
+        offerCode,
+        projectTitle,
+        senderName:
+          senderRole === 'recruiter' ? 'PT Data Visual Indonesia' : 'Rizal Maulana',
+        senderRole,
+        topic,
+        question: trimmed,
+        status: 'open',
+        createdAt: locale === 'id' ? 'Baru saja' : 'Just now',
+      },
+      ...prev,
+    ]);
+    showToast(
+      locale === 'id'
+        ? `Klarifikasi terstruktur dicatat untuk ${offerCode}.`
+        : `Structured clarification recorded for ${offerCode}.`
+    );
+  };
+
+  const resolveClarification = (clarificationId: string, answer: string) => {
+    const trimmed = answer.trim();
+    if (!trimmed) return;
+    setClarifications((prev) =>
+      prev.map((c) =>
+        c.id === clarificationId ? { ...c, answer: trimmed, status: 'resolved' } : c
+      )
     );
     showToast(
       locale === 'id'
-        ? 'Pesan terkirim melalui sistem messaging aman EgvoX.'
-        : 'Message sent securely via EgvoX Messaging.'
+        ? 'Jawaban klarifikasi terstruktur berhasil diterbitkan.'
+        : 'Structured clarification answer published.'
     );
   };
 
@@ -491,9 +1104,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
   const requestPayout = (amount: number, destination: string) => {
     if (amount <= 0 || amount > availableBalance) return;
     setAvailableBalance((prev) => prev - amount);
+    const payId = `pay-${Date.now().toString().slice(-4)}`;
+    const code = `PO-${Date.now().toString().slice(-4)}`;
     setPayoutHistory((prev) => [
       {
-        id: `pay-${Date.now().toString().slice(-4)}`,
+        id: payId,
         amount,
         destination,
         status: 'pending_review',
@@ -501,10 +1116,23 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       },
       ...prev,
     ]);
+    setAdminFinanceRecords((prev) => [
+      {
+        id: payId,
+        code,
+        kind: 'payout',
+        counterparty: destination,
+        amountIDR: amount,
+        status: 'pending_dual_approval',
+        dateLabel: locale === 'id' ? 'Hari ini' : 'Today',
+        requiresDualApproval: true,
+      },
+      ...prev,
+    ]);
     showToast(
       locale === 'id'
-        ? 'Permintaan penarikan dana berhasil dibuat dan sedang diproses.'
-        : 'Payout withdrawal request submitted and queued for settlement.'
+        ? 'Permintaan penarikan dana berhasil dibuat dan masuk antrian dual-approval Finance.'
+        : 'Payout withdrawal request submitted and queued for Finance dual approval.'
     );
   };
 
@@ -538,8 +1166,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     dataType: ProjectListing['dataType'];
     targetVolume: number;
     ratePerUnit: number;
+    showBudgetDisclosure?: boolean;
     location: string;
     summary: string;
+    perspective?: CaptureSpecification['perspective'];
+    mounting?: CaptureSpecification['mounting'];
+    resolution?: string;
+    frameRate?: string;
+    annotationRequired?: ProjectListing['annotationRequired'];
   }) => {
     const slug = `${input.title
       .toLowerCase()
@@ -578,24 +1212,25 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       unitLabel: 'jam',
       unitLabelEn: 'hour',
       ratePerUnit: input.ratePerUnit,
+      showBudgetDisclosure: input.showBudgetDisclosure ?? true,
       currency: 'IDR',
       deadline: '30 Des 2026',
       deadlineEn: '30 Dec 2026',
       applicationCloseDate: '20 Des 2026',
       applicationCloseDateEn: '20 Dec 2026',
-      annotationRequired: 'optional',
+      annotationRequired: input.annotationRequired ?? 'none',
       status: 'published',
       previewImage: imageMap[input.category],
       previewDuration: '0:30',
       captureSpec: {
         version: 'SPEC-CUSTOM-v1.0',
-        perspective: 'Egocentric (First-Person)',
-        mounting: 'Head-mounted',
+        perspective: input.perspective ?? 'Egocentric (First-Person)',
+        mounting: input.mounting ?? 'Head-mounted',
         deviceRequirement: 'Action Cam 1080p60 / Wearable Camera',
         deviceRequirementEn: 'Action Cam 1080p60 / Wearable Camera',
-        resolution: 'Minimum 1080p',
-        frameRate: '30–60 FPS',
-        frameRateEn: '30–60 FPS',
+        resolution: input.resolution ?? 'Minimum 1080p',
+        frameRate: input.frameRate ?? '30–60 FPS',
+        frameRateEn: input.frameRate ?? '30–60 FPS',
         codecFormat: 'MP4 (H.264)',
         orientation: 'Landscape 16:9',
         clipDuration: '15–45 menit per sesi',
@@ -630,17 +1265,38 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     setCustomProjects((prev) => [nextProject, ...prev]);
     showToast(
       locale === 'id'
-        ? `Project "${input.title}" berhasil dibuat dan dipublikasikan ke Project Catalog.`
+        ? `Project "${input.title}" berhasil dibuat (${input.annotationRequired === 'optional' ? 'Raw + Anotasi Opsional' : 'Raw Video Only'}).`
         : `Project "${input.title}" published to Project Catalog.`
     );
+  };
+
+  const toggleServiceAvailability = (serviceId: string, title?: string) => {
+    setPausedServiceIds((prev) => {
+      const isPaused = prev.includes(serviceId);
+      const next = isPaused
+        ? prev.filter((id) => id !== serviceId)
+        : [...prev, serviceId];
+      showToast(
+        locale === 'id'
+          ? isPaused
+            ? `Profil kapabilitas "${title || serviceId}" diaktifkan kembali.`
+            : `Profil kapabilitas "${title || serviceId}" dijeda sementara (Paused).`
+          : isPaused
+          ? `Capability profile "${title || serviceId}" re-activated.`
+          : `Capability profile "${title || serviceId}" paused.`
+      );
+      return next;
+    });
   };
 
   const createFreelancerService = (input: {
     title: string;
     roleType: FreelancerServiceListing['roleType'];
-    pricePerUnit: number;
     location: string;
     description: string;
+    capacityLabel?: string;
+    equipmentSummary?: string;
+    conflictDisclosureDeclared?: boolean;
   }) => {
     const nextService: FreelancerServiceListing = {
       id: `srv-cust-${Date.now().toString().slice(-4)}`,
@@ -657,26 +1313,32 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       reviewCount: 128,
       completedOrders: 128,
       slaPercent: 98,
+      acceptanceRatePercent: 98,
+      conflictDisclosureDeclared:
+        input.roleType === 'QA Specialist' ? Boolean(input.conflictDisclosureDeclared ?? true) : undefined,
       title: input.title,
       titleEn: input.title,
       description: input.description,
       descriptionEn: input.description,
       categories: ['cooking', 'household'],
-      tags: [input.roleType, 'Per Jam'],
+      tags: [input.roleType, locale === 'id' ? 'Rekrutmen Privat' : 'Private Recruitment'],
       location: input.location,
       locationEn: input.location,
       country: 'Indonesia',
-      capacityLabel: '20–30 jam / minggu',
-      capacityLabelEn: '20–30 hours / week',
-      deliverySla: '3–5 hari kerja',
-      deliverySlaEn: '3–5 business days',
-      pricePerUnit: input.pricePerUnit,
+      capacityLabel: input.capacityLabel || '± 20 jam / minggu',
+      capacityLabelEn: input.capacityLabel || '± 20 hours / week',
+      deliverySla: 'Sesuai Spesifikasi · 3–5 hari',
+      deliverySlaEn: 'Per Spec · 3–5 business days',
+      pricePerUnit: 0,
       unitLabel: 'jam',
       unitLabelEn: 'hour',
       currency: 'IDR',
-      equipment: ['Action Camera 1080p60 + Chest/Head Mount'],
-      equipmentEn: ['Action Camera 1080p60 + Chest/Head Mount'],
-      resolutionFps: '1080p – 4K · 60 FPS',
+      equipment: [input.equipmentSummary || 'Action Camera 1080p60 + Chest/Head Mount'],
+      equipmentEn: [input.equipmentSummary || 'Action Camera 1080p60 + Chest/Head Mount'],
+      resolutionFps:
+        input.roleType === 'QA Specialist'
+          ? 'Standar QA EgvoX v1.3 · Audit Teknis & Consent'
+          : '1080p – 4K · 60 FPS',
       portfolioPreviews: [
         {
           id: 'pf-custom',
@@ -695,19 +1357,419 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       reviews: [],
     };
     setCustomServices((prev) => [nextService, ...prev]);
+    setAdminModerations((prev) => [
+      {
+        id: `mod-${Date.now().toString().slice(-4)}`,
+        code: `SVC-${Date.now().toString().slice(-4)}`,
+        titleId: input.title,
+        titleEn: input.title,
+        listingType: 'service',
+        ownerName: 'Rizal Maulana',
+        category: input.roleType,
+        rateIDR: 0,
+        status: 'pending',
+        thumbnail: '/images/capture_cooking_pov_1795676769816.jpg',
+        hasConsentEvidence: true,
+      },
+      ...prev,
+    ]);
     showToast(
       locale === 'id'
-        ? `Listing jasa "${input.title}" dikirim dan aktif di katalog.`
-        : `Service listing "${input.title}" is now live in the catalog.`
+        ? `Profil kapabilitas "${input.title}" dikirim ke moderasi & katalog rekrutmen.`
+        : `Capability profile "${input.title}" submitted to moderation & recruitment catalog.`
     );
   };
 
   const submitKyc = (docType: string) => {
     setKycStatus('pending_review');
+    setAdminVerifications((prev) => [
+      {
+        id: `ver-${Date.now().toString().slice(-4)}`,
+        entityName: 'Rizal Maulana',
+        email: 'rizal@egvox.ai',
+        roleType: 'Freelancer',
+        documentType: docType,
+        submittedAt: locale === 'id' ? 'Baru saja' : 'Just now',
+        country: 'Indonesia',
+        status: 'pending',
+        riskTier: 'Standard',
+      },
+      ...prev,
+    ]);
     showToast(
       locale === 'id'
         ? `Dokumen KYC (${docType}) diunggah untuk verifikasi Trust & Safety.`
         : `KYC document (${docType}) uploaded for Trust & Safety verification.`
+    );
+  };
+
+  // ================= DATA OPERATIONS HANDLERS =================
+  const createOpsWorkPackage = (input: {
+    nameId: string;
+    clientName: string;
+    totalPackages: number;
+    specVersion: string;
+    deadline: string;
+  }) => {
+    const code = `EGX-${Date.now().toString().slice(-4)}`;
+    setOpsProjects((prev) => [
+      {
+        id: `op-${Date.now()}`,
+        projectCode: code,
+        nameId: input.nameId,
+        nameEn: input.nameId,
+        clientName: input.clientName,
+        specVersion: input.specVersion,
+        totalPackages: input.totalPackages,
+        completedPackages: 0,
+        progressPercent: 0,
+        stage: 'collection',
+        slaPercent: 100,
+        deadline: input.deadline,
+      },
+      ...prev,
+    ]);
+    showToast(
+      locale === 'id'
+        ? `Work Package ${code} (${input.nameId}) berhasil dibuat.`
+        : `Work Package ${code} (${input.nameId}) created.`
+    );
+  };
+
+  const createOpsUploadSession = (
+    projectCode: string,
+    fileName: string,
+    sizeLabel: string
+  ) => {
+    const sessionCode = `UP-2026-${Date.now().toString().slice(-4)}`;
+    const newSession: OpsUploadSession = {
+      id: `ups-${Date.now()}`,
+      sessionCode,
+      projectCode,
+      uploaderName: 'Rizal Maulana',
+      uploadedFiles: 1,
+      totalFiles: 1,
+      uploadedSizeGb: 0.4,
+      totalSizeGb: 0.4,
+      progressPercent: 100,
+      status: 'quarantine',
+      startedAt: locale === 'id' ? 'Baru saja' : 'Just now',
+    };
+    setOpsUploadSessions((prev) => [newSession, ...prev]);
+    const newQ: OpsQuarantineItem = {
+      id: `qr-${Date.now()}`,
+      fileName,
+      projectCode,
+      sessionCode,
+      resolution: '1080p',
+      duration: '00:42',
+      codec: 'H.264',
+      fps: 60,
+      sizeLabel,
+      sha256: `sha256_${Date.now().toString(16)}a89f02b4c1`,
+      uploader: 'Rizal Maulana',
+      status: 'quarantine',
+      techChecks: {
+        formatOk: true,
+        resolutionOk: true,
+        fpsOk: true,
+        durationOk: true,
+        codecOk: true,
+        checksumOk: true,
+      },
+      contentChecks: {
+        matchesSpec: true,
+        piiFree: true,
+        consentValid: true,
+      },
+      thumbnail: '/images/capture_cooking_pov_1795676769816.jpg',
+    };
+    setOpsQuarantineItems((prev) => [newQ, ...prev]);
+    setSubmissionFiles((prev) => [
+      {
+        id: `sub-${Date.now()}`,
+        workOrderId: 'wo-1',
+        fileName,
+        durationLabel: '00:42',
+        durationLabelEn: '00:42',
+        sizeLabel,
+        checksumSha256: newQ.sha256,
+        status: 'quarantine',
+      },
+      ...prev,
+    ]);
+    showToast(
+      locale === 'id'
+        ? `File ${fileName} masuk karantina privat (${sessionCode}) dengan checksum SHA-256.`
+        : `File ${fileName} entered private quarantine (${sessionCode}) with SHA-256 checksum.`
+    );
+  };
+
+  const updateQuarantineDecision = (
+    itemId: string,
+    nextStatus: OpsQuarantineItem['status'],
+    reasonCode?: string
+  ) => {
+    setOpsQuarantineItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              status: nextStatus,
+              reasonCode: reasonCode ?? item.reasonCode,
+            }
+          : item
+      )
+    );
+    showToast(
+      locale === 'id'
+        ? `Status media diperbarui menjadi: ${nextStatus}.`
+        : `Media item status updated to: ${nextStatus}.`
+    );
+  };
+
+  const updateAnnotationProjectStatus = (
+    projectId: string,
+    status: OpsAnnotationProject['status'],
+    progressPercent?: number
+  ) => {
+    setOpsAnnotationProjects((prev) =>
+      prev.map((ap) =>
+        ap.id === projectId
+          ? {
+              ...ap,
+              status,
+              progressPercent: progressPercent ?? ap.progressPercent,
+              completedTasks:
+                status === 'finalized' ? ap.taskCount : ap.completedTasks,
+            }
+          : ap
+      )
+    );
+  };
+
+  const dispatchDeliveryPackage = (pkgId: string) => {
+    setOpsDeliveryPackages((prev) =>
+      prev.map((pkg) =>
+        pkg.id === pkgId ? { ...pkg, status: 'delivered', qaValidated: true } : pkg
+      )
+    );
+    showToast(
+      locale === 'id'
+        ? 'Paket dataset terenkripsi & Rights Manifest berhasil dikirim ke pembeli.'
+        : 'Encrypted dataset package & Rights Manifest delivered to buyer.'
+    );
+  };
+
+  // ================= SUPER ADMIN HANDLERS =================
+  const appendAuditLog = (
+    activity: string,
+    target: string,
+    actorCode = 'SA-001',
+    actorRole = 'Super Admin',
+    isBreakGlass = false
+  ) => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    setAdminAuditLogs((prev) => [
+      {
+        id: `aud-${Date.now()}`,
+        timestamp: `${hh}:${mm}`,
+        actorCode,
+        actorRole,
+        activity,
+        target,
+        ipAddress: '103.24.***.12',
+        isBreakGlass,
+      },
+      ...prev,
+    ]);
+  };
+
+  const decideVerification = (
+    id: string,
+    status: AdminVerificationCase['status']
+  ) => {
+    const target = adminVerifications.find((v) => v.id === id);
+    setAdminVerifications((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, status } : v))
+    );
+    if (status === 'verified') {
+      setKycStatus('verified');
+    }
+    appendAuditLog(
+      locale === 'id'
+        ? `Verifikasi ${target?.entityName || id} -> ${status}`
+        : `Verification ${target?.entityName || id} -> ${status}`,
+      target?.email || id,
+      'SA-001',
+      'Trust & Safety'
+    );
+    showToast(
+      locale === 'id'
+        ? `Status verifikasi ${target?.entityName || ''} diperbarui ke ${status}.`
+        : `Verification status updated to ${status}.`
+    );
+  };
+
+  const decideModeration = (
+    id: string,
+    status: AdminModerationListing['status'],
+    note?: string
+  ) => {
+    const target = adminModerations.find((m) => m.id === id);
+    setAdminModerations((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, status } : m))
+    );
+    appendAuditLog(
+      locale === 'id'
+        ? `Moderasi listing ${target?.code || id}: ${status}${note ? ` (${note})` : ''}`
+        : `Listing moderation ${target?.code || id}: ${status}${note ? ` (${note})` : ''}`,
+      target?.code || id,
+      'SA-001',
+      locale === 'id' ? 'Admin Operasional' : 'Ops Admin'
+    );
+    showToast(
+      locale === 'id'
+        ? `Listing ${target?.code || ''} berstatus ${status}.`
+        : `Listing ${target?.code || ''} marked as ${status}.`
+    );
+  };
+
+  const advanceEnterpriseDeal = (
+    id: string,
+    stage: AdminEnterpriseDeal['stage']
+  ) => {
+    const deal = adminEnterpriseDeals.find((d) => d.id === id);
+    const officialProjectCode =
+      stage === 'managed' && !deal?.officialProjectCode
+        ? `ENT-202611-${Date.now().toString().slice(-4)}`
+        : deal?.officialProjectCode;
+    setAdminEnterpriseDeals((prev) =>
+      prev.map((d) =>
+        d.id === id ? { ...d, stage, officialProjectCode } : d
+      )
+    );
+    if (stage === 'managed' && deal) {
+      setOpsProjects((prev) => [
+        {
+          id: `op-${Date.now()}`,
+          projectCode: officialProjectCode || 'ENT-NEW',
+          nameId: `${deal.companyName} (Managed)`,
+          nameEn: `${deal.companyName} (Managed)`,
+          clientName: deal.companyName,
+          specVersion: 'ENT-SPEC-v1.0',
+          totalPackages: 24,
+          completedPackages: 0,
+          progressPercent: 10,
+          stage: 'collection',
+          slaPercent: 100,
+          deadline: locale === 'id' ? '28 Des 2026' : 'Dec 28, 2026',
+        },
+        ...prev,
+      ]);
+    }
+    appendAuditLog(
+      `Enterprise deal ${deal?.companyName || id} -> ${stage}`,
+      officialProjectCode || id,
+      'SA-001',
+      'Enterprise CRM'
+    );
+    showToast(
+      locale === 'id'
+        ? `Pipeline Enterprise ${deal?.companyName || ''} berlanjut ke tahap ${stage}.`
+        : `Enterprise deal moved to ${stage}.`
+    );
+  };
+
+  const approveFinanceRecord = (id: string) => {
+    const rec = adminFinanceRecords.find((f) => f.id === id);
+    setAdminFinanceRecords((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, status: 'approved' } : f))
+    );
+    setPayoutHistory((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, status: 'settled' } : p))
+    );
+    appendAuditLog(
+      locale === 'id'
+        ? `Dual-approval keuangan ${rec?.code || id} disetujui`
+        : `Finance dual-approval ${rec?.code || id} approved`,
+      rec?.code || id,
+      'FIN-001',
+      'Finance Operator'
+    );
+    showToast(
+      locale === 'id'
+        ? `${rec?.code || 'Transaksi'} disetujui dan diposting ke ledger.`
+        : `${rec?.code || 'Record'} approved and posted to ledger.`
+    );
+  };
+
+  const updateRightsStatus = (
+    id: string,
+    status: AdminRightsRecord['status']
+  ) => {
+    const rec = adminRightsRecords.find((r) => r.id === id);
+    setAdminRightsRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status } : r))
+    );
+    appendAuditLog(
+      locale === 'id'
+        ? `Status Data Rights ${rec?.code || id} -> ${status}`
+        : `Data Rights status ${rec?.code || id} -> ${status}`,
+      rec?.code || id,
+      'CMP-001',
+      'Compliance Officer'
+    );
+    showToast(
+      locale === 'id'
+        ? `Hak data ${rec?.code || ''} diperbarui ke ${status}.`
+        : `Rights record ${rec?.code || ''} updated to ${status}.`
+    );
+  };
+
+  const resolveDisputeCase = (
+    id: string,
+    status: AdminDisputeCase['status'],
+    rationale: string
+  ) => {
+    const dis = adminDisputes.find((d) => d.id === id);
+    setAdminDisputes((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status, rationale } : d))
+    );
+    appendAuditLog(
+      locale === 'id'
+        ? `Sengketa ${dis?.code || id} -> ${status}`
+        : `Dispute ${dis?.code || id} -> ${status}`,
+      dis?.workOrderCode || id,
+      'SA-001',
+      'Trust & Safety'
+    );
+    showToast(
+      locale === 'id'
+        ? `Sengketa ${dis?.code || ''} diperbarui ke status ${status}.`
+        : `Dispute ${dis?.code || ''} updated to ${status}.`
+    );
+  };
+
+  const updateRbacRolePermissions = (roleId: string, permissions: string[]) => {
+    const target = adminRbacRoles.find((r) => r.id === roleId);
+    setAdminRbacRoles((prev) =>
+      prev.map((r) => (r.id === roleId ? { ...r, permissions } : r))
+    );
+    appendAuditLog(
+      locale === 'id'
+        ? `RBAC permissions diperbarui untuk ${target?.name || roleId}`
+        : `RBAC permissions updated for ${target?.name || roleId}`,
+      roleId,
+      'SA-001',
+      'Super Admin'
+    );
+    showToast(
+      locale === 'id'
+        ? `Hak akses RBAC untuk ${target?.name || roleId} berhasil diperbarui.`
+        : `RBAC permissions updated for ${target?.name || roleId}.`
     );
   };
 
@@ -722,27 +1784,38 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         setActiveRole,
         savedSlugs,
         toggleSaved,
-        cartItems,
-        addToCart,
-        updateCartQty,
-        removeFromCart,
-        clearCart,
         proposals,
         submitProposal,
+        withdrawProposal,
         inquiries,
         submitEnterpriseInquiry,
         workOrders,
+        acknowledgedOrderIds,
+        acknowledgeOrderSpec,
+        recordMilestoneFunding,
         notifications,
         markNotificationRead,
         markAllNotificationsRead,
         notificationsModalOpen,
         setNotificationsModalOpen,
-        conversations,
-        sendMessage,
         submissionFiles,
         submitReworkOrDispute,
         offers,
         respondOffer,
+        recruiterWallet,
+        topUpHistory,
+        submitWalletTopUp,
+        settlePendingTopUp,
+        topUpModalOpen,
+        setTopUpModalOpen,
+        recruitmentOffers,
+        createRecruitmentOffer,
+        respondRecruitmentOffer,
+        clarifications,
+        submitClarification,
+        resolveClarification,
+        recruitModalTarget,
+        openRecruitModal: setRecruitModalTarget,
         availableBalance,
         payoutHistory,
         requestPayout,
@@ -751,6 +1824,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         customProjects,
         createVendorProject,
         customServices,
+        pausedServiceIds,
+        toggleServiceAvailability,
         createFreelancerService,
         kycStatus,
         submitKyc,
@@ -758,12 +1833,36 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         showToast,
         proposalModalProject,
         openProposalModal: setProposalModalProject,
-        serviceOrderModal,
-        openServiceOrderModal: setServiceOrderModal,
         reportListingModal,
         openReportModal: setReportListingModal,
-        cartDrawerOpen,
-        setCartDrawerOpen,
+        opsProjects,
+        createOpsWorkPackage,
+        opsUploadSessions,
+        opsQuarantineItems,
+        opsAnnotationProjects,
+        opsDeliveryPackages,
+        acceptedEnterpriseDeliveries,
+        acceptEnterpriseDelivery,
+        createOpsUploadSession,
+        updateQuarantineDecision,
+        updateAnnotationProjectStatus,
+        dispatchDeliveryPackage,
+        adminVerifications,
+        decideVerification,
+        adminModerations,
+        decideModeration,
+        adminEnterpriseDeals,
+        advanceEnterpriseDeal,
+        adminFinanceRecords,
+        approveFinanceRecord,
+        adminRightsRecords,
+        updateRightsStatus,
+        adminDisputes,
+        resolveDisputeCase,
+        adminAuditLogs,
+        appendAuditLog,
+        adminRbacRoles,
+        updateRbacRolePermissions,
       }}
     >
       {children}

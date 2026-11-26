@@ -2,11 +2,25 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { EgvoXLogo } from '@/packages/design-system';
 import { useAppState } from '@/lib/hooks/useAppState';
 
 export const SiteFooter: React.FC = () => {
+  const pathname = usePathname();
   const { locale } = useAppState();
+
+  const isDedicatedPortal =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/ops') ||
+    pathname.startsWith('/workspace') ||
+    pathname.startsWith('/freelancer/dashboard') ||
+    pathname.startsWith('/vendor/dashboard') ||
+    pathname.startsWith('/enterprise/dashboard');
+
+  if (isDedicatedPortal) {
+    return null;
+  }
 
   return (
     <footer className="border-t border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] pb-20 lg:pb-10">
@@ -48,7 +62,17 @@ export const SiteFooter: React.FC = () => {
               </li>
               <li>
                 <Link href="/workspace" className="hover:text-[#027F86] dark:hover:text-[#04B8B4]">
-                  {locale === 'id' ? 'Workspace Pelanggan' : 'Customer Workspace'}
+                  {locale === 'id' ? 'Customer Workspace (app)' : 'Customer Workspace (app)'}
+                </Link>
+              </li>
+              <li>
+                <Link href="/ops" className="hover:text-[#027F86] dark:hover:text-[#04B8B4]">
+                  {locale === 'id' ? 'Data Operations (ops)' : 'Data Operations (ops)'}
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin" className="hover:text-[#027F86] dark:hover:text-[#04B8B4]">
+                  {locale === 'id' ? 'Super Admin Control Plane' : 'Super Admin Control Plane'}
                 </Link>
               </li>
             </ul>

@@ -17,7 +17,7 @@ export interface EgvoXDictionary {
     explore: string;
     corporateSite: string;
     notifications: string;
-    cart: string;
+    wallet: string;
   };
   landing: {
     kicker: string;
@@ -91,14 +91,14 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       explore: 'Beranda',
       corporateSite: 'Halaman Corporate',
       notifications: 'Notifikasi',
-      cart: 'Keranjang Order',
+      wallet: 'Dompet Rekruter',
     },
     landing: {
       kicker: 'Jaringan Data Pengalaman Manusia & Operasi Terkelola',
       heroTitle: 'Platform Kolaborasi Produksi Data Berkualitas untuk',
       heroHighlight: 'Kebutuhan AI & Teknologi',
       heroSubtitle:
-        'EgvoX menghubungkan kontributor video egocentric, data annotator, penyedia data, dan tim enterprise untuk mengumpulkan, memvalidasi, dan mengirimkan dataset terstruktur secara aman.',
+        'EgvoX menghubungkan kontributor video egocentric, data annotator, spesialis QA, penyedia data, dan tim enterprise untuk mengumpulkan, memvalidasi, dan mengirimkan dataset terstruktur secara aman.',
       ctaExploreMarketplace: 'Jelajahi Marketplace',
       ctaStartNow: 'Mulai Sekarang',
       ctaBecomeContributor: 'Jadi Kontributor',
@@ -106,15 +106,15 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       ctaEnterpriseQuote: 'Ajukan Kemitraan Enterprise',
       whatIsTitle: 'Apa itu EgvoX?',
       whatIsSubtitle:
-        'Platform marketplace dan operasi produksi data terkelola untuk perekaman video sudut pandang pertama (egocentric), anotasi manusia terstandar, dan pengiriman dataset siap pakai.',
+        'Platform marketplace rekrutmen talenta data dan operasi produksi terkelola untuk perekaman video sudut pandang pertama (egocentric), anotasi manusia terstandar, QA independen, dan pengiriman dataset siap pakai.',
       benefitsTitle: 'Manfaat & Keunggulan Ekosistem',
       howItWorksTitle: 'Bagaimana Cara Kerja EgvoX?',
       howItWorksSubtitle:
-        'Tiga alur transaksi transparan: Vendor Project Marketplace, Freelancer Service Order, dan Enterprise Managed Data Project.',
+        'Tiga alur rekrutmen dan produksi terstruktur: Vendor Project Catalog, Rekrutmen Freelancer Privat, dan Enterprise Managed Data Project.',
       systemTitle: 'Enam Pilar Sistem EgvoX',
       catalogPreviewTitle: 'Katalog Marketplace EgvoX',
       catalogPreviewSubtitle:
-        'Jelajahi proyek pengumpulan dataset aktif dan layanan kontributor serta annotator terverifikasi.',
+        'Jelajahi proyek pengumpulan dataset aktif dan profil kapabilitas kontributor, annotator, serta QA specialist terverifikasi.',
       moreProjects: 'Lihat Semua Proyek',
       moreFreelancers: 'Lihat Semua Freelancer',
       annotationShowcaseTitle: 'Contoh Data Annotation per Kategori Platform',
@@ -131,23 +131,23 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
     },
     marketplace: {
       kicker: 'Marketplace Resmi EgvoX',
-      heroTitle: 'Marketplace Data & Layanan untuk Berbagai Industri',
+      heroTitle: 'Marketplace Data & Rekrutmen Talenta Terstruktur',
       heroSubtitle:
-        'Temukan proyek pengumpulan dataset, rekrut kontributor video egocentric dan annotator terverifikasi, atau kelola alur kerja data dalam satu workspace.',
-      searchPlaceholder: 'Cari project, layanan, kamera, atau kategori aktivitas...',
+        'Temukan proyek pengumpulan dataset, rekrut Video Contributor, Data Annotator, dan QA Specialist terverifikasi melalui penawaran privat, atau kelola Work Order dalam satu workspace.',
+      searchPlaceholder: 'Cari project, keahlian, kamera, tools QA, atau kategori aktivitas...',
       searchButton: 'Cari',
       projectCatalogTitle: 'Project Catalog',
-      projectCatalogDesc: 'Ratusan project pengumpulan dataset dari vendor terverifikasi',
-      serviceCatalogTitle: 'Freelancer Service Catalog',
-      serviceCatalogDesc: 'Talenta video capture, anotasi, dan QA siap berkolaborasi',
+      projectCatalogDesc: 'Proyek pengumpulan dataset dari vendor terverifikasi untuk pengajuan minat kualifikasi',
+      serviceCatalogTitle: 'Katalog Freelancer',
+      serviceCatalogDesc: 'Video Contributor, Data Annotator & QA Specialist — rekrutmen privat terstruktur',
       browseCategories: 'Jelajahi Kategori Aktivitas',
       allCategories: 'Semua Kategori',
       featuredProjects: 'Project Unggulan',
-      featuredFreelancers: 'Freelancer Unggulan',
+      featuredFreelancers: 'Talenta Freelancer Unggulan',
       viewAll: 'Lihat Semua',
-      applyProposal: 'Ajukan Proposal',
-      requestOrder: 'Pesan Layanan',
-      askVendor: 'Tanyakan ke Vendor',
+      applyProposal: 'Ajukan Minat',
+      requestOrder: 'Rekrut',
+      askVendor: 'Klarifikasi Proyek',
       filters: 'Filter',
       resetFilters: 'Reset',
       applyFilters: 'Terapkan',
@@ -170,14 +170,14 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       explore: 'Explore',
       corporateSite: 'Corporate Site',
       notifications: 'Notifications',
-      cart: 'Order Cart',
+      wallet: 'Recruiter Wallet',
     },
     landing: {
       kicker: 'Human-Experience Data Network & Managed Operations',
       heroTitle: 'The Human Experience Data Network for',
       heroHighlight: 'AI & Robotics',
       heroSubtitle:
-        'Connect with verified egocentric video contributors, data annotators, dataset providers, and managed operations to collect, validate, and deliver structured human-experience datasets.',
+        'Connect with verified egocentric video contributors, data annotators, QA specialists, dataset providers, and managed operations to collect, validate, and deliver structured human-experience datasets.',
       ctaExploreMarketplace: 'Explore Marketplace',
       ctaStartNow: 'Get Started',
       ctaBecomeContributor: 'Become a Contributor',
@@ -185,15 +185,15 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       ctaEnterpriseQuote: 'Partner with EgvoX',
       whatIsTitle: 'What is EgvoX?',
       whatIsSubtitle:
-        'A B2B marketplace and managed data operations platform built specifically for first-person egocentric video capture, human annotation, QA verification, and rights-governed dataset delivery.',
+        'A recruitment-based B2B marketplace and managed data operations platform built for first-person egocentric video capture, human annotation, independent QA, and rights-governed dataset delivery.',
       benefitsTitle: 'Benefits Across Every Persona',
       howItWorksTitle: 'How EgvoX Works',
       howItWorksSubtitle:
-        'Three structured workflows: Vendor Project Marketplace, Freelancer Service Orders, and Enterprise Managed Data Projects.',
+        'Three structured recruitment & production workflows: Vendor Project Catalog, Private Freelancer Recruitment, and Enterprise Managed Data Projects.',
       systemTitle: 'The Six-Part EgvoX System',
       catalogPreviewTitle: 'EgvoX Marketplace Preview',
       catalogPreviewSubtitle:
-        'Browse active vendor collection projects alongside verified contributor and annotator services.',
+        'Browse active vendor collection projects alongside verified video contributor, annotator, and QA specialist capability profiles.',
       moreProjects: 'More Projects',
       moreFreelancers: 'More Freelancers',
       annotationShowcaseTitle: 'Data Annotation Examples by Platform Category',
@@ -210,23 +210,23 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
     },
     marketplace: {
       kicker: 'EgvoX Official Marketplace',
-      heroTitle: 'Data Collection & Annotation Marketplace Across Industries',
+      heroTitle: 'Structured Data Collection & Talent Recruitment Marketplace',
       heroSubtitle:
-        'Discover active dataset collection projects, hire verified egocentric video contributors and annotators, and manage compliant delivery workflows.',
-      searchPlaceholder: 'Search projects, services, cameras, or activity domains...',
+        'Discover active dataset collection projects, recruit verified Video Contributors, Data Annotators, and QA Specialists via private offers, and govern delivery inside one workspace.',
+      searchPlaceholder: 'Search projects, capabilities, cameras, QA tools, or domains...',
       searchButton: 'Search',
       projectCatalogTitle: 'Project Catalog',
-      projectCatalogDesc: 'Verified vendor dataset collection projects open for proposals',
-      serviceCatalogTitle: 'Freelancer Service Catalog',
-      serviceCatalogDesc: 'Verified video capture, annotation, and QA specialists',
+      projectCatalogDesc: 'Verified vendor dataset collection briefs open for qualification applications',
+      serviceCatalogTitle: 'Freelancer Catalog',
+      serviceCatalogDesc: 'Video Contributors, Data Annotators & QA Specialists via private recruitment',
       browseCategories: 'Browse Activity Categories',
       allCategories: 'All Categories',
       featuredProjects: 'Featured Projects',
       featuredFreelancers: 'Featured Freelancers',
       viewAll: 'View All',
-      applyProposal: 'Submit Proposal',
-      requestOrder: 'Request Order',
-      askVendor: 'Message Vendor',
+      applyProposal: 'Express Interest',
+      requestOrder: 'Recruit Freelancer',
+      askVendor: 'Project Clarification',
       filters: 'Filters',
       resetFilters: 'Reset',
       applyFilters: 'Apply Filters',

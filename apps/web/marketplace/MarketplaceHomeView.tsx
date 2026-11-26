@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Briefcase,
   Building2,
+  Camera,
   Car,
   ChefHat,
   Factory,
@@ -18,7 +19,9 @@ import {
   ShieldCheck,
   Star,
   Store,
+  Tag,
   Truck,
+  UserCheck,
   Users,
 } from 'lucide-react';
 import { DualPrice } from '@/packages/design-system';
@@ -49,11 +52,12 @@ export const MarketplaceHomeView: React.FC = () => {
     savedSlugs,
     toggleSaved,
     openProposalModal,
-    openServiceOrderModal,
+    openRecruitModal,
     customProjects,
     customServices,
   } = useAppState();
   const t = dictionaries[locale];
+  const isId = locale === 'id';
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTarget, setSearchTarget] = useState<'projects' | 'services'>('projects');
 
@@ -107,14 +111,14 @@ export const MarketplaceHomeView: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                   <select
-                    aria-label={locale === 'id' ? 'Target pencarian' : 'Search target'}
+                    aria-label={isId ? 'Target pencarian' : 'Search target'}
                     value={searchTarget}
                     onChange={(e) =>
                       setSearchTarget(e.target.value as 'projects' | 'services')
                     }
                     className="h-10 flex-1 sm:flex-none rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 text-xs font-semibold text-[var(--egvox-text-primary)]"
                   >
-                    <option value="projects">{locale === 'id' ? 'Project' : 'Projects'}</option>
+                    <option value="projects">{isId ? 'Project' : 'Projects'}</option>
                     <option value="services">Freelancer</option>
                   </select>
                   <button
@@ -168,6 +172,51 @@ export const MarketplaceHomeView: React.FC = () => {
                   </span>
                 </Link>
               </div>
+
+              {/* 3 Direct Freelancer Category Shortcut Rows (v1.3 Reference Board) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {[
+                  {
+                    href: '/marketplace/services/video-contributors',
+                    icon: Camera,
+                    title: 'Video Contributor',
+                    sub: isId ? 'Pengambil Video Egocentric' : 'Egocentric Video Capture',
+                  },
+                  {
+                    href: '/marketplace/services/data-annotators',
+                    icon: Tag,
+                    title: 'Data Annotator',
+                    sub: isId ? 'Anotasi & Labeling Data' : 'Video & Data Labeling',
+                  },
+                  {
+                    href: '/marketplace/services/qa-specialists',
+                    icon: UserCheck,
+                    title: 'QA Specialist',
+                    sub: isId ? 'Review & Quality Assurance' : 'Independent QA Review',
+                  },
+                ].map((cat) => {
+                  const Icon = cat.icon;
+                  return (
+                    <Link
+                      key={cat.title}
+                      href={cat.href}
+                      className="flex items-center gap-2.5 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2.5 hover:border-[#027F86] transition-colors"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#027F86]/12 text-[#027F86]">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[var(--egvox-text-primary)] truncate">
+                          {cat.title}
+                        </p>
+                        <p className="text-[11px] text-[var(--egvox-text-muted)] truncate">
+                          {cat.sub}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Right Showcase Collage */}
@@ -180,9 +229,7 @@ export const MarketplaceHomeView: React.FC = () => {
                   className="h-full w-full object-cover"
                 />
                 <div className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white">
-                  {locale === 'id'
-                    ? 'Memasak · Sudut Pandang Egocentric'
-                    : 'Cooking · Egocentric POV'}
+                  {isId ? 'Memasak · Sudut Pandang Egocentric' : 'Cooking · Egocentric POV'}
                 </div>
               </div>
               <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[var(--egvox-border-default)]">
@@ -208,19 +255,19 @@ export const MarketplaceHomeView: React.FC = () => {
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--egvox-border-default)] pt-5 text-xs font-medium text-[var(--egvox-text-secondary)]">
             <span className="inline-flex items-center gap-1.5">
               <ShieldCheck className="h-4 w-4 text-[#16835D]" />{' '}
-              {locale === 'id' ? 'Proyek Terverifikasi' : 'Verified Projects'}
+              {isId ? 'Organisasi Perekrut Terverifikasi KYB' : 'KYB-Verified Recruiters'}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Users className="h-4 w-4 text-[#027F86]" />{' '}
-              {locale === 'id' ? 'Talenta Berkualitas (KYC)' : 'KYC-Verified Talent'}
+              {isId ? 'Rekrutmen Privat Terstruktur' : 'Structured Private Recruitment'}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Building2 className="h-4 w-4 text-[#2563A6]" />{' '}
-              {locale === 'id' ? 'Penanganan Raw Video Privat' : 'Private Raw Video Handling'}
+              {isId ? 'Saldo Settled & Reservasi Ledger' : 'Settled Balance & Ledger Reservation'}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Star className="h-4 w-4 text-[#FC840E]" />{' '}
-              {locale === 'id' ? 'SLA & Jaminan Kualitas' : 'SLA & Quality Assurance'}
+              {isId ? 'SLA & Jaminan Kualitas QA' : 'SLA & QA Quality Assurance'}
             </span>
           </div>
         </div>
@@ -253,12 +300,12 @@ export const MarketplaceHomeView: React.FC = () => {
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="text-xs font-semibold text-[var(--egvox-text-primary)] line-clamp-1">
-                  {locale === 'id'
+                  {isId
                     ? cat.nameId.split('&')[0].trim()
                     : cat.nameEn.split('&')[0].trim()}
                 </span>
                 <span className="text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
-                  {cat.projectCount} {locale === 'id' ? 'proyek' : 'projects'}
+                  {cat.projectCount} {isId ? 'proyek' : 'projects'}
                 </span>
               </Link>
             );
@@ -274,9 +321,9 @@ export const MarketplaceHomeView: React.FC = () => {
               {t.marketplace.featuredProjects}
             </h2>
             <p className="text-xs text-[var(--egvox-text-muted)]">
-              {locale === 'id'
-                ? 'Listing proyek pengumpulan dataset aktif yang siap menerima proposal'
-                : 'Active verified dataset collection projects open for contributor proposals'}
+              {isId
+                ? 'Listing proyek pengumpulan dataset aktif — ajukan minat dan kualifikasi Anda secara profesional'
+                : 'Active verified dataset briefs — submit your qualifications privately'}
             </p>
           </div>
           <Link
@@ -291,8 +338,8 @@ export const MarketplaceHomeView: React.FC = () => {
         <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {allProjects.slice(0, 4).map((prj) => {
             const isSaved = savedSlugs.includes(prj.slug);
-            const title = locale === 'id' ? prj.title : prj.titleEn;
-            const unit = locale === 'id' ? prj.unitLabel : prj.unitLabelEn || 'hour';
+            const title = isId ? prj.title : prj.titleEn;
+            const unit = isId ? prj.unitLabel : prj.unitLabelEn || 'hour';
             return (
               <article
                 key={prj.id}
@@ -312,7 +359,7 @@ export const MarketplaceHomeView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => toggleSaved(prj.slug, title)}
-                      aria-label={locale === 'id' ? 'Simpan' : 'Save'}
+                      aria-label={isId ? 'Simpan' : 'Save'}
                       className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#102326]"
                     >
                       <Heart
@@ -324,7 +371,7 @@ export const MarketplaceHomeView: React.FC = () => {
                   </div>
                   <div className="p-4">
                     <p className="text-[11px] text-[var(--egvox-text-muted)]">
-                      {locale === 'id' ? prj.categoryLabel : prj.categoryLabelEn || prj.categoryLabel} · {prj.dataType} · {prj.country}
+                      {isId ? prj.categoryLabel : prj.categoryLabelEn || prj.categoryLabel} · {prj.dataType} · {prj.country}
                     </p>
                     <Link
                       href={`/marketplace/projects/${prj.slug}`}
@@ -334,18 +381,29 @@ export const MarketplaceHomeView: React.FC = () => {
                     </Link>
                     <p className="mt-2 text-xs text-[var(--egvox-text-muted)] tabular-nums">
                       Target {prj.targetVolume} {unit} ·{' '}
-                      {locale === 'id' ? prj.deadline : prj.deadlineEn || prj.deadline}
+                      {isId ? prj.deadline : prj.deadlineEn || prj.deadline}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--egvox-border-default)] px-4 py-3">
-                  <DualPrice amountIDR={prj.ratePerUnit} unitLabel={unit} size="sm" />
+                  {prj.showBudgetDisclosure !== false ? (
+                    <div className="min-w-0">
+                      <span className="block text-[10px] text-[var(--egvox-text-muted)]">
+                        {isId ? 'Ref. Budget Vendor' : 'Vendor Budget Ref.'}
+                      </span>
+                      <DualPrice amountIDR={prj.ratePerUnit} unitLabel={unit} size="sm" />
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-[#027F86]">
+                      {isId ? 'Penawaran Privat' : 'Private Offer'}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => openProposalModal(prj)}
                     className="rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
                   >
-                    {locale === 'id' ? 'Proposal' : 'Apply'}
+                    {t.marketplace.applyProposal}
                   </button>
                 </div>
               </article>
@@ -354,7 +412,7 @@ export const MarketplaceHomeView: React.FC = () => {
         </div>
       </section>
 
-      {/* Freelancer Unggulan */}
+      {/* Freelancer Unggulan (Structured Recruitment) */}
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -362,9 +420,9 @@ export const MarketplaceHomeView: React.FC = () => {
               {t.marketplace.featuredFreelancers}
             </h2>
             <p className="text-xs text-[var(--egvox-text-muted)]">
-              {locale === 'id'
-                ? 'Kontributor video egocentric & data annotator siap di-order per jam'
-                : 'Egocentric video contributors & annotators available for hourly orders'}
+              {isId
+                ? 'Video Contributor, Data Annotator & QA Specialist siap direkrut melalui penawaran privat'
+                : 'Verified Video Contributors, Data Annotators & QA Specialists ready for private recruitment'}
             </p>
           </div>
           <Link
@@ -378,11 +436,10 @@ export const MarketplaceHomeView: React.FC = () => {
 
         <div className="mt-5 grid gap-5 md:grid-cols-3">
           {allServices.slice(0, 3).map((srv) => {
-            const title = locale === 'id' ? srv.title : srv.titleEn;
-            const unit = locale === 'id' ? srv.unitLabel : srv.unitLabelEn || 'hour';
-            const sla = locale === 'id' ? srv.deliverySla : srv.deliverySlaEn || srv.deliverySla;
-            const cap =
-              locale === 'id' ? srv.capacityLabel : srv.capacityLabelEn || srv.capacityLabel;
+            const title = isId ? srv.title : srv.titleEn;
+            const sla = isId ? srv.deliverySla : srv.deliverySlaEn || srv.deliverySla;
+            const cap = isId ? srv.capacityLabel : srv.capacityLabelEn || srv.capacityLabel;
+            const accRate = srv.acceptanceRatePercent ?? srv.slaPercent;
             return (
               <article
                 key={srv.id}
@@ -404,8 +461,8 @@ export const MarketplaceHomeView: React.FC = () => {
                         >
                           {srv.freelancerName}
                         </Link>
-                        <p className="text-xs text-[var(--egvox-text-muted)]">
-                          {srv.roleType} · {locale === 'id' ? srv.location : srv.locationEn || srv.location}
+                        <p className="text-xs text-[#027F86] font-medium">
+                          {srv.roleType} · {isId ? srv.location : srv.locationEn || srv.location}
                         </p>
                       </div>
                     </div>
@@ -420,17 +477,19 @@ export const MarketplaceHomeView: React.FC = () => {
                   >
                     {title}
                   </Link>
-                  <p className="mt-1.5 text-xs text-[var(--egvox-text-muted)]">
-                    SLA {sla} · {locale === 'id' ? 'Kapasitas' : 'Capacity'} {cap}
+                  <p className="mt-1.5 text-xs text-[var(--egvox-text-muted)] tabular-nums">
+                    SLA {sla} · {isId ? 'Kapasitas' : 'Capacity'} {cap}
                   </p>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--egvox-border-default)] pt-3">
-                  <DualPrice amountIDR={srv.pricePerUnit} unitLabel={unit} size="sm" />
+                  <span className="text-xs font-semibold text-[#16835D] tabular-nums">
+                    {accRate}% {isId ? 'Penerimaan' : 'Acceptance'} · {srv.completedOrders} {isId ? 'selesai' : 'jobs'}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => openServiceOrderModal(srv)}
-                    className="rounded-lg bg-[#027F86] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
+                    onClick={() => openRecruitModal(srv)}
+                    className="rounded-lg bg-[#027F86] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#039998]"
                   >
                     {t.marketplace.requestOrder}
                   </button>
