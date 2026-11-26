@@ -1,0 +1,86 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --egvox-brand-teal-700: #027F86;
+  --egvox-brand-teal-600: #039998;
+  --egvox-brand-teal-500: #04B8B4;
+  --egvox-brand-teal-300: #55B6B4;
+  --egvox-brand-orange-600: #FC840E;
+  --egvox-brand-yellow-500: #FDBA27;
+
+  --egvox-neutral-950: #102326;
+  --egvox-neutral-800: #263F42;
+  --egvox-neutral-700: #42595B;
+  --egvox-neutral-500: #718486;
+  --egvox-neutral-300: #D7E1E1;
+  --egvox-neutral-200: #E8EEEE;
+  --egvox-neutral-100: #F4F8F8;
+  --egvox-neutral-0: #FFFFFF;
+
+  --egvox-success: #16835D;
+  --egvox-warning: #B7791F;
+  --egvox-danger: #C43D3D;
+  --egvox-info: #2563A6;
+
+  --egvox-gradient-brand: linear-gradient(110deg, #027F86 0%, #04B8B4 100%);
+  --egvox-gradient-workflow: linear-gradient(110deg, #FC840E 0%, #FDBA27 100%);
+
+  --egvox-bg-canvas: #F4F8F8;
+  --egvox-bg-surface: #FFFFFF;
+  --egvox-bg-subtle: #E8EEEE;
+  --egvox-text-primary: #102326;
+  --egvox-text-secondary: #42595B;
+  --egvox-text-muted: #718486;
+  --egvox-border-default: #D7E1E1;
+
+  --egvox-shadow-card: 0 1px 3px rgb(16 35 38 / 8%), 0 4px 12px rgb(16 35 38 / 4%);
+  --egvox-shadow-popover: 0 12px 32px rgb(16 35 38 / 14%);
+  --egvox-focus-ring: 0 0 0 3px rgb(4 184 180 / 28%);
+}
+
+.dark {
+  color-scheme: dark;
+  --egvox-bg-canvas: #101F21;
+  --egvox-bg-surface: #172B2D;
+  --egvox-bg-subtle: #20383A;
+  --egvox-text-primary: #F2F8F7;
+  --egvox-text-secondary: #B9CCCA;
+  --egvox-text-muted: #8BA4A2;
+  --egvox-border-default: #355052;
+
+  --egvox-shadow-card: 0 1px 3px rgb(0 0 0 / 24%), 0 4px 14px rgb(0 0 0 / 18%);
+  --egvox-shadow-popover: 0 12px 32px rgb(0 0 0 / 40%);
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
+
+body {
+  background-color: var(--egvox-bg-canvas);
+  color: var(--egvox-text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

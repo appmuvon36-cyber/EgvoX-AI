@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — EgvoX</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #F4F8F8;
+      color: #0F2428;
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      padding: 24px;
+    }
+    .card {
+      max-width: 420px;
+      width: 100%;
+      background: #FFFFFF;
+      border: 1px solid #D9E6E7;
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 12px 32px -12px rgba(2, 127, 134, 0.12);
+    }
+    .badge {
+      display: inline-block;
+      background: #E6F4F5;
+      color: #027F86;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 8px;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #4B6B70;
+      margin: 0 0 24px;
+    }
+    button {
+      background: #027F86;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">EgvoX PWA Offline</div>
+    <h1>Koneksi Internet Terputus</h1>
+    <p>Anda sedang berada dalam mode offline. Silakan periksa koneksi Anda lalu muat ulang halaman untuk melanjutkan akses ke Marketplace dan Workspace EgvoX.</p>
+    <button onclick="window.location.reload()">Muat Ulang Halaman</button>
+  </div>
+</body>
+</html>

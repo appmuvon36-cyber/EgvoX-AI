@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <defs>
+    <linearGradient id="tealGrad" x1="80" y1="80" x2="432" y2="432" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#04B8B4"/>
+      <stop offset="100%" stop-color="#027F86"/>
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="100" y1="412" x2="412" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FC840E"/>
+      <stop offset="100%" stop-color="#FDBA27"/>
+    </linearGradient>
+  </defs>
+  <path d="M124 128C108 112 132 88 158 106L388 342C406 360 384 394 358 374L124 128Z" fill="url(#tealGrad)"/>
+  <path d="M132 372C112 392 146 416 172 392L388 148C406 128 378 96 352 118L132 372Z" fill="url(#orangeGrad)"/>
+  <polygon points="234,218 234,294 298,256" fill="#FFFFFF"/>
+  <path d="M268 92C330 62 396 86 420 120" stroke="#039998" stroke-width="14" stroke-linecap="round"/>
+  <path d="M406 94L426 122L394 126" stroke="#039998" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M108 386C146 436 248 456 346 416" stroke="#FC840E" stroke-width="14" stroke-linecap="round" stroke-dasharray="16 14"/>
+</svg>

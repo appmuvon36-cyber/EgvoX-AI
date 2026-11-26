@@ -1,0 +1,6 @@
+{
+  "name": "EgvoX",
+  "description": "The Human Experience Data Network — Marketplace & Managed Data Operations Platform for Egocentric Video, Data Annotation, and Enterprise Datasets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
