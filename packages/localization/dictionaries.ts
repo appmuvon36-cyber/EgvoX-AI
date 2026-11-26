@@ -44,6 +44,8 @@ export interface EgvoXDictionary {
     supportedAnnotationTitle: string;
     ecosystemTitle: string;
     industriesTitle: string;
+    privacyCaptureTitle: string;
+    privacyCaptureSubtitle: string;
     trustTitle: string;
     enterpriseFormTitle: string;
     enterpriseFormSubtitle: string;
@@ -94,11 +96,11 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       wallet: 'Dompet Rekruter',
     },
     landing: {
-      kicker: 'Jaringan Data Pengalaman Manusia & Operasi Terkelola',
-      heroTitle: 'Platform Kolaborasi Produksi Data Berkualitas untuk',
-      heroHighlight: 'Kebutuhan AI & Teknologi',
+      kicker: 'Jaringan Data Pengalaman Manusia & Operasi Dataset Terkelola',
+      heroTitle: 'Jaringan Data Video Egocentric & Operasi Dataset Terkelola untuk',
+      heroHighlight: 'Pengembangan AI & Robotika',
       heroSubtitle:
-        'EgvoX menghubungkan kontributor video egocentric, data annotator, spesialis QA, penyedia data, dan tim enterprise untuk mengumpulkan, memvalidasi, dan mengirimkan dataset terstruktur secara aman.',
+        'EgvoX menghubungkan kontributor video sudut pandang pertama (egocentric), data annotator, spesialis QA independen, penyedia data, dan tim enterprise untuk mengumpulkan, memvalidasi, serta mengirimkan dataset terstruktur siap pakai.',
       ctaExploreMarketplace: 'Jelajahi Marketplace',
       ctaStartNow: 'Mulai Sekarang',
       ctaBecomeContributor: 'Jadi Kontributor',
@@ -123,6 +125,9 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       supportedAnnotationTitle: 'Jenis Anotasi yang Didukung',
       ecosystemTitle: 'Ekosistem EgvoX',
       industriesTitle: 'Solusi untuk Berbagai Industri',
+      privacyCaptureTitle: 'Standar Perekaman Video & Perlindungan Data Pribadi',
+      privacyCaptureSubtitle:
+        'Setiap video mentah melewati penyaringan privasi ketat, pemotongan segmen non-relevan, dan verifikasi durasi aktif oleh tim EgvoX sesuai standar industri AI global.',
       trustTitle: 'Kepercayaan, Hak Data & Kualitas Terverifikasi',
       enterpriseFormTitle: 'Permintaan Kemitraan Enterprise',
       enterpriseFormSubtitle:
@@ -202,6 +207,9 @@ export const dictionaries: Record<Locale, EgvoXDictionary> = {
       supportedAnnotationTitle: 'Supported Annotation Types',
       ecosystemTitle: 'EgvoX Ecosystem',
       industriesTitle: 'Industry Solutions',
+      privacyCaptureTitle: 'Capture Guidelines & Personal Data Protection',
+      privacyCaptureSubtitle:
+        'Every raw recording undergoes strict privacy sanitization, face-frame trimming, and objective active-hour verification by EgvoX Operations in line with global AI industry standards.',
       trustTitle: 'Trust, Rights Governance & Quality Assurance',
       enterpriseFormTitle: 'Enterprise Partnership Request',
       enterpriseFormSubtitle:

@@ -1446,8 +1446,9 @@ export const WorkspaceShell: React.FC<{
                 </button>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                {activeServicesFiltered.slice(0, 4).map((srv) => {
+                {activeServicesFiltered.map((srv) => {
                   const isPaused = pausedServiceIds.includes(srv.id);
+                  const equipList = isId ? srv.equipment : srv.equipmentEn || srv.equipment;
                   return (
                     <div
                       key={srv.id}
@@ -1461,7 +1462,7 @@ export const WorkspaceShell: React.FC<{
                           </h3>
                         </div>
                         <span
-                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold shrink-0 ${
                             isPaused
                               ? 'bg-[#F59E0B]/15 text-[#B7791F]'
                               : 'bg-[#16835D]/12 text-[#16835D]'
@@ -1476,9 +1477,34 @@ export const WorkspaceShell: React.FC<{
                             : 'Ready to Recruit'}
                         </span>
                       </div>
-                      <p className="text-xs text-[var(--egvox-text-secondary)]">
+                      <p className="text-xs text-[var(--egvox-text-secondary)] line-clamp-2">
                         {isId ? srv.description : srv.descriptionEn}
                       </p>
+                      <div className="rounded-xl bg-[var(--egvox-bg-canvas)] p-2.5 text-[11px] space-y-1 text-[var(--egvox-text-secondary)]">
+                        <p className="truncate">
+                          <strong className="text-[var(--egvox-text-primary)]">
+                            {srv.roleType === 'Data Annotator'
+                              ? isId
+                                ? 'Tools & Skema:'
+                                : 'Tools & Schemas:'
+                              : srv.roleType === 'QA Specialist'
+                              ? isId
+                                ? 'Cakupan QA:'
+                                : 'QA Scope:'
+                              : isId
+                              ? 'Kamera & Rig:'
+                              : 'Camera & Rig:'}
+                          </strong>{' '}
+                          {srv.roleType === 'Data Annotator' && srv.annotationTools?.length
+                            ? `${srv.annotationTools.slice(0, 2).join(', ')} (${(srv.supportedSchemas || []).slice(0, 2).join(', ')})`
+                            : srv.roleType === 'QA Specialist' && srv.supportedSchemas?.length
+                            ? srv.supportedSchemas.slice(0, 3).join(', ')
+                            : equipList.slice(0, 2).join(' · ')}
+                        </p>
+                        <p className="truncate text-[var(--egvox-text-muted)]">
+                          {isId ? srv.resolutionFps : srv.resolutionFpsEn || srv.resolutionFps} · {isId ? srv.location : srv.locationEn || srv.location}
+                        </p>
+                      </div>
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--egvox-border-default)]">
                         <div className="text-[11px] text-[var(--egvox-text-muted)]">
                           <span className="font-semibold text-[var(--egvox-text-primary)]">

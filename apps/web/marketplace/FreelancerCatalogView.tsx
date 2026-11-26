@@ -31,9 +31,14 @@ export const FreelancerCatalogView: React.FC<{
         !srv.freelancerName.toLowerCase().includes(q) &&
         !srv.title.toLowerCase().includes(q) &&
         !srv.titleEn.toLowerCase().includes(q) &&
+        !srv.description.toLowerCase().includes(q) &&
+        !srv.descriptionEn.toLowerCase().includes(q) &&
+        !srv.categories.some((c) => c.toLowerCase().includes(q)) &&
         !srv.tags.some((t) => t.toLowerCase().includes(q)) &&
         !srv.equipment.some((e) => e.toLowerCase().includes(q)) &&
         !(srv.equipmentEn || []).some((e) => e.toLowerCase().includes(q)) &&
+        !(srv.annotationTools || []).some((t) => t.toLowerCase().includes(q)) &&
+        !(srv.supportedSchemas || []).some((s) => s.toLowerCase().includes(q)) &&
         !srv.location.toLowerCase().includes(q) &&
         !(srv.locationEn || '').toLowerCase().includes(q)
       ) {
@@ -252,12 +257,27 @@ export const FreelancerCatalogView: React.FC<{
                     </div>
                   )}
 
-                  {/* Capability, Equipment & QA Metrics (No Public Prices) */}
+                  {/* Role-Specific Capability, Equipment/Tools & QA Metrics (No Public Prices) */}
                   <div className="space-y-1.5 rounded-xl bg-[var(--egvox-bg-canvas)] p-3 text-xs">
                     <div className="flex items-start gap-1.5 text-[var(--egvox-text-secondary)]">
                       <Wrench className="h-3.5 w-3.5 shrink-0 text-[#027F86] mt-0.5" />
-                      <span className="line-clamp-1">{equip.join(' · ')}</span>
+                      <span className="line-clamp-1">
+                        {srv.roleType === 'Data Annotator' && srv.annotationTools?.length
+                          ? `${srv.annotationTools.slice(0, 2).join(' · ')}`
+                          : srv.roleType === 'QA Specialist' && srv.supportedSchemas?.length
+                          ? `${srv.supportedSchemas.slice(0, 2).join(' · ')}`
+                          : equip.join(' · ')}
+                      </span>
                     </div>
+                    <p className="text-[11px] font-medium text-[var(--egvox-text-muted)] line-clamp-1">
+                      {srv.roleType === 'Data Annotator' && srv.supportedSchemas?.length
+                        ? `${isId ? 'Skema:' : 'Schemas:'} ${srv.supportedSchemas.slice(0, 2).join(', ')}`
+                        : srv.roleType === 'QA Specialist'
+                        ? isId
+                          ? srv.resolutionFps
+                          : srv.resolutionFpsEn || srv.resolutionFps
+                        : `${isId ? 'Output:' : 'Capture:'} ${srv.resolutionFps}`}
+                    </p>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--egvox-text-muted)] tabular-nums">
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="h-3 w-3 text-[#027F86]" />

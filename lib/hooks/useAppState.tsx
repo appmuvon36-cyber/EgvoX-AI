@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import {
   ActiveWorkOrder,
+  ActivityCategorySlug,
   AdminAuditLogEntry,
   AdminDisputeCase,
   AdminEnterpriseDeal,
@@ -33,6 +34,7 @@ import {
   WorkspaceNotification,
 } from '@/packages/shared-types';
 import {
+  ACTIVITY_CATEGORIES,
   INITIAL_CLARIFICATIONS,
   INITIAL_NOTIFICATIONS,
   INITIAL_OFFERS,
@@ -64,9 +66,13 @@ interface EnterpriseInquiryRecord {
   id: string;
   companyName: string;
   country: string;
+  website?: string;
   businessEmail: string;
   contactPerson: string;
   contactPhone?: string;
+  domainCategory?: string;
+  deliveryFormat?: string;
+  targetDeadline?: string;
   estimatedVolume: string;
   requirementSummary: string;
   attachmentName?: string;
@@ -191,11 +197,21 @@ interface AppStateContextValue {
     showBudgetDisclosure?: boolean;
     location: string;
     summary: string;
+    deadline?: string;
+    applicationCloseDate?: string;
     perspective?: CaptureSpecification['perspective'];
     mounting?: CaptureSpecification['mounting'];
+    deviceRequirement?: string;
     resolution?: string;
     frameRate?: string;
+    codecFormat?: string;
+    orientation?: CaptureSpecification['orientation'];
+    clipDuration?: string;
+    audioPolicy?: CaptureSpecification['audioPolicy'];
+    consentPolicy?: string;
     annotationRequired?: ProjectListing['annotationRequired'];
+    acceptanceCriteria?: string[];
+    rightsSummary?: string;
   }) => void;
   customServices: FreelancerServiceListing[];
   pausedServiceIds: string[];
@@ -205,9 +221,21 @@ interface AppStateContextValue {
     roleType: FreelancerServiceListing['roleType'];
     location: string;
     description: string;
+    categories?: ActivityCategorySlug[];
     capacityLabel?: string;
+    deliverySla?: string;
+    equipment?: string[];
     equipmentSummary?: string;
+    resolutionFps?: string;
+    annotationTools?: string[];
+    supportedSchemas?: string[];
+    tags?: string[];
+    exclusions?: string[];
+    terms?: string[];
+    portfolioTitle?: string;
+    portfolioImage?: string;
     conflictDisclosureDeclared?: boolean;
+    conflictDisclosureText?: string;
   }) => void;
   kycStatus: 'verified' | 'pending_review';
   submitKyc: (docType: string) => void;
@@ -591,15 +619,36 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       status: 'submitted',
       createdAt: locale === 'id' ? 'Hari ini' : 'Today',
     };
+    const volumeStr = inq.estimatedVolume.toLowerCase();
+    const parsedHours = volumeStr.includes('1.000') || volumeStr.includes('1,000')
+      ? 1000
+      : volumeStr.includes('250+')
+      ? 350
+      : volumeStr.includes('250') && volumeStr.includes('50')
+      ? 150
+      : volumeStr.includes('250')
+      ? 500
+      : 40;
+    const summaryParts = [
+      inq.domainCategory ? `[${inq.domainCategory}]` : null,
+      inq.deliveryFormat ? `Format: ${inq.deliveryFormat}` : null,
+      inq.targetDeadline ? `Target: ${inq.targetDeadline}` : null,
+      inq.website ? `Web: ${inq.website}` : null,
+    ].filter(Boolean);
+    const enrichedBrief =
+      summaryParts.length > 0
+        ? `${summaryParts.join(' · ')} — ${inq.requirementSummary}`
+        : inq.requirementSummary;
+
     setInquiries((prev) => [next, ...prev]);
     setAdminEnterpriseDeals((prev) => [
       {
         id: next.id,
         companyName: inq.companyName,
-        briefSummary: inq.requirementSummary,
-        estimatedHours: 250,
+        briefSummary: enrichedBrief,
+        estimatedHours: parsedHours,
         stage: 'request',
-        contractValueIDR: 240000000,
+        contractValueIDR: parsedHours * 960000,
         picEmail: inq.businessEmail,
         picName: inq.contactPerson,
         picPhone: inq.contactPhone,
@@ -1169,11 +1218,21 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     showBudgetDisclosure?: boolean;
     location: string;
     summary: string;
+    deadline?: string;
+    applicationCloseDate?: string;
     perspective?: CaptureSpecification['perspective'];
     mounting?: CaptureSpecification['mounting'];
+    deviceRequirement?: string;
     resolution?: string;
     frameRate?: string;
+    codecFormat?: string;
+    orientation?: CaptureSpecification['orientation'];
+    clipDuration?: string;
+    audioPolicy?: CaptureSpecification['audioPolicy'];
+    consentPolicy?: string;
     annotationRequired?: ProjectListing['annotationRequired'];
+    acceptanceCriteria?: string[];
+    rightsSummary?: string;
   }) => {
     const slug = `${input.title
       .toLowerCase()
@@ -1188,6 +1247,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       healthcare: '/images/capture_manufacturing_pov_1795676770652.jpg',
       office: '/images/capture_automotive_pov_1795676770764.jpg',
     };
+    const catMeta = ACTIVITY_CATEGORIES.find((c) => c.slug === input.category);
+    const annReq = input.annotationRequired ?? 'none';
+    const criteriaList =
+      input.acceptanceCriteria && input.acceptanceCriteria.length > 0
+        ? input.acceptanceCriteria
+        : [
+            'Tangan & objek utama terlihat jelas 85%+ durasi.',
+            'Unggah melalui sesi privat EgvoX.',
+          ];
     const nextProject: ProjectListing = {
       id: `prj-cust-${Date.now().toString().slice(-4)}`,
       slug,
@@ -1196,10 +1264,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       summary: input.summary,
       summaryEn: input.summary,
       category: input.category,
-      categoryLabel: input.category.charAt(0).toUpperCase() + input.category.slice(1),
-      categoryLabelEn: input.category.charAt(0).toUpperCase() + input.category.slice(1),
+      categoryLabel: catMeta?.nameId || input.category,
+      categoryLabelEn: catMeta?.nameEn || input.category,
       dataType: input.dataType,
-      captureType: 'Video Capture',
+      captureType:
+        annReq === 'required'
+          ? 'Video Capture + Annotation'
+          : annReq === 'optional'
+          ? 'Video Capture + Optional Annotation'
+          : 'Video Capture',
       vendorSlug: 'pt-data-visual-indonesia',
       vendorName: 'PT Data Visual Indonesia',
       vendorVerified: true,
@@ -1214,11 +1287,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       ratePerUnit: input.ratePerUnit,
       showBudgetDisclosure: input.showBudgetDisclosure ?? true,
       currency: 'IDR',
-      deadline: '30 Des 2026',
-      deadlineEn: '30 Dec 2026',
-      applicationCloseDate: '20 Des 2026',
-      applicationCloseDateEn: '20 Dec 2026',
-      annotationRequired: input.annotationRequired ?? 'none',
+      deadline: input.deadline?.trim() || '30 Des 2026',
+      deadlineEn: input.deadline?.trim() || '30 Dec 2026',
+      applicationCloseDate: input.applicationCloseDate?.trim() || '20 Des 2026',
+      applicationCloseDateEn: input.applicationCloseDate?.trim() || '20 Dec 2026',
+      annotationRequired: annReq,
       status: 'published',
       previewImage: imageMap[input.category],
       previewDuration: '0:30',
@@ -1226,35 +1299,35 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         version: 'SPEC-CUSTOM-v1.0',
         perspective: input.perspective ?? 'Egocentric (First-Person)',
         mounting: input.mounting ?? 'Head-mounted',
-        deviceRequirement: 'Action Cam 1080p60 / Wearable Camera',
-        deviceRequirementEn: 'Action Cam 1080p60 / Wearable Camera',
+        deviceRequirement:
+          input.deviceRequirement?.trim() || 'Action Cam 1080p60 / Wearable Camera',
+        deviceRequirementEn:
+          input.deviceRequirement?.trim() || 'Action Cam 1080p60 / Wearable Camera',
         resolution: input.resolution ?? 'Minimum 1080p',
         frameRate: input.frameRate ?? '30–60 FPS',
         frameRateEn: input.frameRate ?? '30–60 FPS',
-        codecFormat: 'MP4 (H.264)',
-        orientation: 'Landscape 16:9',
-        clipDuration: '15–45 menit per sesi',
-        clipDurationEn: '15–45 min per session',
-        audioPolicy: 'Optional',
+        codecFormat: input.codecFormat?.trim() || 'MP4 (H.264)',
+        orientation: input.orientation ?? 'Landscape 16:9',
+        clipDuration: input.clipDuration?.trim() || '15–45 menit per sesi',
+        clipDurationEn: input.clipDuration?.trim() || '15–45 min per session',
+        audioPolicy: input.audioPolicy ?? 'Optional',
         stabilization: 'EIS Aktif',
         stabilizationEn: 'Active EIS',
         gpsPolicy: 'Kota saja',
         gpsPolicyEn: 'City level only',
-        consentPolicy: 'Wajib persetujuan kontributor',
-        consentPolicyEn: 'Contributor consent required',
+        consentPolicy:
+          input.consentPolicy?.trim() || 'Wajib persetujuan kontributor & bebas PII',
+        consentPolicyEn:
+          input.consentPolicy?.trim() || 'Contributor consent mandatory & PII-free',
         privacyRedaction: 'Bebas PII',
         privacyRedactionEn: 'PII-free frame policy',
       },
-      acceptanceCriteria: [
-        'Tangan & objek utama terlihat jelas 85%+ durasi.',
-        'Unggah melalui sesi privat EgvoX.',
-      ],
-      acceptanceCriteriaEn: [
-        'Hands and target objects clearly visible 85%+ of duration.',
-        'Submitted via private EgvoX upload session.',
-      ],
-      rightsSummary: 'Lisensi komersial riset sesuai Work Order EgvoX.',
-      rightsSummaryEn: 'Commercial R&D license per EgvoX Work Order.',
+      acceptanceCriteria: criteriaList,
+      acceptanceCriteriaEn: criteriaList,
+      rightsSummary:
+        input.rightsSummary?.trim() || 'Lisensi komersial riset sesuai Work Order EgvoX.',
+      rightsSummaryEn:
+        input.rightsSummary?.trim() || 'Commercial R&D license per EgvoX Work Order.',
       milestones: [
         { step: 1, titleId: 'Uji Batch Awal', titleEn: 'Initial Pilot Batch', sharePercent: 30, dueLabel: 'Minggu 1', dueLabelEn: 'Week 1' },
         { step: 2, titleId: 'Penyelesaian Final & QA', titleEn: 'Final Delivery & QA', sharePercent: 70, dueLabel: 'Minggu 4', dueLabelEn: 'Week 4' },
@@ -1265,7 +1338,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     setCustomProjects((prev) => [nextProject, ...prev]);
     showToast(
       locale === 'id'
-        ? `Project "${input.title}" berhasil dibuat (${input.annotationRequired === 'optional' ? 'Raw + Anotasi Opsional' : 'Raw Video Only'}).`
+        ? `Project "${input.title}" berhasil dipublikasikan (${
+            annReq === 'required'
+              ? 'Termasuk Wajib Anotasi'
+              : annReq === 'optional'
+              ? 'Raw + Anotasi Opsional'
+              : 'Raw Video Only'
+          }).`
         : `Project "${input.title}" published to Project Catalog.`
     );
   };
@@ -1294,10 +1373,128 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     roleType: FreelancerServiceListing['roleType'];
     location: string;
     description: string;
+    categories?: ActivityCategorySlug[];
     capacityLabel?: string;
+    deliverySla?: string;
+    equipment?: string[];
     equipmentSummary?: string;
+    resolutionFps?: string;
+    annotationTools?: string[];
+    supportedSchemas?: string[];
+    tags?: string[];
+    exclusions?: string[];
+    terms?: string[];
+    portfolioTitle?: string;
+    portfolioImage?: string;
     conflictDisclosureDeclared?: boolean;
+    conflictDisclosureText?: string;
   }) => {
+    const categories: ActivityCategorySlug[] =
+      input.categories && input.categories.length > 0
+        ? input.categories
+        : input.roleType === 'Data Annotator'
+        ? ['cooking', 'manufacturing']
+        : input.roleType === 'QA Specialist'
+        ? ['manufacturing', 'warehouse']
+        : ['cooking', 'household'];
+
+    const equipmentList =
+      input.equipment && input.equipment.length > 0
+        ? input.equipment
+        : input.equipmentSummary?.trim()
+        ? [input.equipmentSummary.trim()]
+        : input.roleType === 'Data Annotator'
+        ? ['EgvoX Annotation Platform (v1)', 'CVAT & Dual-Monitor Workstation']
+        : input.roleType === 'QA Specialist'
+        ? ['Standar QA EgvoX v1.3 & Checklist Audit', 'FFmpeg / MediaInfo Inspector']
+        : ['Action Cam 4K + Chest/Head Mount'];
+
+    const defaultResolution =
+      input.roleType === 'Data Annotator'
+        ? 'Skema JSON, JSONL, COCO, CSV (Frame-Accurate)'
+        : input.roleType === 'QA Specialist'
+        ? 'Audit Teknis, Capture-Spec, Consent & Schema QA'
+        : '1080p – 4K · 30–60 FPS · MP4 H.264/H.265';
+
+    const defaultUnitLabel =
+      input.roleType === 'Data Annotator'
+        ? { id: 'jam teranotasi', en: 'annotated hour' }
+        : input.roleType === 'QA Specialist'
+        ? { id: 'batch', en: 'batch' }
+        : { id: 'jam', en: 'hour' };
+
+    const defaultCapacity =
+      input.roleType === 'Data Annotator'
+        ? locale === 'id'
+          ? '± 40 jam video / minggu'
+          : '± 40 video hours / week'
+        : input.roleType === 'QA Specialist'
+        ? locale === 'id'
+          ? '25–35 batch / minggu'
+          : '25–35 batches / week'
+        : locale === 'id'
+        ? '± 20 jam / minggu'
+        : '± 20 hours / week';
+
+    const defaultSla =
+      input.roleType === 'Data Annotator'
+        ? locale === 'id'
+          ? 'Akurasi tinggi · 2–4 hari'
+          : 'High accuracy · 2–4 days'
+        : input.roleType === 'QA Specialist'
+        ? locale === 'id'
+          ? 'SLA Terjadwal (24–48 jam)'
+          : 'Scheduled SLA (24–48h)'
+        : locale === 'id'
+        ? 'Sesuai Spesifikasi · 3–5 hari'
+        : 'Per Spec · 3–5 business days';
+
+    const defaultThumbnail =
+      categories.includes('manufacturing')
+        ? '/images/capture_manufacturing_pov_1795676770652.jpg'
+        : categories.includes('warehouse')
+        ? '/images/capture_warehouse_pov_1795676771521.jpg'
+        : categories.includes('automotive')
+        ? '/images/capture_automotive_pov_1795676770764.jpg'
+        : '/images/capture_cooking_pov_1795676769816.jpg';
+
+    const derivedTags =
+      input.tags && input.tags.length > 0
+        ? input.tags
+        : Array.from(
+            new Set([
+              input.roleType,
+              ...(input.supportedSchemas || []).slice(0, 2),
+              ...categories
+                .slice(0, 2)
+                .map((c) => ACTIVITY_CATEGORIES.find((m) => m.slug === c)?.nameEn || c),
+            ])
+          );
+
+    const exclusionsList =
+      input.exclusions && input.exclusions.length > 0
+        ? input.exclusions
+        : input.roleType === 'Data Annotator'
+        ? ['Hanya memproses media yang telah lolos tahap QA & Rights Gate di EgvoX.']
+        : input.roleType === 'QA Specialist'
+        ? ['Wajib bebas konflik kepentingan — tidak mengaudit output produksi sendiri.']
+        : ['Tidak mencakup perekaman di area terlarang tanpa izin lokasi tertulis.'];
+
+    const termsList =
+      input.terms && input.terms.length > 0
+        ? input.terms
+        : input.roleType === 'Data Annotator'
+        ? [
+            'Konsistensi label >= 98% sesuai skema sebelum submission.',
+            'Revisi minor skema tersedia dalam 48 jam.',
+          ]
+        : input.roleType === 'QA Specialist'
+        ? [
+            'Setiap penolakan disertai kode alasan terstruktur dan timestamp bukti.',
+            'Mendukung partial acceptance per klip/batch.',
+          ]
+        : ['Semua file diunggah melalui Private Upload Session dengan checksum SHA-256.'];
+
     const nextService: FreelancerServiceListing = {
       id: `srv-cust-${Date.now().toString().slice(-4)}`,
       slug: `service-${Date.now().toString().slice(-4)}`,
@@ -1316,44 +1513,66 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       acceptanceRatePercent: 98,
       conflictDisclosureDeclared:
         input.roleType === 'QA Specialist' ? Boolean(input.conflictDisclosureDeclared ?? true) : undefined,
+      conflictDisclosureText:
+        input.roleType === 'QA Specialist'
+          ? input.conflictDisclosureText?.trim() ||
+            'Independen penuh: Tidak pernah mengaudit rekaman atau anotasi milik sendiri maupun tim produksi afiliasi.'
+          : undefined,
+      conflictDisclosureTextEn:
+        input.roleType === 'QA Specialist'
+          ? input.conflictDisclosureText?.trim() ||
+            'Independent auditor: Never reviews own recordings, annotations, or affiliated capture teams.'
+          : undefined,
       title: input.title,
       titleEn: input.title,
       description: input.description,
       descriptionEn: input.description,
-      categories: ['cooking', 'household'],
-      tags: [input.roleType, locale === 'id' ? 'Rekrutmen Privat' : 'Private Recruitment'],
+      categories,
+      tags: derivedTags,
       location: input.location,
       locationEn: input.location,
       country: 'Indonesia',
-      capacityLabel: input.capacityLabel || '± 20 jam / minggu',
-      capacityLabelEn: input.capacityLabel || '± 20 hours / week',
-      deliverySla: 'Sesuai Spesifikasi · 3–5 hari',
-      deliverySlaEn: 'Per Spec · 3–5 business days',
+      capacityLabel: input.capacityLabel?.trim() || defaultCapacity,
+      capacityLabelEn: input.capacityLabel?.trim() || defaultCapacity,
+      deliverySla: input.deliverySla?.trim() || defaultSla,
+      deliverySlaEn: input.deliverySla?.trim() || defaultSla,
       pricePerUnit: 0,
-      unitLabel: 'jam',
-      unitLabelEn: 'hour',
+      unitLabel: defaultUnitLabel.id,
+      unitLabelEn: defaultUnitLabel.en,
       currency: 'IDR',
-      equipment: [input.equipmentSummary || 'Action Camera 1080p60 + Chest/Head Mount'],
-      equipmentEn: [input.equipmentSummary || 'Action Camera 1080p60 + Chest/Head Mount'],
-      resolutionFps:
-        input.roleType === 'QA Specialist'
-          ? 'Standar QA EgvoX v1.3 · Audit Teknis & Consent'
-          : '1080p – 4K · 60 FPS',
+      equipment: equipmentList,
+      equipmentEn: equipmentList,
+      resolutionFps: input.resolutionFps?.trim() || defaultResolution,
+      resolutionFpsEn: input.resolutionFps?.trim() || defaultResolution,
+      annotationTools: input.annotationTools,
+      supportedSchemas: input.supportedSchemas,
       portfolioPreviews: [
         {
-          id: 'pf-custom',
-          title: 'Sampel Berizin',
-          titleEn: 'Consented Preview',
+          id: `pf-custom-${Date.now().toString().slice(-3)}`,
+          title:
+            input.portfolioTitle?.trim() ||
+            (input.roleType === 'Data Annotator'
+              ? 'Sampel Anotasi Teranonimisasi (Berizin)'
+              : input.roleType === 'QA Specialist'
+              ? 'Sampel Laporan Audit QA (Terredaksi)'
+              : 'Sampel Video Preview Berizin'),
+          titleEn:
+            input.portfolioTitle?.trim() ||
+            (input.roleType === 'Data Annotator'
+              ? 'Consented Anonymized Annotation Sample'
+              : input.roleType === 'QA Specialist'
+              ? 'Redacted QA Audit Report Sample'
+              : 'Consented Preview Sample'),
           duration: '0:35',
-          thumbnail: '/images/capture_cooking_pov_1795676769816.jpg',
+          thumbnail: input.portfolioImage || defaultThumbnail,
           consentVerified: true,
           watermarked: true,
         },
       ],
-      exclusions: ['Tidak mencakup perekaman di area terlarang tanpa izin.'],
-      exclusionsEn: ['Excludes restricted venues without written permission.'],
-      terms: ['Upload melalui sesi privat SHA-256.'],
-      termsEn: ['Delivered via private SHA-256 upload session.'],
+      exclusions: exclusionsList,
+      exclusionsEn: exclusionsList,
+      terms: termsList,
+      termsEn: termsList,
       reviews: [],
     };
     setCustomServices((prev) => [nextService, ...prev]);
@@ -1368,15 +1587,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         category: input.roleType,
         rateIDR: 0,
         status: 'pending',
-        thumbnail: '/images/capture_cooking_pov_1795676769816.jpg',
+        thumbnail: input.portfolioImage || defaultThumbnail,
         hasConsentEvidence: true,
       },
       ...prev,
     ]);
     showToast(
       locale === 'id'
-        ? `Profil kapabilitas "${input.title}" dikirim ke moderasi & katalog rekrutmen.`
-        : `Capability profile "${input.title}" submitted to moderation & recruitment catalog.`
+        ? `Profil kapabilitas ${input.roleType} "${input.title}" dikirim ke moderasi & katalog rekrutmen.`
+        : `${input.roleType} capability profile "${input.title}" submitted to moderation & recruitment catalog.`
     );
   };
 

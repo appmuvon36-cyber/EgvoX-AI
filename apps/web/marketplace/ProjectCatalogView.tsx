@@ -94,7 +94,7 @@ export const ProjectCatalogView: React.FC<{
           {isId ? 'Aktivitas / Kategori' : 'Activity Categories'}
         </h3>
         <div className="mt-3 space-y-2">
-          {ACTIVITY_CATEGORIES.slice(0, 6).map((cat) => (
+          {ACTIVITY_CATEGORIES.map((cat) => (
             <label
               key={cat.slug}
               className="flex cursor-pointer items-center justify-between text-xs text-[var(--egvox-text-secondary)]"

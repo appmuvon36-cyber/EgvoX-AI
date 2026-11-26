@@ -224,10 +224,10 @@ export const ProviderProfileView: React.FC<{ provider: VendorOrganization }> = (
 export const FreelancerProfileView: React.FC<{
   primaryService: FreelancerServiceListing;
 }> = ({ primaryService }) => {
-  const { locale, openRecruitModal } = useAppState();
+  const { locale, openRecruitModal, customServices } = useAppState();
   const isId = locale === 'id';
   const [tab, setTab] = useState<'services' | 'portfolio' | 'reviews'>('services');
-  const services = FREELANCER_SERVICES.filter(
+  const services = [...customServices, ...FREELANCER_SERVICES].filter(
     (s) => s.username === primaryService.username
   );
   const accRate = primaryService.acceptanceRatePercent ?? primaryService.slaPercent;
@@ -387,8 +387,24 @@ export const FreelancerProfileView: React.FC<{
                     {isId ? srv.resolutionFps : srv.resolutionFpsEn || srv.resolutionFps}
                   </p>
                   <p className="mt-1.5 text-xs text-[var(--egvox-text-secondary)]">
-                    <strong>{isId ? 'Perangkat/Tools:' : 'Gear/Tools:'}</strong>{' '}
-                    {equip.slice(0, 2).join(' · ')}
+                    <strong>
+                      {srv.roleType === 'Data Annotator'
+                        ? isId
+                          ? 'Tools & Skema:'
+                          : 'Tools & Schemas:'
+                        : srv.roleType === 'QA Specialist'
+                        ? isId
+                          ? 'Cakupan & Checklist QA:'
+                          : 'QA Scope & Tools:'
+                        : isId
+                        ? 'Perangkat & Rig:'
+                        : 'Camera & Rig:'}
+                    </strong>{' '}
+                    {srv.roleType === 'Data Annotator' && srv.annotationTools?.length
+                      ? [...srv.annotationTools.slice(0, 2), ...(srv.supportedSchemas || []).slice(0, 1)].join(' · ')
+                      : srv.roleType === 'QA Specialist' && srv.supportedSchemas?.length
+                      ? srv.supportedSchemas.slice(0, 2).join(' · ')
+                      : equip.slice(0, 2).join(' · ')}
                   </p>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2.5 border-t border-[var(--egvox-border-default)] pt-3">

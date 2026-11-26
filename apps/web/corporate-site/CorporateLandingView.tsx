@@ -10,7 +10,9 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   Database,
+  EyeOff,
   Factory,
   FileCheck2,
   FileUp,
@@ -23,6 +25,7 @@ import {
   Lock,
   Mic,
   Scan,
+  Scissors,
   ShieldCheck,
   Sparkles,
   Star,
@@ -36,7 +39,7 @@ import {
 import { DualPrice } from '@/packages/design-system';
 import { dictionaries } from '@/packages/localization/dictionaries';
 import { validateEnterpriseInquiry } from '@/packages/validation-schemas';
-import { FREELANCER_SERVICES, PROJECT_LISTINGS } from '@/lib/catalog-data';
+import { ACTIVITY_CATEGORIES, FREELANCER_SERVICES, PROJECT_LISTINGS } from '@/lib/catalog-data';
 import { useAppState } from '@/lib/hooks/useAppState';
 
 const ANNOTATION_EXAMPLES = [
@@ -191,6 +194,131 @@ const FAQ_ITEMS = [
   },
 ];
 
+const CAPTURE_STANDARDS_RULES = [
+  {
+    num: '01',
+    titleId: 'Pemasangan Kamera & Sudut Pandang (POV)',
+    titleEn: 'First-Person Rigging & Framing',
+    descId:
+      'Gunakan head-mount atau chest-mount stabil dengan orientasi sesuai brief (16:9 / 9:16). Pastikan kedua tangan dan objek kerja selalu berada di tengah frame.',
+    descEn:
+      'Use a stable head-mount or chest-mount matching brief orientation (16:9 / 9:16). Keep both hands and active task objects centered in frame.',
+  },
+  {
+    num: '02',
+    titleId: 'Dilarang Merekam Wajah & Identitas Orang Lain',
+    titleEn: 'Zero Bystander Face & Identity Capture',
+    descId:
+      'Sesuai kebijakan kepatuhan industri AI global, dilarang mengarahkan kamera ke wajah pihak ketiga, anak di bawah umur, cermin, atau rekan kerja tanpa consent tertulis.',
+    descEn:
+      'Following global AI compliance policies, never point the camera toward bystander faces, minors, mirrors, or unconsented third parties.',
+  },
+  {
+    num: '03',
+    titleId: 'Bersihkan Area dari Informasi Sensitif (PII)',
+    titleEn: 'Clear Workspace of Sensitive PII',
+    descId:
+      'Singkirkan kartu identitas, layar ponsel/monitor dengan data pribadi, dokumen rahasia, pelat nomor kendaraan, maupun label alamat sebelum mulai merekam.',
+    descEn:
+      'Remove ID cards, unlocked screens showing personal data, confidential paperwork, vehicle plates, and address labels before recording.',
+  },
+  {
+    num: '04',
+    titleId: 'Pencahayaan, Audio & Konsistensi FPS',
+    titleEn: 'Lighting, Audio & Frame-Rate Stability',
+    descId:
+      'Rekam pada resolusi minimum 1080p60 dengan pencahayaan merata tanpa motion blur berlebih, dan patuhi kebijakan audio (bisu atau suara natural lingkungan) di Work Order.',
+    descEn:
+      'Capture at minimum 1080p60 under even lighting without severe motion blur, and follow the Work Order audio policy (muted or ambient only).',
+  },
+];
+
+const RAW_PIPELINE_STAGES = [
+  {
+    id: 'quarantine',
+    step: '01',
+    titleId: 'Upload Terenkripsi ke Zona Karantina',
+    titleEn: 'Encrypted Upload to Quarantine',
+    shortId: 'Signed Session',
+    shortEn: 'Signed Session',
+    descId:
+      'Video mentah dari kontributor diunggah melalui jalur privat terenkripsi menuju ruang karantina terisolasi—tidak pernah tampil di katalog publik.',
+    descEn:
+      'Raw footage from contributors uploads via private encrypted sessions into isolated quarantine storage—never exposed on public catalogs.',
+    outcomeId:
+      'Hasil Tahap 01: Berkas raw terkunci di ruang karantina terenkripsi dengan checksum SHA-256 dan pembersihan koordinat GPS/EXIF awal.',
+    outcomeEn:
+      'Stage 01 Outcome: Raw files remain locked inside encrypted quarantine with SHA-256 verification and initial GPS/EXIF metadata stripping.',
+  },
+  {
+    id: 'trim',
+    step: '02',
+    titleId: 'Pemotongan & Penghapusan Frame Wajah / PII',
+    titleEn: 'Hard-Cut & Removal of Face / PII Frames',
+    shortId: 'Sanitasi & Cut',
+    shortEn: 'Sanitize & Cut',
+    descId:
+      'Tim Data Operations melakukan inspeksi dan memotong permanen segmen yang menangkap wajah orang lain, jeda kosong, atau objek pribadi sebelum diproses lebih lanjut.',
+    descEn:
+      'Data Operations inspects footage and permanently cuts and purges any segment capturing unintended faces, idle gaps, or personal identifiers.',
+    outcomeId:
+      'Hasil Tahap 02: Segmen yang memuat wajah orang lain, dokumen pribadi, atau layar sensitif dipotong & dihapus permanen (hard-cut & purge) dari klip.',
+    outcomeEn:
+      'Stage 02 Outcome: Any frames containing bystander faces, IDs, or sensitive screens are permanently hard-cut and purged from the working clip.',
+  },
+  {
+    id: 'meter',
+    step: '03',
+    titleId: 'Seleksi Segmen Aksi & Kalkulasi Jam Valid',
+    titleEn: 'Action Curation & Verified Hour Metering',
+    shortId: 'Kalkulasi / Jam',
+    shortEn: 'Hourly Metering',
+    descId:
+      'Hanya rentang pergerakan tangan dan aktivitas sesuai brief yang diseleksi untuk diekstrak, lalu dihitung durasi jam tervalidasinya secara transparan oleh Tim EgvoX.',
+    descEn:
+      'Only hand-object interaction segments matching the brief are retained and accurately metered into verified billable hours by the EgvoX team.',
+    outcomeId:
+      'Hasil Tahap 03: Tim EgvoX menyeleksi klip pergerakan yang dibutuhkan saja dan mengkalkulasi akumulasi jam tervalidasi sebagai dasar payout kontributor & paket buyer.',
+    outcomeEn:
+      'Stage 03 Outcome: EgvoX curates only target movement clips and meters verified active hours transparently for contributor payouts and buyer delivery.',
+  },
+];
+
+const INDUSTRY_SECURITY_CONTROLS = [
+  {
+    titleId: 'Pembersihan Metadata & Geotag GPS',
+    titleEn: 'EXIF & GPS Geotag Stripping',
+    descId:
+      'Koordinat GPS presisi, serial perangkat pribadi, dan metadata sensitif otomatis dibersihkan sebelum paket video diteruskan ke tahap anotasi atau buyer.',
+    descEn:
+      'Precise GPS coordinates, personal device serials, and sensitive EXIF attributes are automatically stripped prior to annotation or delivery.',
+  },
+  {
+    titleId: 'Isolasi Full Raw vs Pratinjau Berizin',
+    titleEn: 'Raw Isolation vs Consented Previews',
+    descId:
+      'Profil talenta hanya memuat klip pratinjau 30–60 detik ber-watermark dengan izin eksplisit; berkas produksi penuh dikunci di penyimpanan privat Work Order.',
+    descEn:
+      'Talent profiles show only 30–60s watermarked consented previews; full production assets remain locked inside Work Order storage.',
+  },
+  {
+    titleId: 'Manifest Hak Data & Batas Retensi',
+    titleEn: 'Rights Manifest & Retention Bounds',
+    descId:
+      'Setiap pengiriman menyertakan catatan persetujuan kontributor/lokasi, ruang lingkup lisensi pelatihan AI, serta jadwal penghapusan data sesuai kontrak.',
+    descEn:
+      'Every dataset package carries signed contributor/site consent records, AI training license scope, and contract-bound retention schedules.',
+  },
+  {
+    titleId: 'Kontrol Akses RBAC & Audit Log Menyeluruh',
+    titleEn: 'Zero-Trust RBAC & Immutable Audit Trail',
+    descId:
+      'Akses ke berkas karantina dibatasi khusus QA independen dan operator berwenang, dengan pencatatan lengkap atas setiap tinjauan dan pengunduhan.',
+    descEn:
+      'Quarantine access is restricted to independent QA reviewers and authorized operators, logging every inspection and dataset export event.',
+  },
+];
+
 export const CorporateLandingView: React.FC = () => {
   const {
     locale,
@@ -210,14 +338,19 @@ export const CorporateLandingView: React.FC = () => {
   const [freelancerRoleTab, setFreelancerRoleTab] = useState<'Semua' | 'Video Contributor' | 'Data Annotator' | 'QA Specialist'>('Semua');
   const [activeAnnotationId, setActiveAnnotationId] = useState<string>('cooking');
   const [showOverlayBoxes, setShowOverlayBoxes] = useState<boolean>(true);
+  const [activePipelineStageId, setActivePipelineStageId] = useState<string>('trim');
   const [openFaqIdx, setOpenFaqIdx] = useState<number | null>(0);
 
   // Enterprise inquiry quick form state
   const [companyName, setCompanyName] = useState('');
   const [country, setCountry] = useState('Indonesia');
+  const [website, setWebsite] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [domainCategory, setDomainCategory] = useState<string>(ACTIVITY_CATEGORIES[0].nameEn);
+  const [deliveryFormat, setDeliveryFormat] = useState('MP4 + JSONL');
+  const [targetDeadline, setTargetDeadline] = useState('');
   const [estimatedVolume, setEstimatedVolume] = useState('50 – 250 jam');
   const [requirementSummary, setRequirementSummary] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
@@ -263,18 +396,24 @@ export const CorporateLandingView: React.FC = () => {
     submitEnterpriseInquiry({
       companyName,
       country,
+      website: website.trim() || undefined,
       businessEmail,
       contactPerson,
       contactPhone: contactPhone.trim(),
+      domainCategory,
+      deliveryFormat,
+      targetDeadline: targetDeadline.trim() || undefined,
       estimatedVolume,
       requirementSummary,
       attachmentName: attachmentName || undefined,
     });
     setInquirySubmitted(true);
     setCompanyName('');
+    setWebsite('');
     setBusinessEmail('');
     setContactPerson('');
     setContactPhone('');
+    setTargetDeadline('');
     setRequirementSummary('');
     setAttachmentName('');
     setConsentToContact(false);
@@ -1346,6 +1485,223 @@ export const CorporateLandingView: React.FC = () => {
         </div>
       </section>
 
+      {/* 5B. PANDUAN PEMBUATAN VIDEO EGOCENTRIC & KEAMANAN DATA PRIBADI */}
+      <section
+        id="video-privacy-standards"
+        className="border-b border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] py-14 sm:py-16"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold text-[#027F86] dark:text-[#04B8B4]">
+              {locale === 'id'
+                ? 'Protokol Produksi & Kepatuhan Privasi Industri AI'
+                : 'AI Industry Privacy Compliance & Capture Protocol'}
+            </p>
+            <h2 className="mt-1.5 text-balance text-2xl sm:text-3xl font-bold tracking-tight text-[var(--egvox-text-primary)]">
+              {t.landing.privacyCaptureTitle}
+            </h2>
+            <p className="mt-2.5 text-sm sm:text-base leading-relaxed text-[var(--egvox-text-secondary)]">
+              {t.landing.privacyCaptureSubtitle}
+            </p>
+          </div>
+
+          {/* Interactive Raw Video Sanitization & Verified Hour Calculation Strip */}
+          <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[var(--egvox-border-default)] pb-5">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--egvox-text-primary)]">
+                  {locale === 'id'
+                    ? 'Alur Pengolahan Video Mentah, Penghapusan Wajah & Kalkulasi Jam Valid'
+                    : 'Raw Footage Sanitization, Face Removal & Verified Hour Metering'}
+                </h3>
+                <p className="mt-1 text-xs sm:text-sm text-[var(--egvox-text-secondary)]">
+                  {locale === 'id'
+                    ? 'Setiap setor video mentah diseleksi secara objektif: hanya segmen gerakan yang dibutuhkan yang diambil, frame berisi wajah dipotong permanen, dan durasi valid dihitung per jam oleh Tim EgvoX.'
+                    : 'Every raw submission is objectively curated: only required task movements are extracted, accidental face frames are permanently cut, and verified active hours are metered by EgvoX.'}
+                </p>
+              </div>
+              <div className="inline-flex flex-wrap gap-1.5 rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-1 shrink-0">
+                {RAW_PIPELINE_STAGES.map((stage) => {
+                  const active = activePipelineStageId === stage.id;
+                  return (
+                    <button
+                      key={stage.id}
+                      type="button"
+                      onClick={() => setActivePipelineStageId(stage.id)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                        active
+                          ? 'bg-[#027F86] text-white'
+                          : 'text-[var(--egvox-text-secondary)] hover:text-[var(--egvox-text-primary)]'
+                      }`}
+                    >
+                      {stage.step}. {locale === 'id' ? stage.shortId : stage.shortEn}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              {RAW_PIPELINE_STAGES.map((stage) => {
+                const isSelected = activePipelineStageId === stage.id;
+                const Icon =
+                  stage.id === 'quarantine'
+                    ? Lock
+                    : stage.id === 'trim'
+                    ? Scissors
+                    : Clock;
+                return (
+                  <button
+                    key={stage.id}
+                    type="button"
+                    onClick={() => setActivePipelineStageId(stage.id)}
+                    className={`text-left rounded-xl border p-5 transition-colors ${
+                      isSelected
+                        ? 'border-[#027F86] bg-[#027F86]/6'
+                        : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] hover:border-[#027F86]/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-bold text-[#027F86] dark:text-[#04B8B4] tabular-nums">
+                        {stage.step} · {locale === 'id' ? stage.shortId : stage.shortEn}
+                      </span>
+                      <Icon className="h-4 w-4 text-[#027F86] dark:text-[#04B8B4]" />
+                    </div>
+                    <h4 className="mt-2.5 text-sm font-bold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? stage.titleId : stage.titleEn}
+                    </h4>
+                    <p className="mt-1.5 text-xs leading-relaxed text-[var(--egvox-text-secondary)]">
+                      {locale === 'id' ? stage.descId : stage.descEn}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {(() => {
+              const activeStage =
+                RAW_PIPELINE_STAGES.find((s) => s.id === activePipelineStageId) ||
+                RAW_PIPELINE_STAGES[1];
+              return (
+                <div className="flex items-start gap-2.5 rounded-xl border border-[#027F86]/25 bg-[#027F86]/6 px-4 py-3 text-xs text-[var(--egvox-text-primary)]">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-[#027F86] dark:text-[#04B8B4] mt-0.5" />
+                  <p className="leading-relaxed">
+                    {locale === 'id' ? activeStage.outcomeId : activeStage.outcomeEn}
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Two-Column Split: Cara Membuat Video Egocentric (Left) & Keamanan Data Industri (Right) */}
+          <div className="grid gap-6 lg:grid-cols-12 items-stretch">
+            {/* Left: Capture Protocol for Contributors */}
+            <div className="lg:col-span-6 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 sm:p-8 flex flex-col justify-between space-y-6">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <Camera className="h-5 w-5 text-[#027F86] dark:text-[#04B8B4]" />
+                  <h3 className="text-lg font-bold text-[var(--egvox-text-primary)]">
+                    {locale === 'id'
+                      ? 'Cara Membuat Video Sesuai Standar Industri AI'
+                      : 'How to Record Compliant Egocentric Video'}
+                  </h3>
+                </div>
+                <p className="mt-1.5 text-xs sm:text-sm text-[var(--egvox-text-secondary)]">
+                  {locale === 'id'
+                    ? 'Ikuti empat aturan perekaman berikut agar video Anda lolos seleksi kualitas, bebas pelanggaran privasi, dan dihitung penuh oleh Tim QA EgvoX.'
+                    : 'Follow these four recording rules so your footage passes quality selection, avoids privacy rejections, and earns full verified hours.'}
+                </p>
+
+                <div className="mt-5 divide-y divide-[var(--egvox-border-default)]">
+                  {CAPTURE_STANDARDS_RULES.map((rule) => (
+                    <div key={rule.num} className="py-3.5 first:pt-0 last:pb-0">
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="text-xs font-mono font-bold text-[#027F86] dark:text-[#04B8B4] tabular-nums shrink-0">
+                          {rule.num}.
+                        </span>
+                        <div>
+                          <h4 className="text-sm font-bold text-[var(--egvox-text-primary)]">
+                            {locale === 'id' ? rule.titleId : rule.titleEn}
+                          </h4>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--egvox-text-secondary)]">
+                            {locale === 'id' ? rule.descId : rule.descEn}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[var(--egvox-border-default)] flex flex-wrap items-center justify-between gap-3 text-xs">
+                <span className="text-[var(--egvox-text-muted)]">
+                  {locale === 'id'
+                    ? 'Hanya durasi aktivitas valid & bebas wajah yang dihitung ke payout'
+                    : 'Only face-free, task-relevant duration counts toward payout'}
+                </span>
+                <Link
+                  href="/onboarding/freelancer"
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#027F86] dark:text-[#04B8B4] hover:underline whitespace-nowrap shrink-0"
+                >
+                  <span>{locale === 'id' ? 'Daftar Sebagai Kontributor' : 'Apply as Contributor'}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Right: Data Security Architecture for Egocentric Video */}
+            <div className="lg:col-span-6 rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 sm:p-8 flex flex-col justify-between space-y-6">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <EyeOff className="h-5 w-5 text-[#027F86] dark:text-[#04B8B4]" />
+                  <h3 className="text-lg font-bold text-[var(--egvox-text-primary)]">
+                    {locale === 'id'
+                      ? 'Lapisan Keamanan Data Pribadi Egocentric Video'
+                      : 'Personal Data Security in Egocentric Video Ops'}
+                  </h3>
+                </div>
+                <p className="mt-1.5 text-xs sm:text-sm text-[var(--egvox-text-secondary)]">
+                  {locale === 'id'
+                    ? 'Perlindungan berlapis bagi kontributor dan pihak ketiga sekaligus menjamin keabsahan lisensi dataset bagi perusahaan AI dan robotika.'
+                    : 'Multi-layered protection for contributors and bystanders while guaranteeing clean commercial dataset provenance for AI teams.'}
+                </p>
+
+                <div className="mt-5 grid gap-3.5 sm:grid-cols-2">
+                  {INDUSTRY_SECURITY_CONTROLS.map((ctrl) => (
+                    <div
+                      key={ctrl.titleEn}
+                      className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-4"
+                    >
+                      <h4 className="text-xs sm:text-sm font-bold text-[var(--egvox-text-primary)]">
+                        {locale === 'id' ? ctrl.titleId : ctrl.titleEn}
+                      </h4>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[var(--egvox-text-secondary)]">
+                        {locale === 'id' ? ctrl.descId : ctrl.descEn}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[var(--egvox-border-default)] flex flex-wrap items-center justify-between gap-3 text-xs">
+                <span className="text-[var(--egvox-text-muted)]">
+                  {locale === 'id'
+                    ? 'Audit log terverifikasi · Isolasi RBAC · Kepatuhan UU PDP & GDPR'
+                    : 'Verified audit logs · RBAC isolation · GDPR-aligned consent'}
+                </span>
+                <Link
+                  href="/enterprise/partnership"
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#FC840E] hover:underline whitespace-nowrap shrink-0"
+                >
+                  <span>{locale === 'id' ? 'Ajukan Brief Enterprise' : 'Submit Enterprise Brief'}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 6. EKOSISTEM EGVOX, INDUSTRI & TRUST */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8 space-y-14">
         <div className="grid gap-6 lg:grid-cols-3">
@@ -1566,6 +1922,21 @@ export const CorporateLandingView: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? 'Website Perusahaan (Opsional)' : 'Company Website (Optional)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      placeholder="https://company.com"
+                      className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
                       {locale === 'id' ? 'Kontak Penanggung Jawab *' : 'Contact Person *'}
                     </label>
                     <input
@@ -1579,9 +1950,6 @@ export const CorporateLandingView: React.FC = () => {
                       <p className="mt-1 text-xs text-[#C43D3D]">{inquiryErrors.contactPerson}</p>
                     )}
                   </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
                       {locale === 'id' ? 'Nomor Telepon / WhatsApp PIC *' : 'PIC Phone / WhatsApp Number *'}
@@ -1596,6 +1964,25 @@ export const CorporateLandingView: React.FC = () => {
                     {inquiryErrors.contactPhone && (
                       <p className="mt-1 text-xs text-[#C43D3D]">{inquiryErrors.contactPhone}</p>
                     )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? 'Kategori Domain Data *' : 'Data Domain Category *'}
+                    </label>
+                    <select
+                      value={domainCategory}
+                      onChange={(e) => setDomainCategory(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
+                    >
+                      {ACTIVITY_CATEGORIES.map((cat) => (
+                        <option key={cat.slug} value={cat.nameEn}>
+                          {locale === 'id' ? cat.nameId : cat.nameEn}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
@@ -1612,10 +1999,43 @@ export const CorporateLandingView: React.FC = () => {
                       <option value="50 – 250 jam">
                         {locale === 'id' ? '50 – 250 jam video tervalidasi' : '50 – 250 verified video hours'}
                       </option>
-                      <option value="250+ jam">
-                        {locale === 'id' ? '250+ jam (Skala Enterprise)' : '250+ hours (Enterprise Scale)'}
+                      <option value="250 – 1.000 jam">
+                        {locale === 'id' ? '250 – 1.000 jam (Skala Enterprise)' : '250 – 1,000 hours (Enterprise Scale)'}
+                      </option>
+                      <option value="1.000+ jam">
+                        {locale === 'id' ? '1.000+ jam (Kustom Multi-Lokasi)' : '1,000+ hours (Multi-Region Custom)'}
                       </option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? 'Format Delivery & Anotasi *' : 'Delivery & Annotation Format *'}
+                    </label>
+                    <select
+                      value={deliveryFormat}
+                      onChange={(e) => setDeliveryFormat(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
+                    >
+                      <option value="MP4 + JSONL">MP4 + JSONL (Temporal & BBox)</option>
+                      <option value="MP4 + COCO JSON">MP4 + COCO JSON</option>
+                      <option value="MP4 + CSV">MP4 + CSV Manifest</option>
+                      <option value="Raw MP4 + Rights Manifest">Raw MP4 + Rights Manifest Only</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--egvox-text-primary)]">
+                      {locale === 'id' ? 'Target Tenggat Waktu' : 'Target Timeline / Deadline'}
+                    </label>
+                    <input
+                      type="text"
+                      value={targetDeadline}
+                      onChange={(e) => setTargetDeadline(e.target.value)}
+                      placeholder="Q2 2026 / 8 minggu"
+                      className="mt-1 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
+                    />
                   </div>
                 </div>
 

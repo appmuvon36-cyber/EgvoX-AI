@@ -49,10 +49,16 @@ const ProposalFormContent: React.FC<{
 }> = ({ project, locale, onCancel, onSubmitProposal }) => {
   const [volume, setVolume] = useState(Math.min(20, project.targetVolume));
   const [deviceSummary, setDeviceSummary] = useState(
-    project.captureSpec.deviceRequirement
+    locale === 'id'
+      ? project.captureSpec.deviceRequirement
+      : project.captureSpec.deviceRequirementEn || project.captureSpec.deviceRequirement
   );
   const [note, setNote] = useState(
-    locale === 'id'
+    project.annotationRequired === 'required'
+      ? locale === 'id'
+        ? 'Saya memiliki perangkat capture sesuai spesifikasi terbaru serta pengalaman anotasi terstandar dan siap memenuhi kriteria penerimaan.'
+        : 'I operate compliant capture hardware and annotation workflows meeting all project acceptance criteria.'
+      : locale === 'id'
       ? 'Saya memiliki perangkat sesuai spesifikasi capture terbaru dan siap memenuhi kriteria penerimaan.'
       : 'I operate compliant capture hardware and meet all project acceptance criteria.'
   );
@@ -97,7 +103,24 @@ const ProposalFormContent: React.FC<{
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>{locale === 'id' ? 'Spesifikasi Acuan' : 'Specification Version'}</span>
           <span className="font-mono font-semibold text-[#027F86] dark:text-[#04B8B4]">
-            {project.captureSpec.version}
+            {project.captureSpec.version} · {project.captureSpec.mounting} · {project.captureSpec.resolution}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>{locale === 'id' ? 'Kebijakan Audio & Anotasi' : 'Audio & Annotation Scope'}</span>
+          <span className="font-semibold text-[var(--egvox-text-primary)]">
+            Audio: {project.captureSpec.audioPolicy} ·{' '}
+            {project.annotationRequired === 'required'
+              ? locale === 'id'
+                ? 'Wajib Anotasi'
+                : 'Annotation Included'
+              : project.annotationRequired === 'optional'
+              ? locale === 'id'
+                ? 'Anotasi Opsional'
+                : 'Annotation Optional'
+              : locale === 'id'
+              ? 'Raw Video Only'
+              : 'Raw Video Only'}
           </span>
         </div>
         {project.showBudgetDisclosure && (
@@ -144,7 +167,13 @@ const ProposalFormContent: React.FC<{
             htmlFor="proposal-device"
             className="block text-xs font-semibold text-[var(--egvox-text-primary)]"
           >
-            {locale === 'id' ? 'Perangkat Kamera / Tools' : 'Camera Gear / Tools'}
+            {project.annotationRequired === 'required'
+              ? locale === 'id'
+                ? 'Perangkat Kamera & Tools Anotasi'
+                : 'Camera Gear & Annotation Tools'
+              : locale === 'id'
+              ? 'Perangkat Kamera & Mounting'
+              : 'Camera Gear & Mounting Rig'}
           </label>
           <input
             id="proposal-device"
@@ -162,8 +191,8 @@ const ProposalFormContent: React.FC<{
           className="block text-xs font-semibold text-[var(--egvox-text-primary)]"
         >
           {locale === 'id'
-            ? 'Ringkasan Kualifikasi & Pengalaman Relevan'
-            : 'Qualification & Experience Summary'}
+            ? 'Ringkasan Kualifikasi & Kesiapan Acceptance Criteria'
+            : 'Qualification & Acceptance Criteria Readiness'}
         </label>
         <textarea
           id="proposal-note"
@@ -172,8 +201,8 @@ const ProposalFormContent: React.FC<{
           onChange={(e) => setNote(e.target.value)}
           placeholder={
             locale === 'id'
-              ? 'Jelaskan pengalaman capture, mounting, pencahayaan, atau sertifikasi QA Anda...'
-              : 'Describe your capture setup, mounting, lighting, or QA audit experience...'
+              ? 'Jelaskan pengalaman capture, mounting, pencahayaan, atau kesiapan acceptance criteria...'
+              : 'Describe your capture setup, mounting, lighting, or QA acceptance readiness...'
           }
           className="mt-1.5 w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3.5 py-2.5 text-sm focus:border-[#027F86] focus:outline-none"
         />

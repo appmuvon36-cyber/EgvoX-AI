@@ -14,6 +14,7 @@ import {
   Star,
 } from 'lucide-react';
 import { FreelancerServiceListing } from '@/packages/shared-types';
+import { ACTIVITY_CATEGORIES } from '@/lib/catalog-data';
 import { useAppState } from '@/lib/hooks/useAppState';
 
 export const ServiceDetailView: React.FC<{
@@ -136,6 +137,21 @@ export const ServiceDetailView: React.FC<{
             <p className="mt-2 text-sm text-[var(--egvox-text-secondary)]">
               {desc}
             </p>
+            {service.categories.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {service.categories.map((catSlug) => {
+                  const cat = ACTIVITY_CATEGORIES.find((c) => c.slug === catSlug);
+                  return (
+                    <span
+                      key={catSlug}
+                      className="rounded-md bg-[#027F86]/10 px-2.5 py-1 text-[11px] font-semibold text-[#027F86] dark:text-[#04B8B4]"
+                    >
+                      {isId ? cat?.nameId || catSlug : cat?.nameEn || catSlug}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* QA Anti-Conflict Disclosure Banner */}
@@ -258,16 +274,87 @@ export const ServiceDetailView: React.FC<{
           )}
 
           {tab === 'specs' && (
-            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 space-y-4">
-              <h2 className="text-sm font-bold text-[var(--egvox-text-primary)]">
-                {isId ? 'Perangkat, Tools & Kapabilitas Teknis' : 'Equipment, Tools & Technical Capabilities'}
-              </h2>
-              <p className="text-sm text-[var(--egvox-text-secondary)]">
-                {isId ? 'Standar Output:' : 'Output Standard:'}{' '}
-                <strong>
-                  {isId ? service.resolutionFps : service.resolutionFpsEn || service.resolutionFps}
-                </strong>
-              </p>
+            <div className="rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-6 space-y-5">
+              <div>
+                <h2 className="text-sm font-bold text-[var(--egvox-text-primary)]">
+                  {service.roleType === 'Data Annotator'
+                    ? isId
+                      ? 'Tools Anotasi, Skema & Spesifikasi Output'
+                      : 'Annotation Tools, Schemas & Output Format'
+                    : service.roleType === 'QA Specialist'
+                    ? isId
+                      ? 'Cakupan Audit QA, Tools & Standar Pemeriksaan'
+                      : 'QA Audit Scope, Inspector Tools & Standards'
+                    : isId
+                    ? 'Kamera, Mounting Rig & Standar Capture'
+                    : 'Camera Rig, Mounting & Capture Standards'}
+                </h2>
+                <p className="mt-2 text-sm text-[var(--egvox-text-secondary)]">
+                  {service.roleType === 'Data Annotator'
+                    ? isId
+                      ? 'Format & Skema Ekspor:'
+                      : 'Supported Export Format:'
+                    : service.roleType === 'QA Specialist'
+                    ? isId
+                      ? 'Standar Audit QA:'
+                      : 'QA Audit Standard:'
+                    : isId
+                    ? 'Standar Resolusi & FPS:'
+                    : 'Capture Output Standard:'}{' '}
+                  <strong>
+                    {isId ? service.resolutionFps : service.resolutionFpsEn || service.resolutionFps}
+                  </strong>
+                </p>
+              </div>
+
+              {service.supportedSchemas && service.supportedSchemas.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--egvox-text-muted)] mb-2">
+                    {service.roleType === 'QA Specialist'
+                      ? isId
+                        ? 'Cakupan Pemeriksaan QA'
+                        : 'QA Audit Scope'
+                      : isId
+                      ? 'Spesialisasi & Skema Anotasi'
+                      : 'Annotation Specializations & Schemas'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {service.supportedSchemas.map((schema) => (
+                      <span
+                        key={schema}
+                        className="rounded-md border border-[#027F86]/30 bg-[#027F86]/10 px-2.5 py-1 text-xs font-semibold text-[#027F86] dark:text-[#04B8B4]"
+                      >
+                        {schema}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {service.annotationTools && service.annotationTools.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--egvox-text-muted)] mb-2">
+                    {service.roleType === 'QA Specialist'
+                      ? isId
+                        ? 'Perangkat & Validator Audit'
+                        : 'QA Inspection Tools'
+                      : isId
+                      ? 'Platform & Tools Anotasi'
+                      : 'Annotation Platforms & Tools'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {service.annotationTools.map((tool) => (
+                      <span
+                        key={tool}
+                        className="rounded-md border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-2.5 py-1 text-xs font-medium"
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-1.5">
                 {service.tags.map((tag) => (
                   <span
@@ -278,14 +365,30 @@ export const ServiceDetailView: React.FC<{
                   </span>
                 ))}
               </div>
-              <ul className="space-y-2 text-sm text-[var(--egvox-text-secondary)]">
-                {equipment.map((eq) => (
-                  <li key={eq} className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-[#027F86]" />
-                    <span>{eq}</span>
-                  </li>
-                ))}
-              </ul>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--egvox-text-muted)] mb-2">
+                  {service.roleType === 'Video Contributor'
+                    ? isId
+                      ? 'Perangkat Kamera & Rigging'
+                      : 'Camera Hardware & Mounting Rig'
+                    : service.roleType === 'Data Annotator'
+                    ? isId
+                      ? 'Workstation & Lingkungan Anotasi'
+                      : 'Workstation & Labeling Environment'
+                    : isId
+                    ? 'Checklist & Peralatan Audit QA'
+                    : 'QA Checklists & Inspection Equipment'}
+                </p>
+                <ul className="space-y-2 text-sm text-[var(--egvox-text-secondary)]">
+                  {equipment.map((eq) => (
+                    <li key={eq} className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-[#027F86]" />
+                      <span>{eq}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 

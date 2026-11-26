@@ -26,6 +26,7 @@ import {
   RecruitmentOffer,
   SubmissionFileItem,
 } from '@/packages/shared-types';
+import { ACTIVITY_CATEGORIES } from '@/lib/catalog-data';
 import { useAppState } from '@/lib/hooks/useAppState';
 
 export const CustomerModeSelectorModal: React.FC<{
@@ -515,35 +516,183 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
   const [newPrjHours, setNewPrjHours] = useState('50');
   const [newPrjRate, setNewPrjRate] = useState('175000');
   const [newPrjShowBudget, setNewPrjShowBudget] = useState(true);
-  const [newPrjLocation, setNewPrjLocation] = useState('Indonesia');
+  const [newPrjLocation, setNewPrjLocation] = useState('Indonesia (Jabodetabek, Bandung)');
+  const [newPrjAppClose, setNewPrjAppClose] = useState('20 Des 2026');
+  const [newPrjDeadline, setNewPrjDeadline] = useState('30 Des 2026');
   const [newPrjSummary, setNewPrjSummary] = useState('');
   const [newPrjPerspective, setNewPrjPerspective] =
     useState<CaptureSpecification['perspective']>('Egocentric (First-Person)');
   const [newPrjMounting, setNewPrjMounting] =
     useState<CaptureSpecification['mounting']>('Head-mounted');
-  const [newPrjResolution, setNewPrjResolution] = useState('Minimum 1080p');
+  const [newPrjDeviceReq, setNewPrjDeviceReq] = useState(
+    'Action Cam (GoPro/DJI) atau Wearable Camera 1080p60'
+  );
+  const [newPrjResolution, setNewPrjResolution] = useState('Minimum 1080p (1920x1080)');
   const [newPrjFps, setNewPrjFps] = useState('30–60 FPS');
+  const [newPrjCodec, setNewPrjCodec] = useState('MP4 (H.264 / H.265)');
+  const [newPrjOrientation, setNewPrjOrientation] =
+    useState<CaptureSpecification['orientation']>('Landscape 16:9');
+  const [newPrjClipDuration, setNewPrjClipDuration] = useState('15–45 menit per sesi');
+  const [newPrjAudioPolicy, setNewPrjAudioPolicy] =
+    useState<CaptureSpecification['audioPolicy']>('Optional');
+  const [newPrjConsentPolicy, setNewPrjConsentPolicy] = useState(
+    'Wajib persetujuan kontributor & bebas PII pihak ketiga'
+  );
   const [newPrjAnnotation, setNewPrjAnnotation] =
     useState<ProjectListing['annotationRequired']>('none');
+  const [newPrjAcceptanceText, setNewPrjAcceptanceText] = useState(
+    'Kedua tangan dan objek utama terlihat jelas >= 85% durasi.\nUnggah melalui Private Upload Session EgvoX dengan checksum SHA-256.'
+  );
+  const [newPrjRightsSummary, setNewPrjRightsSummary] = useState(
+    'Lisensi komersial riset terbatas sesuai Work Order EgvoX.'
+  );
 
   const [newSrvTitle, setNewSrvTitle] = useState('');
   const [newSrvRole, setNewSrvRole] =
     useState<FreelancerServiceListing['roleType']>('Video Contributor');
+  const [newSrvCategories, setNewSrvCategories] = useState<ActivityCategorySlug[]>([
+    'cooking',
+    'household',
+  ]);
   const [newSrvCapacity, setNewSrvCapacity] = useState(
     isId ? '± 20 jam / minggu' : '± 20 hours / week'
   );
-  const [newSrvEquipment, setNewSrvEquipment] = useState('Action Cam 4K + Chest/Head Mount');
+  const [newSrvSla, setNewSrvSla] = useState(
+    isId ? 'Sesuai Spesifikasi · 3–5 hari' : 'Per Spec · 3–5 business days'
+  );
+  const [newSrvPerspective, setNewSrvPerspective] = useState('Egocentric (First-Person)');
+  const [newSrvEquipment, setNewSrvEquipment] = useState('Action Cam 4K (GoPro Hero 12) + Chest/Head Mount');
+  const [newSrvResolutionFps, setNewSrvResolutionFps] = useState(
+    '1080p – 4K · 30–60 FPS · MP4 H.264/H.265'
+  );
+  const [newSrvAnnotatorTools, setNewSrvAnnotatorTools] = useState<string[]>([
+    'EgvoX Annotation Platform (v1)',
+    'CVAT',
+  ]);
+  const [newSrvAnnotatorWorkstation, setNewSrvAnnotatorWorkstation] = useState(
+    'Dual-Monitor Calibrated Workstation (32GB RAM)'
+  );
+  const [newSrvAnnotatorSchemas, setNewSrvAnnotatorSchemas] = useState<string[]>([
+    'Bounding Box (2D/3D)',
+    'Temporal Action Segmentation',
+    'Hand-Object Interaction',
+  ]);
+  const [newSrvAnnotatorOutputFormat, setNewSrvAnnotatorOutputFormat] = useState(
+    'Skema JSON, JSONL, COCO, CSV (Frame-Accurate)'
+  );
+  const [newSrvQaScopes, setNewSrvQaScopes] = useState<string[]>([
+    'Technical Validation (FFmpeg/MediaInfo)',
+    'Capture-Spec Compliance',
+    'Privacy / PII & Blur Screening',
+    'Consent & Rights Evidence Audit',
+  ]);
+  const [newSrvQaTools, setNewSrvQaTools] = useState<string[]>([
+    'Standar QA EgvoX v1.3',
+    'FFmpeg / MediaInfo Technical Inspector',
+    'JSONL / COCO Schema Validator',
+  ]);
+  const [newSrvQaStandard, setNewSrvQaStandard] = useState(
+    'Audit Teknis, Capture-Spec, Consent & Schema QA'
+  );
   const [newSrvConflictDeclared, setNewSrvConflictDeclared] = useState(true);
-  const [newSrvLocation, setNewSrvLocation] = useState('Jakarta, Indonesia');
+  const [newSrvConflictText, setNewSrvConflictText] = useState(
+    isId
+      ? 'Independen penuh: Tidak pernah mengaudit rekaman atau anotasi milik sendiri maupun tim produksi afiliasi.'
+      : 'Independent auditor: Never reviews own recordings, annotations, or affiliated capture teams.'
+  );
+  const [newSrvLocation, setNewSrvLocation] = useState('Jakarta & Jabodetabek');
   const [newSrvDesc, setNewSrvDesc] = useState('');
+  const [newSrvExclusions, setNewSrvExclusions] = useState(
+    isId
+      ? 'Tidak mencakup perekaman di area terlarang tanpa izin lokasi tertulis.'
+      : 'Excludes restricted facilities without written site permission.'
+  );
+  const [newSrvPortfolioTitle, setNewSrvPortfolioTitle] = useState(
+    isId ? 'Sampel Video Aktivitas Dapur (POV Berizin)' : 'Consented Kitchen POV Sample'
+  );
+  const [newSrvPortfolioThumb, setNewSrvPortfolioThumb] = useState(
+    '/images/capture_cooking_pov_1795676769816.jpg'
+  );
+  const [newSrvPortfolioConsent, setNewSrvPortfolioConsent] = useState(true);
+
+  const handleSrvRoleChange = (nextRole: FreelancerServiceListing['roleType']) => {
+    setNewSrvRole(nextRole);
+    if (nextRole === 'Video Contributor') {
+      setNewSrvCapacity(isId ? '± 20 jam / minggu' : '± 20 hours / week');
+      setNewSrvSla(isId ? 'Sesuai Spesifikasi · 3–5 hari' : 'Per Spec · 3–5 business days');
+      setNewSrvResolutionFps('1080p – 4K · 30–60 FPS · MP4 H.264/H.265');
+      setNewSrvCategories(['cooking', 'household']);
+      setNewSrvExclusions(
+        isId
+          ? 'Tidak mencakup perekaman di area terlarang tanpa izin lokasi tertulis.'
+          : 'Excludes restricted facilities without written site permission.'
+      );
+      setNewSrvPortfolioTitle(
+        isId ? 'Sampel Video Aktivitas Dapur (POV Berizin)' : 'Consented Kitchen POV Sample'
+      );
+      setNewSrvPortfolioThumb('/images/capture_cooking_pov_1795676769816.jpg');
+    } else if (nextRole === 'Data Annotator') {
+      setNewSrvCapacity(isId ? '± 40 jam video / minggu' : '± 40 video hours / week');
+      setNewSrvSla(isId ? 'Akurasi tinggi · 2–4 hari' : 'High accuracy · 2–4 days');
+      setNewSrvCategories(['cooking', 'manufacturing', 'warehouse']);
+      setNewSrvExclusions(
+        isId
+          ? 'Hanya memproses media yang telah lolos tahap QA & Rights Gate di EgvoX.'
+          : 'Processes only media cleared by EgvoX QA & Rights Gate.'
+      );
+      setNewSrvPortfolioTitle(
+        isId
+          ? 'Sampel Anotasi Bounding Box & Temporal Action (Anonim)'
+          : 'Anonymized Bounding Box & Temporal Action Sample'
+      );
+      setNewSrvPortfolioThumb('/images/capture_manufacturing_pov_1795676770652.jpg');
+    } else {
+      setNewSrvCapacity(isId ? '25–35 batch / minggu' : '25–35 batches / week');
+      setNewSrvSla(isId ? 'SLA Terjadwal (24–48 jam)' : 'Scheduled SLA (24–48h)');
+      setNewSrvCategories(['manufacturing', 'warehouse', 'automotive']);
+      setNewSrvExclusions(
+        isId
+          ? 'Wajib bebas konflik kepentingan — tidak menerima audit atas output produksi sendiri.'
+          : 'Strict conflict-of-interest rule — never audits own capture or annotation deliverables.'
+      );
+      setNewSrvPortfolioTitle(
+        isId
+          ? 'Sampel Laporan Audit QA & Validasi Consent (Terredaksi)'
+          : 'Redacted QA Audit & Consent Validation Sample'
+      );
+      setNewSrvPortfolioThumb('/images/capture_warehouse_pov_1795676771521.jpg');
+    }
+  };
+
+  const toggleSrvCategory = (slug: ActivityCategorySlug) => {
+    setNewSrvCategories((prev) =>
+      prev.includes(slug) ? (prev.length > 1 ? prev.filter((c) => c !== slug) : prev) : [...prev, slug]
+    );
+  };
+
+  const toggleStringItem = (
+    list: string[],
+    setList: React.Dispatch<React.SetStateAction<string[]>>,
+    val: string
+  ) => {
+    setList((prev) =>
+      prev.includes(val) ? (prev.length > 1 ? prev.filter((item) => item !== val) : prev) : [...prev, val]
+    );
+  };
 
   const [rfpCompany, setRfpCompany] = useState('PT Nusantara Riset Teknologi');
+  const [rfpCountry, setRfpCountry] = useState('Indonesia');
+  const [rfpWebsite, setRfpWebsite] = useState('https://nusantarariset.id');
   const [rfpPicName, setRfpPicName] = useState('Budi Santoso (Head of AI Data)');
   const [rfpPhone, setRfpPhone] = useState('+62 812-8890-1122');
   const [rfpEmail, setRfpEmail] = useState('procurement@company.com');
+  const [rfpDomain, setRfpDomain] = useState('Manufacturing & Assembly');
+  const [rfpDeliveryFormat, setRfpDeliveryFormat] = useState('MP4 + JSONL');
+  const [rfpDeadline, setRfpDeadline] = useState('Q1 2027 (Jan–Mar)');
   const [rfpVolume, setRfpVolume] = useState('50 – 250 jam');
   const [rfpSummary, setRfpSummary] = useState('');
   const [rfpAttachmentName, setRfpAttachmentName] = useState('');
+  const [rfpConsent, setRfpConsent] = useState(true);
 
   const [kycDocType, setKycDocType] = useState('KTP / National ID');
 
@@ -975,11 +1124,18 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
 
       {createProjectOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Buat Project Kebutuhan Dataset Baru' : 'Publish New Dataset Project'}
-              </h3>
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold">
+                  {isId ? 'Buat Project Kebutuhan Dataset Baru' : 'Publish New Dataset Project'}
+                </h3>
+                <p className="text-[11px] text-[var(--egvox-text-muted)] mt-0.5">
+                  {isId
+                    ? 'Seluruh parameter teknis, acceptance criteria, dan kebijakan privasi tampil langsung di halaman Detail Project.'
+                    : 'All capture specifications, acceptance criteria, and privacy rules sync directly to the public Project Detail page.'}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setCreateProjectOpen(false)}
@@ -992,6 +1148,10 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!newPrjTitle.trim() || !newPrjSummary.trim()) return;
+                const parsedCriteria = newPrjAcceptanceText
+                  .split('\n')
+                  .map((s) => s.trim())
+                  .filter(Boolean);
                 createVendorProject({
                   title: newPrjTitle.trim(),
                   category: newPrjCat,
@@ -1001,132 +1161,305 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
                   showBudgetDisclosure: newPrjShowBudget,
                   location: newPrjLocation.trim() || 'Indonesia',
                   summary: newPrjSummary.trim(),
+                  deadline: newPrjDeadline.trim(),
+                  applicationCloseDate: newPrjAppClose.trim(),
                   perspective: newPrjPerspective,
                   mounting: newPrjMounting,
+                  deviceRequirement: newPrjDeviceReq.trim(),
                   resolution: newPrjResolution,
                   frameRate: newPrjFps,
+                  codecFormat: newPrjCodec.trim(),
+                  orientation: newPrjOrientation,
+                  clipDuration: newPrjClipDuration.trim(),
+                  audioPolicy: newPrjAudioPolicy,
+                  consentPolicy: newPrjConsentPolicy.trim(),
                   annotationRequired: newPrjAnnotation,
+                  acceptanceCriteria: parsedCriteria,
+                  rightsSummary: newPrjRightsSummary.trim(),
                 });
                 setCreateProjectOpen(false);
                 setNewPrjTitle('');
                 setNewPrjSummary('');
               }}
-              className="space-y-3"
+              className="space-y-3.5 text-xs"
             >
-              <input
-                type="text"
-                required
-                value={newPrjTitle}
-                onChange={(e) => setNewPrjTitle(e.target.value)}
-                placeholder={isId ? 'Judul Project Dataset...' : 'Dataset Project Title...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <select
-                  value={newPrjCat}
-                  onChange={(e) => setNewPrjCat(e.target.value as ActivityCategorySlug)}
-                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                >
-                  <option value="cooking">{isId ? 'Memasak & Dapur' : 'Cooking'}</option>
-                  <option value="manufacturing">{isId ? 'Manufaktur' : 'Manufacturing'}</option>
-                  <option value="automotive">{isId ? 'Otomotif' : 'Automotive'}</option>
-                  <option value="warehouse">{isId ? 'Gudang & Logistik' : 'Warehouse'}</option>
-                </select>
-                <select
-                  value={newPrjType}
-                  onChange={(e) => setNewPrjType(e.target.value as DataModality)}
-                  className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                >
-                  <option value="Video">Video</option>
-                  <option value="Gambar">{isId ? 'Gambar' : 'Image'}</option>
-                  <option value="Multimodal">Multimodal</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">
+                  {isId ? 'Judul Project Dataset *' : 'Dataset Project Title *'}
+                </label>
                 <input
-                  type="number"
-                  value={newPrjHours}
-                  onChange={(e) => setNewPrjHours(e.target.value)}
-                  placeholder={isId ? 'Target Volume (jam)' : 'Target Volume (hours)'}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs tabular-nums"
-                />
-                <input
-                  type="number"
-                  value={newPrjRate}
-                  onChange={(e) => setNewPrjRate(e.target.value)}
-                  placeholder={isId ? 'Tarif per jam (IDR)' : 'Hourly rate (IDR)'}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold tabular-nums"
+                  type="text"
+                  required
+                  value={newPrjTitle}
+                  onChange={(e) => setNewPrjTitle(e.target.value)}
+                  placeholder={
+                    isId
+                      ? 'Mis. Dataset Aktivitas Gudang & Barcode Picking (POV)'
+                      : 'e.g. Warehouse Picking & Barcode Scanning Dataset (POV)'
+                  }
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
                 />
               </div>
 
-              {/* Capture Specification & Optional Annotation Selector (PRD §5 & §28) */}
-              <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 space-y-2.5">
-                <p className="text-[11px] font-bold text-[#027F86]">
-                  {isId ? 'Spesifikasi Pengambilan & Opsi Anotasi' : 'Capture Specification & Annotation Option'}
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Kategori Aktivitas *' : 'Activity Category *'}
+                  </label>
                   <select
-                    value={newPrjPerspective}
-                    onChange={(e) =>
-                      setNewPrjPerspective(e.target.value as CaptureSpecification['perspective'])
-                    }
-                    className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
+                    value={newPrjCat}
+                    onChange={(e) => setNewPrjCat(e.target.value as ActivityCategorySlug)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
                   >
-                    <option value="Egocentric (First-Person)">Egocentric (First-Person)</option>
-                    <option value="Multi-Angle + Egocentric">Multi-Angle + Egocentric</option>
-                  </select>
-                  <select
-                    value={newPrjMounting}
-                    onChange={(e) =>
-                      setNewPrjMounting(e.target.value as CaptureSpecification['mounting'])
-                    }
-                    className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
-                  >
-                    <option value="Head-mounted">Head-mounted</option>
-                    <option value="Chest-mounted">Chest-mounted</option>
-                    <option value="Wearable Glasses">Wearable Glasses</option>
-                    <option value="Handheld">Handheld</option>
-                  </select>
-                  <select
-                    value={newPrjResolution}
-                    onChange={(e) => setNewPrjResolution(e.target.value)}
-                    className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
-                  >
-                    <option value="Minimum 1080p">1080p (min)</option>
-                    <option value="4K UHD">4K UHD (2160p)</option>
-                  </select>
-                  <select
-                    value={newPrjFps}
-                    onChange={(e) => setNewPrjFps(e.target.value)}
-                    className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
-                  >
-                    <option value="30–60 FPS">30–60 FPS</option>
-                    <option value="60 FPS Locked">60 FPS Locked</option>
+                    {ACTIVITY_CATEGORIES.map((cat) => (
+                      <option key={cat.slug} value={cat.slug}>
+                        {isId ? cat.nameId : cat.nameEn}
+                      </option>
+                    ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setNewPrjAnnotation('none')}
-                    className={`rounded-lg border px-2.5 py-2 font-semibold text-left ${
-                      newPrjAnnotation === 'none'
-                        ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86]'
-                        : 'border-[var(--egvox-border-default)]'
-                    }`}
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Modalitas Data *' : 'Data Modality *'}
+                  </label>
+                  <select
+                    value={newPrjType}
+                    onChange={(e) => setNewPrjType(e.target.value as DataModality)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
                   >
-                    {isId ? 'Raw Video Only (Tanpa Anotasi)' : 'Raw Video Only (No Annotation)'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewPrjAnnotation('optional')}
-                    className={`rounded-lg border px-2.5 py-2 font-semibold text-left ${
-                      newPrjAnnotation === 'optional'
-                        ? 'border-[#FC840E] bg-[#FC840E]/10 text-[#FC840E]'
-                        : 'border-[var(--egvox-border-default)]'
-                    }`}
-                  >
-                    {isId ? '+ Anotasi Freelancer (Opsional)' : '+ Freelancer Annotation (Optional)'}
-                  </button>
+                    <option value="Video">Video</option>
+                    <option value="Gambar">{isId ? 'Gambar' : 'Image'}</option>
+                    <option value="Multimodal">Multimodal</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Target Volume (Jam) *' : 'Target Volume (Hours) *'}
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    value={newPrjHours}
+                    onChange={(e) => setNewPrjHours(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Ref. Budget / Jam (IDR)' : 'Budget Ref. / Hour (IDR)'}
+                  </label>
+                  <input
+                    type="number"
+                    min={50000}
+                    step={5000}
+                    value={newPrjRate}
+                    onChange={(e) => setNewPrjRate(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Batas Aplikasi *' : 'Application Close *'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrjAppClose}
+                    onChange={(e) => setNewPrjAppClose(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Batas Waktu Proyek *' : 'Project Deadline *'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrjDeadline}
+                    onChange={(e) => setNewPrjDeadline(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Capture Specification & Annotation Scope (PRD §5 & §28) */}
+              <div className="rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 space-y-3">
+                <p className="text-[11px] font-bold text-[#027F86]">
+                  {isId ? 'Spesifikasi Capture Egocentric & Kebutuhan Anotasi' : 'Egocentric Capture Spec & Annotation Scope'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                      {isId ? 'Perspektif Kamera' : 'Perspective'}
+                    </label>
+                    <select
+                      value={newPrjPerspective}
+                      onChange={(e) =>
+                        setNewPrjPerspective(e.target.value as CaptureSpecification['perspective'])
+                      }
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
+                    >
+                      <option value="Egocentric (First-Person)">Egocentric (First-Person)</option>
+                      <option value="Multi-Angle + Egocentric">Multi-Angle + Egocentric</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                      {isId ? 'Pemasangan Kamera' : 'Camera Mounting'}
+                    </label>
+                    <select
+                      value={newPrjMounting}
+                      onChange={(e) =>
+                        setNewPrjMounting(e.target.value as CaptureSpecification['mounting'])
+                      }
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
+                    >
+                      <option value="Head-mounted">Head-mounted</option>
+                      <option value="Chest-mounted">Chest-mounted</option>
+                      <option value="Wearable Glasses">Wearable Glasses</option>
+                      <option value="Handheld">Handheld</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                      {isId ? 'Resolusi Minimum' : 'Minimum Resolution'}
+                    </label>
+                    <select
+                      value={newPrjResolution}
+                      onChange={(e) => setNewPrjResolution(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
+                    >
+                      <option value="Minimum 1080p (1920x1080)">1080p (1920x1080 min)</option>
+                      <option value="4K UHD (3840x2160)">4K UHD (2160p)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                      Frame Rate
+                    </label>
+                    <select
+                      value={newPrjFps}
+                      onChange={(e) => setNewPrjFps(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5"
+                    >
+                      <option value="30–60 FPS">30–60 FPS</option>
+                      <option value="60 FPS Locked">60 FPS Locked</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                      Codec & Orientation
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <input
+                        type="text"
+                        value={newPrjCodec}
+                        onChange={(e) => setNewPrjCodec(e.target.value)}
+                        className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2 py-1.5 text-[11px]"
+                      />
+                      <select
+                        value={newPrjOrientation}
+                        onChange={(e) =>
+                          setNewPrjOrientation(e.target.value as CaptureSpecification['orientation'])
+                        }
+                        className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2 py-1.5 text-[11px]"
+                      >
+                        <option value="Landscape 16:9">16:9</option>
+                        <option value="Portrait 9:16">9:16</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                      {isId ? 'Kebijakan Audio & Durasi Sesi' : 'Audio Policy & Session Duration'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <select
+                        value={newPrjAudioPolicy}
+                        onChange={(e) =>
+                          setNewPrjAudioPolicy(e.target.value as CaptureSpecification['audioPolicy'])
+                        }
+                        className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2 py-1.5 text-[11px]"
+                      >
+                        <option value="Optional">{isId ? 'Audio Opsional' : 'Audio Optional'}</option>
+                        <option value="Required">{isId ? 'Audio Wajib' : 'Audio Required'}</option>
+                        <option value="Forbidden">{isId ? 'Audio Dilarang' : 'Audio Forbidden'}</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={newPrjClipDuration}
+                        onChange={(e) => setNewPrjClipDuration(e.target.value)}
+                        className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2 py-1.5 text-[11px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                    {isId ? 'Kebutuhan Perangkat Minimal' : 'Minimum Device Requirement'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrjDeviceReq}
+                    onChange={(e) => setNewPrjDeviceReq(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                    {isId ? 'Kebijakan Persetujuan & Privasi (Consent)' : 'Participant Consent & Privacy Policy'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newPrjConsentPolicy}
+                    onChange={(e) => setNewPrjConsentPolicy(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-[var(--egvox-text-muted)] mb-1">
+                    {isId ? 'Kebutuhan Anotasi Proyek' : 'Project Annotation Requirement'}
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setNewPrjAnnotation('none')}
+                      className={`rounded-lg border px-2.5 py-2 font-semibold text-left ${
+                        newPrjAnnotation === 'none'
+                          ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86]'
+                          : 'border-[var(--egvox-border-default)]'
+                      }`}
+                    >
+                      {isId ? 'Raw Video Only' : 'Raw Video Only'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPrjAnnotation('optional')}
+                      className={`rounded-lg border px-2.5 py-2 font-semibold text-left ${
+                        newPrjAnnotation === 'optional'
+                          ? 'border-[#FC840E] bg-[#FC840E]/10 text-[#FC840E]'
+                          : 'border-[var(--egvox-border-default)]'
+                      }`}
+                    >
+                      {isId ? 'Anotasi Opsional' : 'Annotation Optional'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPrjAnnotation('required')}
+                      className={`rounded-lg border px-2.5 py-2 font-semibold text-left ${
+                        newPrjAnnotation === 'required'
+                          ? 'border-[#16835D] bg-[#16835D]/10 text-[#16835D]'
+                          : 'border-[var(--egvox-border-default)]'
+                      }`}
+                    >
+                      {isId ? 'Wajib Anotasi' : 'Annotation Required'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1150,21 +1483,59 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
                     : 'Show Vendor project budget disclosure in public catalog (optional; not a public freelancer rate).'}
                 </span>
               </label>
-              <input
-                type="text"
-                value={newPrjLocation}
-                onChange={(e) => setNewPrjLocation(e.target.value)}
-                placeholder={isId ? 'Lokasi pengambilan data' : 'Capture location'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <textarea
-                rows={3}
-                required
-                value={newPrjSummary}
-                onChange={(e) => setNewPrjSummary(e.target.value)}
-                placeholder={isId ? 'Ringkasan kebutuhan dan panduan capture...' : 'Project summary and capture brief...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
+
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">
+                  {isId ? 'Lokasi Pengambilan Data *' : 'Capture Location *'}
+                </label>
+                <input
+                  type="text"
+                  value={newPrjLocation}
+                  onChange={(e) => setNewPrjLocation(e.target.value)}
+                  placeholder={isId ? 'Contoh: Jabodetabek, Bandung, Surabaya' : 'e.g. Jakarta, Bandung'}
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">
+                  {isId ? 'Ringkasan Kebutuhan & Panduan Capture *' : 'Project Summary & Capture Brief *'}
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={newPrjSummary}
+                  onChange={(e) => setNewPrjSummary(e.target.value)}
+                  placeholder={isId ? 'Jelaskan skenario aktivitas, objek target, dan panduan pencahayaan...' : 'Describe activity scenarios, target objects, and capture guide...'}
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Acceptance Criteria QA (1 baris per poin)' : 'QA Acceptance Criteria (1 line per item)'}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newPrjAcceptanceText}
+                    onChange={(e) => setNewPrjAcceptanceText(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Ringkasan Hak Data & Lisensi' : 'Data Rights & License Summary'}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newPrjRightsSummary}
+                    onChange={(e) => setNewPrjRightsSummary(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
               <button
                 type="submit"
                 className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5"
@@ -1179,16 +1550,16 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
 
       {createServiceOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold">
                   {isId ? 'Buat Profil Kapabilitas Freelancer' : 'Create Freelancer Capability Profile'}
                 </h3>
                 <p className="text-[11px] text-[var(--egvox-text-muted)] mt-0.5">
                   {isId
-                    ? 'Tampilkan spesialisasi, perangkat, kapasitas & portfolio — kompensasi dibahas privat via penawaran rekrutmen.'
-                    : 'Showcase skills, gear, capacity & portfolio — compensation is negotiated privately via recruitment offers.'}
+                    ? 'Field form menyesuaikan kelas peran Anda (Video Contributor, Data Annotator, atau QA Specialist) dan selaras dengan tampilan Katalog Rekrutmen — tanpa tarif publik.'
+                    : 'Form fields adapt dynamically to your talent class (Video Contributor, Data Annotator, or QA Specialist) and sync 1:1 with the public Talent Catalog — no public pricing.'}
                 </p>
               </div>
               <button
@@ -1199,99 +1570,646 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
                 <X className="h-4 w-4" />
               </button>
             </div>
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!newSrvTitle.trim() || !newSrvDesc.trim()) return;
+                if (!newSrvPortfolioConsent) {
+                  showToast(
+                    isId
+                      ? 'Centang pernyataan hak & izin peserta untuk portfolio preview.'
+                      : 'Please confirm participant consent for the portfolio preview.'
+                  );
+                  return;
+                }
+
+                const roleEquipment =
+                  newSrvRole === 'Video Contributor'
+                    ? [
+                        newSrvEquipment.trim() || 'Action Cam 4K + Chest/Head Mount',
+                        `${isId ? 'Perspektif:' : 'Perspective:'} ${newSrvPerspective}`,
+                      ]
+                    : newSrvRole === 'Data Annotator'
+                    ? [
+                        ...newSrvAnnotatorTools,
+                        newSrvAnnotatorWorkstation.trim() || 'Dual-Monitor Workstation',
+                      ]
+                    : [
+                        ...newSrvQaTools,
+                        `${isId ? 'Cakupan:' : 'Scope:'} ${newSrvQaScopes.slice(0, 2).join(', ')}`,
+                      ];
+
+                const roleResolution =
+                  newSrvRole === 'Video Contributor'
+                    ? newSrvResolutionFps
+                    : newSrvRole === 'Data Annotator'
+                    ? newSrvAnnotatorOutputFormat
+                    : newSrvQaStandard;
+
+                const roleSchemas =
+                  newSrvRole === 'Data Annotator'
+                    ? newSrvAnnotatorSchemas
+                    : newSrvRole === 'QA Specialist'
+                    ? newSrvQaScopes
+                    : undefined;
+
+                const roleTools =
+                  newSrvRole === 'Data Annotator'
+                    ? newSrvAnnotatorTools
+                    : newSrvRole === 'QA Specialist'
+                    ? newSrvQaTools
+                    : undefined;
+
                 createFreelancerService({
                   title: newSrvTitle.trim(),
                   roleType: newSrvRole,
                   location: newSrvLocation.trim() || 'Indonesia',
                   description: newSrvDesc.trim(),
-                  capacityLabel:
-                    newSrvCapacity.trim() ||
-                    (isId ? '± 20 jam / minggu' : '± 20 hours / week'),
-                  equipmentSummary: newSrvEquipment.trim(),
+                  categories: newSrvCategories,
+                  capacityLabel: newSrvCapacity.trim(),
+                  deliverySla: newSrvSla.trim(),
+                  equipment: roleEquipment,
+                  resolutionFps: roleResolution.trim(),
+                  annotationTools: roleTools,
+                  supportedSchemas: roleSchemas,
+                  exclusions: newSrvExclusions
+                    .split('\n')
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                  portfolioTitle: newSrvPortfolioTitle.trim(),
+                  portfolioImage: newSrvPortfolioThumb,
                   conflictDisclosureDeclared:
                     newSrvRole === 'QA Specialist' ? newSrvConflictDeclared : undefined,
+                  conflictDisclosureText:
+                    newSrvRole === 'QA Specialist' ? newSrvConflictText.trim() : undefined,
                 });
                 setCreateServiceOpen(false);
                 setNewSrvTitle('');
                 setNewSrvDesc('');
               }}
-              className="space-y-3"
+              className="space-y-3.5 text-xs"
             >
-              <input
-                type="text"
-                required
-                value={newSrvTitle}
-                onChange={(e) => setNewSrvTitle(e.target.value)}
-                placeholder={isId ? 'Judul Spesialisasi / Kapabilitas...' : 'Capability / Specialization Title...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <select
-                  value={newSrvRole}
-                  onChange={(e) =>
-                    setNewSrvRole(e.target.value as FreelancerServiceListing['roleType'])
-                  }
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                >
-                  <option value="Video Contributor">Video Contributor</option>
-                  <option value="Data Annotator">Data Annotator</option>
-                  <option value="QA Specialist">QA Specialist</option>
-                </select>
+              {/* Role Class Switcher */}
+              <div>
+                <label className="block text-[11px] font-semibold mb-1.5">
+                  {isId ? 'Kelas Talenta Freelancer *' : 'Freelancer Role Class *'}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(
+                    [
+                      {
+                        id: 'Video Contributor' as const,
+                        subId: 'Perekaman Egocentric POV',
+                        subEn: 'Egocentric POV Capture',
+                      },
+                      {
+                        id: 'Data Annotator' as const,
+                        subId: 'Labeling, BBox & Temporal',
+                        subEn: 'Labeling, BBox & Temporal',
+                      },
+                      {
+                        id: 'QA Specialist' as const,
+                        subId: 'Audit Independen & PII',
+                        subEn: 'Independent QA & PII Audit',
+                      },
+                    ] as const
+                  ).map((roleOption) => {
+                    const active = newSrvRole === roleOption.id;
+                    return (
+                      <button
+                        key={roleOption.id}
+                        type="button"
+                        onClick={() => handleSrvRoleChange(roleOption.id)}
+                        className={`rounded-xl border p-2.5 text-left transition-colors ${
+                          active
+                            ? 'border-[#027F86] bg-[#027F86]/10 text-[#027F86] dark:text-[#04B8B4]'
+                            : 'border-[var(--egvox-border-default)] hover:bg-[var(--egvox-bg-canvas)]'
+                        }`}
+                      >
+                        <p className="font-bold text-xs">{roleOption.id}</p>
+                        <p className="text-[10px] text-[var(--egvox-text-muted)] mt-0.5">
+                          {isId ? roleOption.subId : roleOption.subEn}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">
+                  {newSrvRole === 'Video Contributor'
+                    ? isId
+                      ? 'Judul Layanan Perekaman Video *'
+                      : 'Video Capture Capability Title *'
+                    : newSrvRole === 'Data Annotator'
+                    ? isId
+                      ? 'Judul Layanan Data Annotation *'
+                      : 'Data Annotation Capability Title *'
+                    : isId
+                    ? 'Judul Layanan Independent QA Review *'
+                    : 'Independent QA Review Capability Title *'}
+                </label>
                 <input
                   type="text"
-                  value={newSrvCapacity}
-                  onChange={(e) => setNewSrvCapacity(e.target.value)}
-                  placeholder={isId ? 'Kapasitas (mis. ± 20 jam / minggu)' : 'Capacity (e.g. ± 20 hours / week)'}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold"
+                  required
+                  value={newSrvTitle}
+                  onChange={(e) => setNewSrvTitle(e.target.value)}
+                  placeholder={
+                    newSrvRole === 'Video Contributor'
+                      ? isId
+                        ? 'Contoh: Jasa Pengambilan Video Aktivitas Dapur & Rumah Tangga (4K POV)'
+                        : 'e.g. Egocentric Kitchen & Household Video Capture (4K POV)'
+                      : newSrvRole === 'Data Annotator'
+                      ? isId
+                        ? 'Contoh: Jasa Anotasi Bounding Box, Tracking & Temporal Action Segmentation'
+                        : 'e.g. Bounding Box, Object Tracking & Temporal Action Labeling'
+                      : isId
+                      ? 'Contoh: Jasa Independent QA Review Video, Metadata & Audit Consent'
+                      : 'e.g. Independent Video QA Review, Metadata & Consent Audit'
+                  }
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
                 />
               </div>
-              <input
-                type="text"
-                value={newSrvEquipment}
-                onChange={(e) => setNewSrvEquipment(e.target.value)}
-                placeholder={isId ? 'Perangkat & Setup (Action Cam / Tools Anotasi)' : 'Equipment & Tools'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
+
+              {/* Domain / Activity Categories (synced with Catalog & Detail badges) */}
+              <div>
+                <label className="block text-[11px] font-semibold mb-1.5">
+                  {isId ? 'Cakupan Domain / Kategori Aktivitas *' : 'Activity Domain Coverage *'}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ACTIVITY_CATEGORIES.map((cat) => {
+                    const selected = newSrvCategories.includes(cat.slug);
+                    return (
+                      <button
+                        key={cat.slug}
+                        type="button"
+                        onClick={() => toggleSrvCategory(cat.slug)}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          selected
+                            ? 'border-[#027F86] bg-[#027F86]/12 text-[#027F86] dark:text-[#04B8B4] font-semibold'
+                            : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] text-[var(--egvox-text-secondary)]'
+                        }`}
+                      >
+                        {isId ? cat.nameId : cat.nameEn}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ROLE-SPECIFIC TECHNICAL FIELDS */}
+              {newSrvRole === 'Video Contributor' && (
+                <div className="rounded-xl border border-[#027F86]/30 bg-[#027F86]/5 p-3.5 space-y-3">
+                  <p className="text-[11px] font-bold text-[#027F86] dark:text-[#04B8B4]">
+                    {isId
+                      ? 'Spesifikasi Perangkat & Perekaman Video Contributor'
+                      : 'Video Contributor Camera Rig & Capture Specs'}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold mb-1">
+                        {isId ? 'Perspektif Capture *' : 'Capture Perspective *'}
+                      </label>
+                      <select
+                        value={newSrvPerspective}
+                        onChange={(e) => setNewSrvPerspective(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs"
+                      >
+                        <option value="Egocentric (First-Person)">Egocentric (First-Person)</option>
+                        <option value="Multi-Angle + Egocentric">Multi-Angle + Egocentric</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold mb-1">
+                        {isId ? 'Standar Resolusi, FPS & Codec *' : 'Output Resolution, FPS & Codec *'}
+                      </label>
+                      <select
+                        value={newSrvResolutionFps}
+                        onChange={(e) => setNewSrvResolutionFps(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs"
+                      >
+                        <option value="1080p – 4K · 30–60 FPS · MP4 H.264/H.265">
+                          1080p – 4K · 30–60 FPS · MP4 H.264/H.265
+                        </option>
+                        <option value="4K UHD · 60 FPS Locked · MP4 H.265">
+                          4K UHD · 60 FPS Locked · MP4 H.265
+                        </option>
+                        <option value="1080p · 60 FPS · Audio Muted Compliant">
+                          1080p · 60 FPS · Audio Muted Compliant
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1">
+                      {isId ? 'Kamera, Mounting Rig & Pencahayaan *' : 'Camera Hardware, Mount & Lighting *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newSrvEquipment}
+                      onChange={(e) => setNewSrvEquipment(e.target.value)}
+                      placeholder={
+                        isId
+                          ? 'Contoh: GoPro Hero 12 Black + Chest Harness + Head Strap + Dual Softbox'
+                          : 'e.g. GoPro Hero 12 Black + Chest Harness + Head Strap'
+                      }
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {newSrvRole === 'Data Annotator' && (
+                <div className="rounded-xl border border-[#FC840E]/35 bg-[#FC840E]/5 p-3.5 space-y-3">
+                  <p className="text-[11px] font-bold text-[#FC840E]">
+                    {isId
+                      ? 'Spesifikasi Keahlian, Tools & Skema Data Annotator'
+                      : 'Data Annotator Labeling Skills, Tools & Export Schemas'}
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1.5">
+                      {isId ? 'Spesialisasi Pelabelan (Multi-Select) *' : 'Labeling Specializations *'}
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Bounding Box (2D/3D)',
+                        'Object Tracking IDs',
+                        'Temporal Action Segmentation',
+                        'Hand-Object Interaction',
+                        'Pose / Keypoint Estimation',
+                        'Video Captioning',
+                      ].map((schema) => {
+                        const active = newSrvAnnotatorSchemas.includes(schema);
+                        return (
+                          <button
+                            key={schema}
+                            type="button"
+                            onClick={() =>
+                              toggleStringItem(newSrvAnnotatorSchemas, setNewSrvAnnotatorSchemas, schema)
+                            }
+                            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                              active
+                                ? 'border-[#FC840E] bg-[#FC840E]/15 text-[#b45a00] dark:text-[#FC840E] font-semibold'
+                                : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]'
+                            }`}
+                          >
+                            {schema}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1.5">
+                      {isId ? 'Platform & Tools Anotasi yang Dikuasai *' : 'Annotation Platforms & Tools *'}
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'EgvoX Annotation Platform (v1)',
+                        'CVAT',
+                        'Label Studio',
+                        'VGG Image Annotator',
+                      ].map((tool) => {
+                        const active = newSrvAnnotatorTools.includes(tool);
+                        return (
+                          <button
+                            key={tool}
+                            type="button"
+                            onClick={() =>
+                              toggleStringItem(newSrvAnnotatorTools, setNewSrvAnnotatorTools, tool)
+                            }
+                            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                              active
+                                ? 'border-[#027F86] bg-[#027F86]/12 text-[#027F86] dark:text-[#04B8B4] font-semibold'
+                                : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]'
+                            }`}
+                          >
+                            {tool}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold mb-1">
+                        {isId ? 'Format & Skema Ekspor *' : 'Supported Output Schema *'}
+                      </label>
+                      <select
+                        value={newSrvAnnotatorOutputFormat}
+                        onChange={(e) => setNewSrvAnnotatorOutputFormat(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs"
+                      >
+                        <option value="Skema JSON, JSONL, COCO, CSV (Frame-Accurate)">
+                          JSON, JSONL, COCO, CSV (Frame-Accurate)
+                        </option>
+                        <option value="Egocentric Temporal JSONL + Hand-Object BBox">
+                          Egocentric Temporal JSONL + Hand-Object BBox
+                        </option>
+                        <option value="COCO Keypoints & Dense Segmentation Mask">
+                          COCO Keypoints & Segmentation Mask
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold mb-1">
+                        {isId ? 'Spesifikasi Workstation Anotasi *' : 'Annotation Workstation Specs *'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newSrvAnnotatorWorkstation}
+                        onChange={(e) => setNewSrvAnnotatorWorkstation(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {newSrvRole === 'QA Specialist' && (
-                <label className="flex items-start gap-2 rounded-xl border border-[#16835D]/30 bg-[#16835D]/8 px-3 py-2.5 text-[11px] text-[var(--egvox-text-secondary)]">
+                <div className="rounded-xl border border-[#2563A6]/35 bg-[#2563A6]/6 p-3.5 space-y-3">
+                  <p className="text-[11px] font-bold text-[#2563A6]">
+                    {isId
+                      ? 'Cakupan Audit, Tools Inspeksi & Independensi QA Specialist'
+                      : 'QA Audit Scope, Inspection Tools & Independence Policy'}
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1.5">
+                      {isId ? 'Jenis Pemeriksaan QA yang Dikuasai *' : 'QA Inspection Types *'}
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Technical Validation (FFmpeg/MediaInfo)',
+                        'Capture-Spec Compliance',
+                        'Privacy / PII & Blur Screening',
+                        'Consent & Rights Evidence Audit',
+                        'Annotation IoU & Schema Audit',
+                        'Dataset Package Readiness QA',
+                      ].map((scope) => {
+                        const active = newSrvQaScopes.includes(scope);
+                        return (
+                          <button
+                            key={scope}
+                            type="button"
+                            onClick={() =>
+                              toggleStringItem(newSrvQaScopes, setNewSrvQaScopes, scope)
+                            }
+                            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                              active
+                                ? 'border-[#2563A6] bg-[#2563A6]/15 text-[#2563A6] font-semibold'
+                                : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]'
+                            }`}
+                          >
+                            {scope}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1.5">
+                      {isId ? 'Tools & Checklist Validasi QA *' : 'QA Tools & Audit Checklists *'}
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Standar QA EgvoX v1.3',
+                        'FFmpeg / MediaInfo Technical Inspector',
+                        'JSONL / COCO Schema Validator',
+                        'EgvoX QA Workbench',
+                      ].map((tool) => {
+                        const active = newSrvQaTools.includes(tool);
+                        return (
+                          <button
+                            key={tool}
+                            type="button"
+                            onClick={() => toggleStringItem(newSrvQaTools, setNewSrvQaTools, tool)}
+                            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                              active
+                                ? 'border-[#027F86] bg-[#027F86]/12 text-[#027F86] dark:text-[#04B8B4] font-semibold'
+                                : 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)]'
+                            }`}
+                          >
+                            {tool}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-1">
+                      {isId ? 'Ringkasan Standar Audit QA *' : 'QA Audit Standard Summary *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newSrvQaStandard}
+                      onChange={(e) => setNewSrvQaStandard(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-2 rounded-xl border border-[#16835D]/30 bg-[#16835D]/8 p-3">
+                    <label className="flex items-start gap-2 text-[11px] text-[var(--egvox-text-secondary)]">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={newSrvConflictDeclared}
+                        onChange={(e) => setNewSrvConflictDeclared(e.target.checked)}
+                        className="mt-0.5 h-3.5 w-3.5 accent-[#16835D]"
+                      />
+                      <span>
+                        <strong>{isId ? 'Deklarasi Anti-Konflik Kepentingan (Wajib):' : 'Mandatory Anti-Conflict Declaration:'}</strong>{' '}
+                        {isId
+                          ? 'Saya tidak akan mengaudit rekaman atau anotasi milik sendiri maupun tim produksi afiliasi.'
+                          : 'I will never audit own recordings, annotations, or affiliated capture outputs.'}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newSrvConflictText}
+                      onChange={(e) => setNewSrvConflictText(e.target.value)}
+                      placeholder={
+                        isId
+                          ? 'Catatan independensi QA yang ditampilkan di profil...'
+                          : 'Public QA independence statement...'
+                      }
+                      className="w-full rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-[11px]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Shared Capacity, SLA & Location */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {newSrvRole === 'Video Contributor'
+                      ? isId
+                        ? 'Kapasitas Rekam / Minggu *'
+                        : 'Weekly Capture Capacity *'
+                      : newSrvRole === 'Data Annotator'
+                      ? isId
+                        ? 'Kapasitas Anotasi / Minggu *'
+                        : 'Weekly Annotation Capacity *'
+                      : isId
+                      ? 'Kapasitas Audit Batch / Minggu *'
+                      : 'Weekly QA Batch Capacity *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSrvCapacity}
+                    onChange={(e) => setNewSrvCapacity(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Estimasi SLA Pengiriman *' : 'Delivery SLA *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSrvSla}
+                    onChange={(e) => setNewSrvSla(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {newSrvRole === 'Video Contributor'
+                      ? isId
+                        ? 'Kota / Area Perekaman *'
+                        : 'Capture City / Region *'
+                      : isId
+                      ? 'Domisili / Mode Kerja *'
+                      : 'Location / Remote Mode *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSrvLocation}
+                    onChange={(e) => setNewSrvLocation(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">
+                  {newSrvRole === 'Video Contributor'
+                    ? isId
+                      ? 'Deskripsi Keahlian Perekaman, Pencahayaan & Pengalaman *'
+                      : 'Capture Experience, Lighting & Framing Summary *'
+                    : newSrvRole === 'Data Annotator'
+                    ? isId
+                      ? 'Deskripsi Pengalaman Pelabelan, Akurasi IoU & Domain *'
+                      : 'Annotation Experience, IoU Accuracy & Domain Knowledge *'
+                    : isId
+                    ? 'Deskripsi Metodologi Audit QA, Pengalaman & Rekam Jejak *'
+                    : 'QA Inspection Methodology, Experience & Track Record *'}
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={newSrvDesc}
+                  onChange={(e) => setNewSrvDesc(e.target.value)}
+                  placeholder={
+                    newSrvRole === 'Video Contributor'
+                      ? isId
+                        ? 'Jelaskan pengalaman perekaman POV, kalibrasi mounting, kontrol pencahayaan, dan kepatuhan consent...'
+                        : 'Describe your first-person capture workflow, stabilization, and consent rigor...'
+                      : newSrvRole === 'Data Annotator'
+                      ? isId
+                        ? 'Jelaskan pengalaman anotasi frame-accurate, QA internal, dan skema JSONL/COCO yang pernah ditangani...'
+                        : 'Describe frame-accurate labeling experience, IoU standards, and schema deliveries...'
+                      : isId
+                      ? 'Jelaskan prosedur pengecekan teknis FFmpeg, redaksi PII, validasi consent, dan pelaporan QA...'
+                      : 'Describe technical FFmpeg inspection, PII screening, consent audit, and QA reporting...'
+                  }
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold mb-1">
+                  {isId ? 'Batasan Layanan & Pengecualian (Exclusions)' : 'Service Exclusions & Boundaries'}
+                </label>
+                <input
+                  type="text"
+                  value={newSrvExclusions}
+                  onChange={(e) => setNewSrvExclusions(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                />
+              </div>
+
+              {/* Portfolio Preview (Matches Catalog & Detail UI) */}
+              <div className="rounded-xl border border-dashed border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3.5 space-y-2.5">
+                <p className="text-[11px] font-bold text-[var(--egvox-text-primary)]">
+                  {newSrvRole === 'Video Contributor'
+                    ? isId
+                      ? 'Portfolio Preview Video (30–60 detik, Berizin & Watermarked)'
+                      : 'Consented Video Portfolio Preview (30–60s, Watermarked)'
+                    : newSrvRole === 'Data Annotator'
+                    ? isId
+                      ? 'Sampel Output Anotasi Teranonimisasi (Berizin)'
+                      : 'Consented Anonymized Annotation Sample'
+                    : isId
+                    ? 'Sampel Laporan Audit QA (Terredaksi)'
+                    : 'Redacted QA Audit Report Sample'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <input
+                    type="text"
+                    value={newSrvPortfolioTitle}
+                    onChange={(e) => setNewSrvPortfolioTitle(e.target.value)}
+                    placeholder={isId ? 'Judul sampel preview...' : 'Preview sample title...'}
+                    className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-xs"
+                  />
+                  <select
+                    value={newSrvPortfolioThumb}
+                    onChange={(e) => setNewSrvPortfolioThumb(e.target.value)}
+                    className="rounded-lg border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] px-2.5 py-1.5 text-xs"
+                  >
+                    <option value="/images/capture_cooking_pov_1795676769816.jpg">
+                      {isId ? 'Thumbnail Domain Memasak / Dapur' : 'Cooking / Kitchen Domain Preview'}
+                    </option>
+                    <option value="/images/capture_manufacturing_pov_1795676770652.jpg">
+                      {isId ? 'Thumbnail Domain Manufaktur / Perakitan' : 'Manufacturing / Assembly Preview'}
+                    </option>
+                    <option value="/images/capture_warehouse_pov_1795676771521.jpg">
+                      {isId ? 'Thumbnail Domain Gudang / Logistik' : 'Warehouse / Logistics Preview'}
+                    </option>
+                    <option value="/images/capture_automotive_pov_1795676770764.jpg">
+                      {isId ? 'Thumbnail Domain Otomotif' : 'Automotive POV Preview'}
+                    </option>
+                  </select>
+                </div>
+                <label className="flex items-start gap-2 text-[11px] text-[var(--egvox-text-secondary)]">
                   <input
                     type="checkbox"
-                    required
-                    checked={newSrvConflictDeclared}
-                    onChange={(e) => setNewSrvConflictDeclared(e.target.checked)}
-                    className="mt-0.5 h-3.5 w-3.5 accent-[#16835D]"
+                    checked={newSrvPortfolioConsent}
+                    onChange={(e) => setNewSrvPortfolioConsent(e.target.checked)}
+                    className="mt-0.5 h-3.5 w-3.5 accent-[#027F86]"
                   />
                   <span>
                     {isId
-                      ? 'Deklarasi Anti-Konflik Kepentingan: Saya tidak akan mengaudit rekaman atau anotasi milik sendiri maupun tim produksi afiliasi.'
-                      : 'Anti-Conflict Declaration: I will never audit own recordings, annotations, or affiliated capture outputs.'}
+                      ? 'Sampel preview telah memiliki izin peserta, diberi watermark, dan bukan raw dataset komersial klien.'
+                      : 'Sample preview has verified participant consent, watermark protection, and excludes private client raw data.'}
                   </span>
                 </label>
-              )}
-              <input
-                type="text"
-                value={newSrvLocation}
-                onChange={(e) => setNewSrvLocation(e.target.value)}
-                placeholder={isId ? 'Kota / Area Operasional' : 'City / Operating Region'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
-              <textarea
-                rows={3}
-                required
-                value={newSrvDesc}
-                onChange={(e) => setNewSrvDesc(e.target.value)}
-                placeholder={isId ? 'Deskripsi keahlian teknis, perangkat, pengalaman, dan SLA...' : 'Describe technical skills, equipment, and SLA...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
+              </div>
+
               <button
                 type="submit"
-                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white"
+                className="w-full rounded-xl bg-[#027F86] py-2.5 text-xs font-semibold text-white hover:bg-[#039998] transition-colors"
               >
-                {isId ? 'Terbitkan Profil Kapabilitas ke Katalog Rekrutmen' : 'Publish Capability Profile'}
+                {isId
+                  ? `Terbitkan Profil ${newSrvRole} ke Katalog Rekrutmen`
+                  : `Publish ${newSrvRole} Capability Profile`}
               </button>
             </form>
           </div>
@@ -1300,11 +2218,18 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
 
       {rfpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <h3 className="text-base font-bold">
-                {isId ? 'Permintaan RFP Enterprise Baru' : 'New Enterprise RFP Request'}
-              </h3>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold">
+                  {isId ? 'Permintaan RFP Enterprise Baru' : 'New Enterprise RFP Request'}
+                </h3>
+                <p className="text-[11px] text-[var(--egvox-text-muted)] mt-0.5">
+                  {isId
+                    ? 'Membuat permintaan resmi berstatus submitted untuk proses discovery dan proposal kontrak terkelola EgvoX.'
+                    : 'Creates an official discovery request in submitted status for managed EgvoX contracting.'}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setRfpOpen(false)}
@@ -1316,20 +2241,24 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!rfpCompany.trim() || !rfpSummary.trim() || rfpPhone.replace(/[^0-9+]/g, '').length < 8) {
+                if (!rfpCompany.trim() || !rfpSummary.trim() || rfpPhone.replace(/[^0-9+]/g, '').length < 8 || !rfpConsent) {
                   showToast(
                     isId
-                      ? 'Mohon lengkapi nama perusahaan, nomor telepon PIC (min. 8 digit), dan ringkasan kebutuhan.'
-                      : 'Please complete company name, PIC phone (min. 8 digits), and scope summary.'
+                      ? 'Mohon lengkapi nama perusahaan, nomor telepon PIC (min. 8 digit), ringkasan kebutuhan, dan persetujuan kontak.'
+                      : 'Please complete company name, PIC phone (min. 8 digits), scope summary, and consent to contact.'
                   );
                   return;
                 }
                 submitEnterpriseInquiry({
                   companyName: rfpCompany.trim(),
-                  country: 'Indonesia',
+                  country: rfpCountry,
+                  website: rfpWebsite.trim() || undefined,
                   businessEmail: rfpEmail.trim(),
                   contactPerson: rfpPicName.trim() || activeOrg,
                   contactPhone: rfpPhone.trim(),
+                  domainCategory: rfpDomain,
+                  deliveryFormat: rfpDeliveryFormat,
+                  targetDeadline: rfpDeadline.trim() || undefined,
                   estimatedVolume: rfpVolume,
                   requirementSummary: rfpSummary.trim(),
                   attachmentName: rfpAttachmentName || undefined,
@@ -1338,19 +2267,37 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
                 setRfpSummary('');
                 setRfpAttachmentName('');
               }}
-              className="space-y-3"
+              className="space-y-3 text-xs"
             >
-              <div>
-                <label className="block text-[11px] font-semibold mb-1">
-                  {isId ? 'Nama Perusahaan *' : 'Company Name *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={rfpCompany}
-                  onChange={(e) => setRfpCompany(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Nama Perusahaan *' : 'Company Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rfpCompany}
+                    onChange={(e) => setRfpCompany(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Negara *' : 'Country *'}
+                  </label>
+                  <select
+                    value={rfpCountry}
+                    onChange={(e) => setRfpCountry(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  >
+                    <option value="Indonesia">Indonesia</option>
+                    <option value="Singapore">{isId ? 'Singapura' : 'Singapore'}</option>
+                    <option value="Japan">{isId ? 'Jepang' : 'Japan'}</option>
+                    <option value="United States">{isId ? 'Amerika Serikat' : 'United States'}</option>
+                    <option value="Germany">{isId ? 'Jerman' : 'Germany'}</option>
+                  </select>
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
@@ -1379,35 +2326,106 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Email Bisnis *' : 'Business Email *'}
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={rfpEmail}
+                    onChange={(e) => setRfpEmail(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Website Perusahaan' : 'Company Website'}
+                  </label>
+                  <input
+                    type="text"
+                    value={rfpWebsite}
+                    onChange={(e) => setRfpWebsite(e.target.value)}
+                    placeholder="https://company.com"
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Kategori Domain Data *' : 'Data Domain Category *'}
+                  </label>
+                  <select
+                    value={rfpDomain}
+                    onChange={(e) => setRfpDomain(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  >
+                    {ACTIVITY_CATEGORIES.map((cat) => (
+                      <option key={cat.slug} value={cat.nameEn}>
+                        {isId ? cat.nameId : cat.nameEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Estimasi Volume (Jam Video) *' : 'Estimated Volume (Hours) *'}
+                  </label>
+                  <select
+                    value={rfpVolume}
+                    onChange={(e) => setRfpVolume(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  >
+                    <option value="20 – 50 jam">{isId ? '20 – 50 jam' : '20 – 50 hours'}</option>
+                    <option value="50 – 250 jam">{isId ? '50 – 250 jam' : '50 – 250 hours'}</option>
+                    <option value="250 – 1.000 jam">{isId ? '250 – 1.000 jam' : '250 – 1,000 hours'}</option>
+                    <option value="1.000+ jam">{isId ? '1.000+ jam' : '1,000+ hours'}</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Format Delivery & Anotasi *' : 'Delivery & Annotation Format *'}
+                  </label>
+                  <select
+                    value={rfpDeliveryFormat}
+                    onChange={(e) => setRfpDeliveryFormat(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  >
+                    <option value="MP4 + JSONL">MP4 + JSONL (Temporal & BBox)</option>
+                    <option value="MP4 + COCO JSON">MP4 + COCO JSON</option>
+                    <option value="MP4 + CSV">MP4 + CSV Manifest</option>
+                    <option value="Raw MP4 + Rights Manifest">Raw MP4 + Rights Manifest Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1">
+                    {isId ? 'Target Tenggat Waktu' : 'Target Timeline / Deadline'}
+                  </label>
+                  <input
+                    type="text"
+                    value={rfpDeadline}
+                    onChange={(e) => setRfpDeadline(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-[11px] font-semibold mb-1">
-                  {isId ? 'Email Bisnis *' : 'Business Email *'}
+                  {isId ? 'Kebutuhan Data, Lokasi & Kepatuhan *' : 'Data, Location & Compliance Requirements *'}
                 </label>
-                <input
-                  type="email"
+                <textarea
+                  rows={3}
                   required
-                  value={rfpEmail}
-                  onChange={(e) => setRfpEmail(e.target.value)}
+                  value={rfpSummary}
+                  onChange={(e) => setRfpSummary(e.target.value)}
+                  placeholder={isId ? 'Ringkasan spesifikasi kamera, lokasi perekaman, kebutuhan anotasi & keamanan...' : 'Specify capture specs, regions, annotation schema & security notes...'}
                   className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
                 />
               </div>
-              <select
-                value={rfpVolume}
-                onChange={(e) => setRfpVolume(e.target.value)}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              >
-                <option value="50 – 250 jam">{isId ? '50 – 250 jam' : '50 – 250 hours'}</option>
-                <option value="250 – 1.000 jam">{isId ? '250 – 1.000 jam' : '250 – 1,000 hours'}</option>
-                <option value="1.000+ jam">{isId ? '1.000+ jam' : '1,000+ hours'}</option>
-              </select>
-              <textarea
-                rows={3}
-                required
-                value={rfpSummary}
-                onChange={(e) => setRfpSummary(e.target.value)}
-                placeholder={isId ? 'Ringkasan kebutuhan dataset enterprise...' : 'Enterprise dataset scope summary...'}
-                className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3 py-2 text-xs"
-              />
               <div className="rounded-xl border border-dashed border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] p-3 space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold">
@@ -1440,6 +2458,19 @@ export const CustomerModalsBundle: React.FC<CustomerModalsBundleProps> = ({
                   </p>
                 )}
               </div>
+              <label className="flex items-start gap-2 text-[11px] text-[var(--egvox-text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={rfpConsent}
+                  onChange={(e) => setRfpConsent(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 accent-[#027F86]"
+                />
+                <span>
+                  {isId
+                    ? 'Saya menyetujui tim EgvoX menghubungi organisasi saya untuk proses kualifikasi RFP.'
+                    : 'I consent to EgvoX contacting my organization to qualify this RFP request.'}
+                </span>
+              </label>
               <button
                 type="submit"
                 className="w-full rounded-xl bg-[#FC840E] py-2.5 text-xs font-semibold text-white"
