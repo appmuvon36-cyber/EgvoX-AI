@@ -47,22 +47,22 @@ async def http_error(request: Request, exc: HTTPException):
     message = exc.detail if isinstance(exc.detail, str) else "Request rejected"
     return JSONResponse(status_code=exc.status_code, content={"error": {
         "code": "HTTP_ERROR", "message": message,
-        "details": exc.detail if isinstance(exc.detail, dict) else {},
-        "request_id": getattr(request.state, "request_id", None)}})
+        "details": exc.detail if isinstance(exc.detail, dict) else {}},
+        "request_id": getattr(request.state, "request_id", None)})
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"error": {
         "code": "VALIDATION_ERROR", "message": "Request validation failed",
-        "details": {"issues": [{"loc": issue.get("loc"), "type": issue.get("type"), "msg": issue.get("msg")} for issue in exc.errors()]},
-        "request_id": getattr(request.state, "request_id", None)}})
+        "details": {"issues": [{"loc": issue.get("loc"), "type": issue.get("type"), "msg": issue.get("msg")} for issue in exc.errors()]}},
+        "request_id": getattr(request.state, "request_id", None)})
 
 @app.exception_handler(Exception)
 async def unhandled(request: Request, exc: Exception):
     logger.exception("unhandled_request_error", extra={"request_id": getattr(request.state, "request_id", None)})
     return JSONResponse(status_code=500, content={"error": {
-        "code": "INTERNAL_ERROR", "message": "An unexpected error occurred",
-        "request_id": getattr(request.state, "request_id", None)}})
+        "code": "INTERNAL_ERROR", "message": "An unexpected error occurred"},
+        "request_id": getattr(request.state, "request_id", None)})
 
 @app.get("/health", include_in_schema=False)
 async def health():
