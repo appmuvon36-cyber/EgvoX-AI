@@ -77,8 +77,7 @@ async def freelancer(payload: FreelancerOnboarding, actor: Actor = Depends(requi
         await db.execute("""insert into public.user_role_assignments(user_id,role_id,status,created_by)
             values($1::uuid,$2,'active',$1::uuid)
             on conflict(user_id,role_id,organization_id) do nothing""", actor.user_id, role)
-    await db.execute("""insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
-        values($1::uuid,'identity.freelancer_onboarded','profile',$1::uuid,
+    await db.execute("""select public.write_audit_event('identity.freelancer_onboarded','profile',$1::uuid,
         jsonb_build_object('roles',$2::text[],'country_code',$3,'city',$4))""",
         actor.user_id, sorted(roles), payload.country_code.upper(), payload.city)
     return {"status": "completed", "roles": sorted(roles)}
