@@ -1,9 +1,9 @@
-import hashlib,secrets,re
+import hashlib,secrets,re,json
 import asyncpg
 from datetime import datetime,timedelta,timezone
 from uuid import uuid4
 from fastapi import APIRouter,Depends,HTTPException,File,UploadFile
-from pydantic import BaseModel,Field,EmailStr
+from pydantic import BaseModel,Field,EmailStr,AnyUrl
 import httpx
 from shared.config import settings
 from shared.security import Actor,db_connection,require_actor,require_permission
@@ -13,15 +13,17 @@ class OrgInput(BaseModel):
     kind:str=Field(pattern="^(vendor|enterprise)$")
     legal_name:str=Field(min_length=2,max_length=200)
     trading_name:str|None=None
-    country_code:str=Field(min_length=2,max_length=2)
+    country_code:str=Field(pattern="^[A-Za-z]{2}$")
     registration_identifier:str=Field(min_length=2,max_length=100)
-    website:str|None=None
+    website:AnyUrl|None=None
     business_email:EmailStr
     address:dict=Field(default_factory=dict)
-    industry:str
-    contact_person:str
-    authorized_representative:str
+    industry:str=Field(min_length=2,max_length=120)
+    contact_person:str=Field(min_length=2,max_length=160)
+    authorized_representative:str=Field(min_length=2,max_length=160)
     business_purpose:str=Field(min_length=10,max_length=3000)
+    terms_accepted:bool
+    terms_version:str=Field(default="2026-11-26",pattern="^2026-11-26$")
 class InviteInput(BaseModel):
     email:EmailStr
     role_id:str
@@ -31,7 +33,7 @@ class MemberStatus(BaseModel): status:str=Field(pattern="^(active|suspended|remo
 class VerificationInput(BaseModel):
     subject_type:str=Field(pattern="^(freelancer|organization)$")
     subject_id:str|None=None
-    case_type:str
+    case_type:str=Field(min_length=3,max_length=80)
     notes:str|None=None
 class DecisionInput(BaseModel):
     status:str=Field(pattern="^(under_review|changes_requested|approved|rejected)$")
@@ -39,6 +41,7 @@ class DecisionInput(BaseModel):
 
 @router.post("/onboarding/organizations",status_code=201)
 async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    if not p.terms_accepted: raise HTTPException(422,"Organization terms must be accepted")
     if await db.fetchval("select status from public.profiles where id=$1::uuid",a.user_id)!="active": raise HTTPException(403,"Active profile required")
     existing=await db.fetchrow("""select id::text,kind,legal_name,verification_status,created_at
         from public.organizations where created_by=$1::uuid and country_code=$2
@@ -47,7 +50,7 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
         return dict(existing)
     oid=str(uuid4()); owner="vendor_owner" if p.kind=="vendor" else "enterprise_owner"
     try:
-        row=await db.fetchrow("""insert into public.organizations(id,kind,legal_name,trading_name,country_code,registration_identifier,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,verification_status,catalog_publishing_enabled,created_by) values($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,'submitted',false,$14::uuid) returning id::text,kind,legal_name,verification_status,created_at""",oid,p.kind,p.legal_name,p.trading_name,p.country_code.upper(),p.registration_identifier,p.website,str(p.business_email).lower(),__import__("json").dumps(p.address),p.industry,p.contact_person,p.authorized_representative,p.business_purpose,a.user_id)
+        row=await db.fetchrow("""insert into public.organizations(id,kind,legal_name,trading_name,country_code,registration_identifier,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,terms_accepted_at,terms_version,verification_status,catalog_publishing_enabled,created_by) values($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,now(),$14,'submitted',false,$15::uuid) returning id::text,kind,legal_name,verification_status,created_at""",oid,p.kind,p.legal_name,p.trading_name,p.country_code.upper(),p.registration_identifier,p.website,str(p.business_email).lower(),json.dumps(p.address),p.industry,p.contact_person,p.authorized_representative,p.business_purpose,p.terms_version,a.user_id)
     except Exception as exc:
         if "organizations_country_code_registration_identifier_key" in str(exc):
             raise HTTPException(409,"This registration identifier is already registered") from exc
@@ -78,7 +81,7 @@ async def members(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connectio
 @router.get("/organizations/{oid}/invitations")
 async def list_invitations(oid: str, a: Actor = Depends(require_actor), db=Depends(db_connection)):
     await require_permission(db, a, "organization.members.read", oid)
-    rows = await db.fetch("""select id::text,email,role_id,status,expires_at,created_at
+    rows = await db.fetch("""select id::text,email,role_id,case when status='pending' and expires_at<=now() then 'expired' else status end status,expires_at,created_at
         from public.organization_invitations where organization_id=$1::uuid
         order by created_at desc""", oid)
     return {"items": [dict(row) for row in rows]}
@@ -112,8 +115,21 @@ async def accept(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
     except asyncpg.PostgresError as exc:
         if exc.sqlstate in {"42501","22023"}:
             raise HTTPException(403,"Invitation is invalid, expired, or not addressed to this account") from exc
+        if exc.sqlstate=="23505": raise HTTPException(409,"This account is already a member of the organization") from exc
         raise
     return {"status":"accepted","organization_id":str(org_id)}
+@router.post("/organizations/{oid}/members",status_code=201)
+async def accept_org_member(oid:str,p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    digest=hashlib.sha256(p.token.encode()).hexdigest()
+    try:
+        org_id=await db.fetchval("select public.accept_org_invitation($1)",digest)
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate in {"42501","22023"}: raise HTTPException(403,"Invitation is invalid, expired, or not addressed to this account") from exc
+        if exc.sqlstate=="23505": raise HTTPException(409,"This account is already a member of the organization") from exc
+        raise
+    if str(org_id)!=oid: raise HTTPException(403,"Invitation belongs to another organization")
+    return {"status":"accepted","organization_id":str(org_id)}
+
 @router.post("/organizations/invitations/reject")
 async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
@@ -149,12 +165,32 @@ async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor)
     if not sid: raise HTTPException(422,"Organization subject_id is required")
     if p.subject_type=="freelancer" and p.subject_id and p.subject_id!=a.user_id: raise HTTPException(403,"Cannot submit for another user")
     if p.subject_type=="organization": await require_permission(db,a,"verification.submit",sid)
-    row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by) values($1,$2::uuid,$3,'submitted',$4,$5::uuid) returning id::text,status,created_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
+    row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by,submitted_at) values($1,$2::uuid,$3,'submitted',$4,$5::uuid,now()) returning id::text,status,created_at,submitted_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
     await db.execute("select public.write_audit_event('verification.submitted','verification_case',$1::uuid,'{}'::jsonb)",row["id"])
     return dict(row)
+@router.post("/verification/drafts",status_code=201)
+async def create_verification_draft(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    sid=a.user_id if p.subject_type=="freelancer" else p.subject_id
+    if not sid: raise HTTPException(422,"Organization subject_id is required")
+    if p.subject_type=="freelancer" and p.subject_id and p.subject_id!=a.user_id: raise HTTPException(403,"Cannot create a draft for another user")
+    if p.subject_type=="organization": await require_permission(db,a,"verification.submit",sid)
+    row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by)
+        values($1,$2::uuid,$3,'draft',$4,$5::uuid) returning id::text,status,created_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
+    return dict(row)
+
+@router.post("/verification/{case_id}/submit")
+async def submit_verification_draft(case_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    try:
+        row=await db.fetchrow("select * from public.submit_verification_case($1::uuid)",case_id)
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate=="42501": raise HTTPException(403,"Verification submission permission denied") from exc
+        if exc.sqlstate=="P0002": raise HTTPException(404,"Verification draft not found") from exc
+        raise
+    return dict(row)
+
 @router.get("/verification/status")
 async def verification_status(a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    rows=await db.fetch("""select id::text,subject_type,subject_id::text,case_type,status,review_reason,created_at,submitted_at,reviewed_at from public.verification_cases where submitted_by=$1::uuid or subject_id=$1::uuid order by created_at desc""",a.user_id)
+    rows=await db.fetch("""select id::text,subject_type,subject_id::text,case_type,status,review_reason,created_at,submitted_at,reviewed_at from public.verification_cases where submitted_by=$1::uuid or subject_id=$1::uuid or (subject_type='organization' and exists(select 1 from public.organization_members m join public.user_preferences up on up.user_id=m.user_id and up.active_organization_id=m.organization_id where m.organization_id=verification_cases.subject_id and m.user_id=$1::uuid and m.status='active')) order by created_at desc""",a.user_id)
     return {"items":[dict(r) for r in rows]}
 @router.post("/verification/{case_id}/documents",status_code=201)
 async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -211,5 +247,6 @@ async def decision(case_id:str,p:DecisionInput,a:Actor=Depends(require_actor),db
         if exc.sqlstate == "42501": raise HTTPException(403,"Recent AAL2 privileged reviewer permission is required") from exc
         if exc.sqlstate == "P0002": raise HTTPException(404,"Verification case not found") from exc
         if exc.sqlstate == "22023": raise HTTPException(422,"Invalid verification decision") from exc
+        if exc.sqlstate == "23514": raise HTTPException(422,"Required verification documents must be uploaded before approval") from exc
         raise
     return dict(row)
