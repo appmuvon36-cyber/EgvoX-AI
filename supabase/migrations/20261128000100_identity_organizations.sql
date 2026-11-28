@@ -156,7 +156,7 @@ begin
  return found;
 end; $;
 create or replace function public.review_verification_case(p_case_id uuid,p_status text,p_reason text)
-returns jsonb language plpgsql security definer set search_path=pg_catalog,public,auth as $
+returns table(id uuid,status text,review_reason text,reviewed_at timestamptz) language plpgsql security definer set search_path=pg_catalog,public,auth as $
 declare v_case public.verification_cases%rowtype;
 begin
  if auth.jwt()->>'aal' <> 'aal2' then raise exception 'MFA AAL2 required' using errcode='42501'; end if;
@@ -243,10 +243,24 @@ create policy verification_docs_create on public.verification_documents for inse
 create policy audit_read on public.audit_events for select to authenticated using(public.has_permission('platform.audit.read',null));
 create policy audit_insert on public.audit_events for insert to authenticated with check(actor_user_id=auth.uid());
 revoke all on all tables in schema public from anon;
-grant select,insert on public.profiles to authenticated;\ngrant update(display_name,phone) on public.profiles to authenticated;\ngrant select,insert,update(locale,timezone,active_organization_id) on public.user_preferences to authenticated;\ngrant select,insert on public.organizations to authenticated;\ngrant update(legal_name,trading_name,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,updated_at) on public.organizations to authenticated;\ngrant select,insert on public.organization_members to authenticated;\ngrant update(status,updated_at) on public.organization_members to authenticated;\ngrant select,insert on public.organization_invitations to authenticated;\ngrant select,insert on public.user_role_assignments to authenticated;\ngrant select,insert on public.verification_cases to authenticated;\ngrant update(status,review_reason,reviewed_by,reviewed_at) on public.verification_cases to authenticated;\ngrant select,insert on public.verification_documents to authenticated;\ngrant select,insert on public.audit_events to authenticated;
+grant select,insert on public.profiles to authenticated;
+grant update(display_name,phone,country_code,city,bio) on public.profiles to authenticated;
+grant select,insert,update(locale,timezone,active_organization_id) on public.user_preferences to authenticated;
+grant select,insert on public.organizations to authenticated;
+grant update(legal_name,trading_name,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,updated_at) on public.organizations to authenticated;
+grant select,insert on public.organization_members to authenticated;
+grant update(status,updated_at) on public.organization_members to authenticated;
+grant select,insert on public.organization_invitations to authenticated;
+grant select,insert on public.user_role_assignments to authenticated;
+grant select,insert on public.verification_cases to authenticated;
+grant update(status,review_reason,reviewed_by,reviewed_at) on public.verification_cases to authenticated;
+grant select,insert on public.verification_documents to authenticated;
+grant select,insert on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
 grant usage,select on sequence public.audit_events_id_seq to authenticated;
-grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;\ngrant execute on function public.provision_platform_role(uuid,text,text) to service_role;
+grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
+revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
+grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
 revoke execute on function public.rls_auto_enable() from public,anon,authenticated;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('verification-private','verification-private',false,10485760,array['application/pdf','image/jpeg','image/png']) on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
