@@ -40,6 +40,8 @@ for path in files:
         "create or replace function public.provision_resource_assignment",
         "email_confirmed_at is not null",
         "recent mfa re-authentication required",
+        "r.scope='platform'",
+        "now()+interval '30 seconds'",
         "verification-private bucket security mismatch",
     ):
         if invariant not in lowered:
