@@ -473,6 +473,7 @@ begin
     where id=p_case_id and status in ('submitted','under_review','changes_requested')
     returning * into v_case;
   if not found then raise exception 'reviewable case not found' using errcode='P0002'; end if;
+  if v_case.submitted_by=auth.uid() then raise exception 'self-review is not permitted' using errcode='42501'; end if;
   if p_status='approved' and not exists(select 1 from public.verification_documents d where d.case_id=v_case.id) then raise exception 'verification documents required' using errcode='23514'; end if;
   if v_case.subject_type='organization' and p_status='under_review' then
     update public.organizations set verification_status='under_review',updated_at=now() where id=v_case.subject_id;
