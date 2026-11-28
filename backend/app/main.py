@@ -25,7 +25,7 @@ async def request_context(request:Request,call_next):
 app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origins,allow_credentials=True,allow_methods=["GET","POST","PATCH","DELETE","OPTIONS"],allow_headers=["Authorization","Content-Type","X-Request-ID","Idempotency-Key"])
 @app.exception_handler(Exception)
 async def unhandled(request:Request,exc:Exception):
-    return JSONResponse(500,{"error":{"code":"INTERNAL_ERROR","message":"An unexpected error occurred","request_id":getattr(request.state,"request_id",None)}})
+    return JSONResponse(status_code=500,content={"error":{"code":"INTERNAL_ERROR","message":"An unexpected error occurred","request_id":getattr(request.state,"request_id",None)}})
 @app.get("/health",include_in_schema=False)
 async def health(): return {"status":"ok"}
 app.include_router(identity_router,prefix="/api/v1")
