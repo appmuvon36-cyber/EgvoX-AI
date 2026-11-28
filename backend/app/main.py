@@ -3,6 +3,7 @@ import logging
 from uuid import uuid4
 import asyncpg
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -53,7 +54,7 @@ async def http_error(request: Request, exc: HTTPException):
 async def validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"error": {
         "code": "VALIDATION_ERROR", "message": "Request validation failed",
-        "details": {"issues": exc.errors()},
+        "details": {"issues": jsonable_encoder(exc.errors())},
         "request_id": getattr(request.state, "request_id", None)}})
 
 @app.exception_handler(Exception)
