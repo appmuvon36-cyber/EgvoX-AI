@@ -1,5 +1,6 @@
 import React from 'react';
-import { TextInput, TextInputProps } from './TextInput';
+import { TextInput } from './TextInput';
+import type { TextInputProps } from './TextInput';
 
 export interface ComboBoxOption {
   value: string;
