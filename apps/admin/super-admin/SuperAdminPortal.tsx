@@ -128,7 +128,7 @@ export const SuperAdminPortal: React.FC<{
 
   const handleMfaVerify = async (e: React.FormEvent) => {
     e.preventDefault(); setAuthError('');
-    if (!factorId || !/^\\d{6}$/.test(mfaCode)) { setAuthError('Enter a valid 6-digit authenticator code.'); return; }
+    if (!factorId || !/^\d{6}$/.test(mfaCode)) { setAuthError('Enter a valid 6-digit authenticator code.'); return; }
     try {
       const challenge = await egvoxAuth('mfa-challenge', { factor_id: factorId });
       await egvoxAuth('mfa-verify', { factor_id: factorId, challenge_id: challenge.challenge.id, code: mfaCode });
