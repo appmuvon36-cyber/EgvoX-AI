@@ -94,7 +94,7 @@ export const SuperAdminPortal: React.FC<{
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
   const [factorId, setFactorId] = useState('');
-  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string}>('/sessions')]); if (active && roles.items.some(r => r.id === 'super_admin') && assurance.aal === 'aal2') setIsAuthenticated(true); } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string;recent_mfa:boolean}>('/sessions')]); if (active && roles.items.some(r => r.id === 'super_admin') && assurance.aal === 'aal2' && assurance.recent_mfa) setIsAuthenticated(true); } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
 
   // 2-Step Provisioned Login + Mandatory 6-Digit MFA
   const [loginStep, setLoginStep] = useState<'credentials' | 'mfa'>('credentials');
@@ -116,7 +116,7 @@ export const SuperAdminPortal: React.FC<{
         await egvoxAuth('signout'); throw new Error('This account is not provisioned as Super Admin.');
       }
       const assurance = await egvoxApi<{aal:string}>('/sessions');
-      if (assurance.aal !== 'aal2') {
+      if (assurance.aal !== 'aal2' || !assurance.recent_mfa) {
         const factors = await fetch('/api/auth/mfa-list', { cache: 'no-store' }).then(r => r.json());
         const factor = [...(factors.totp || []), ...(factors.phone || [])].find((item:any) => item.status === 'verified');
         if (!factor) { window.location.assign('/account/security'); return; }
