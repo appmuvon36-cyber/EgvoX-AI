@@ -287,12 +287,12 @@ begin
   ) then
     raise exception 'invitation role does not match organization' using errcode='22023';
   end if;
+  if exists(select 1 from public.organization_members m
+      where m.organization_id=v_inv.organization_id and m.user_id=v_uid) then
+    raise exception 'user is already an organization member' using errcode='23505';
+  end if;
   insert into public.organization_members(organization_id,user_id,role_id,status,created_by)
-    values(v_inv.organization_id,v_uid,v_inv.role_id,'active',v_inv.invited_by)
-    on conflict(organization_id,user_id) do update set
-      role_id=case when organization_members.role_id in ('vendor_owner','enterprise_owner')
-        then organization_members.role_id else excluded.role_id end,
-      status='active',updated_at=now();
+    values(v_inv.organization_id,v_uid,v_inv.role_id,'active',v_inv.invited_by);
   update public.organization_invitations
     set status='accepted',accepted_by=v_uid,responded_at=now() where id=v_inv.id;
   insert into public.audit_events(actor_user_id,action,target_type,target_id)
@@ -373,6 +373,9 @@ begin
   ) then
     raise exception 'recent MFA re-authentication required' using errcode='42501';
   end if;
+  if p_status in ('changes_requested','rejected') and coalesce(trim(p_reason),'')='' then
+    raise exception 'review reason is required for this decision' using errcode='22023';
+  end if;
   if not public.has_permission('verification.review',null) then
     raise exception 'permission denied' using errcode='42501';
   end if;
@@ -384,7 +387,12 @@ begin
     where id=p_case_id and status in ('submitted','under_review','changes_requested')
     returning * into v_case;
   if not found then raise exception 'reviewable case not found' using errcode='P0002'; end if;
-  if v_case.subject_type='organization' and p_status='approved' then
+  if p_status='approved' and not exists(select 1 from public.verification_documents d where d.case_id=v_case.id) then
+    raise exception 'verification documents are required before approval' using errcode='23514';
+  end if;
+  if v_case.subject_type='organization' and p_status='under_review' then
+    update public.organizations set verification_status='under_review',updated_at=now() where id=v_case.subject_id;
+  elsif v_case.subject_type='organization' and p_status='approved' then
     update public.organizations set verification_status='approved',verified_at=now(),updated_at=now()
       where id=v_case.subject_id;
   elsif v_case.subject_type='organization' and p_status in ('changes_requested','rejected') then
@@ -551,13 +559,13 @@ create policy verification_submit on public.verification_cases for insert to aut
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
     and ((subject_type='freelancer' and subject_id=auth.uid())
       or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
-create policy verification_review on public.verification_cases for update to authenticated
-  using (public.has_permission('verification.review',null))
-  with check (public.has_permission('verification.review',null));
+-- No direct UPDATE policy: reviewer decisions must pass through the MFA-enforcing RPC.
 create policy verification_docs_read on public.verification_documents for select to authenticated
   using (uploaded_by=auth.uid()
-    or exists(select 1 from public.verification_cases c where c.id=case_id
-      and public.has_permission('verification.review',null)));
+    or exists(select 1 from public.verification_cases c where c.id=case_id and (
+      public.has_permission('verification.review',null) or
+      (c.subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id) and public.has_permission('verification.read',c.subject_id))
+    )));
 create policy verification_docs_create on public.verification_documents for insert to authenticated
   with check (uploaded_by=auth.uid()
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
@@ -579,7 +587,7 @@ grant update(status,updated_at) on public.organization_members to authenticated;
 grant select,insert on public.organization_invitations to authenticated;
 grant select,insert on public.user_role_assignments to authenticated;
 grant select,insert on public.verification_cases to authenticated;
-grant update(status,review_reason,reviewed_by,reviewed_at) on public.verification_cases to authenticated;
+-- Verification decisions are callable only through review_verification_case(), which enforces MFA and audit.
 grant select,insert on public.verification_documents to authenticated;
 grant select on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
