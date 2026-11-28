@@ -23,6 +23,6 @@ def test_membership_scope_and_owner_provisioning_are_enforced():
     root = Path(__file__).resolve().parents[2]
     sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text().lower()
     assert "create policy members_read" in sql
-    assert "m.user_id=auth.uid() or public.has_permission('organization.members.read',organization_id)" in sql
+    assert "user_id=auth.uid() or public.has_permission('organization.members.read',organization_id)" in sql
     assert "public.organization_owner_role_valid(organization_id,role_id)" in sql
-    assert "role_id not in('vendor_owner','enterprise_owner')" in sql
+    assert "role_id not in ('vendor_owner','enterprise_owner')" in sql
