@@ -12,11 +12,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'border-transparent bg-[var(--egvox-brand-teal-700)] text-white hover:bg-[var(--egvox-brand-teal-600)]',
+  primary: 'border-transparent bg-[var(--egvox-brand-teal-700)] text-white hover:brightness-95',
   secondary: 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-surface)] text-[var(--egvox-text-primary)] hover:bg-[var(--egvox-bg-subtle)]',
   tertiary: 'border-transparent bg-[var(--egvox-bg-subtle)] text-[var(--egvox-text-primary)] hover:border-[var(--egvox-border-strong)]',
   ghost: 'border-transparent bg-transparent text-[var(--egvox-text-secondary)] hover:bg-[var(--egvox-bg-subtle)]',
-  destructive: 'border-transparent bg-[var(--egvox-danger)] text-white hover:brightness-95',
+  destructive: 'border-transparent bg-[var(--egvox-danger-solid)] text-white hover:brightness-95',
 };
 
 const sizes: Record<ButtonSize, string> = {

@@ -29,13 +29,13 @@ export const egvoxTokens = {
     light: {
       success: { fg: '#116B4A', bg: '#E8F5EF', border: '#A8D9C2' },
       warning: { fg: '#80520D', bg: '#FFF5DF', border: '#F2D28C' },
-      danger: { fg: '#A52D35', bg: '#FCEBED', border: '#EAB8BD' },
+      danger: { fg: '#A52D35', bg: '#FCEBED', border: '#EAB8BD', solid: '#B4232F' },
       info: { fg: '#20588D', bg: '#EAF2FA', border: '#B9D1E8' },
     },
     dark: {
       success: { fg: '#83D7B1', bg: '#173D30', border: '#326D54' },
       warning: { fg: '#F5CE79', bg: '#493817', border: '#80652B' },
-      danger: { fg: '#F0A0A6', bg: '#4A252A', border: '#804047' },
+      danger: { fg: '#F0A0A6', bg: '#4A252A', border: '#804047', solid: '#A52D35' },
       info: { fg: '#9BC5EF', bg: '#1D3853', border: '#355F86' },
     },
   },
