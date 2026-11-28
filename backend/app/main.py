@@ -30,7 +30,8 @@ app = FastAPI(title="EgvoX Identity & Organizations API", version="1.0.0",
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
-    candidate = request.headers.get("x-request-id", "")\n    request_id = candidate if candidate and len(candidate) <= 128 and all(c.isalnum() or c in "._:-" for c in candidate) else str(uuid4())
+    candidate = request.headers.get("x-request-id", "")
+    request_id = candidate if candidate and len(candidate) <= 128 and all(c.isalnum() or c in "._:-" for c in candidate) else str(uuid4())
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
