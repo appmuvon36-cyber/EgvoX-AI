@@ -1,5 +1,2 @@
-import { VendorOnboardingView } from '@/apps/web/marketplace/OnboardingViews';
-
-export default function VendorOnboardingPage() {
-  return <VendorOnboardingView />;
-}
+import { OrganizationIdentityOnboarding } from '@/apps/web/marketplace/IdentityOnboardingViews';
+export default function VendorOnboardingPage(){return <OrganizationIdentityOnboarding kind="vendor"/>;}

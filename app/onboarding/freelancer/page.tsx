@@ -1,5 +1,2 @@
-import { FreelancerOnboardingView } from '@/apps/web/marketplace/OnboardingViews';
-
-export default function FreelancerOnboardingPage() {
-  return <FreelancerOnboardingView />;
-}
+import { FreelancerIdentityOnboarding } from '@/apps/web/marketplace/IdentityOnboardingViews';
+export default function FreelancerOnboardingPage(){return <FreelancerIdentityOnboarding/>;}

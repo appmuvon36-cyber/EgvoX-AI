@@ -1,5 +1,2 @@
-import { EnterprisePartnershipView } from '@/apps/web/marketplace/OnboardingViews';
-
-export default function EnterpriseOnboardingPage() {
-  return <EnterprisePartnershipView />;
-}
+import { OrganizationIdentityOnboarding } from '@/apps/web/marketplace/IdentityOnboardingViews';
+export default function EnterpriseOnboardingPage(){return <OrganizationIdentityOnboarding kind="enterprise"/>;}
