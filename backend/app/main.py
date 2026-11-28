@@ -30,7 +30,7 @@ app = FastAPI(title="EgvoX Identity & Organizations API", version="1.0.0",
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
-    request_id = request.headers.get("x-request-id", str(uuid4()))[:128]
+    candidate = request.headers.get("x-request-id", "")\n    request_id = candidate if candidate and len(candidate) <= 128 and all(c.isalnum() or c in "._:-" for c in candidate) else str(uuid4())
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
@@ -54,7 +54,7 @@ async def http_error(request: Request, exc: HTTPException):
 async def validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"error": {
         "code": "VALIDATION_ERROR", "message": "Request validation failed",
-        "details": {"issues": jsonable_encoder(exc.errors())},
+        "details": {"issues": [{"loc": issue.get("loc"), "type": issue.get("type"), "msg": issue.get("msg")} for issue in exc.errors()]},
         "request_id": getattr(request.state, "request_id", None)}})
 
 @app.exception_handler(Exception)
