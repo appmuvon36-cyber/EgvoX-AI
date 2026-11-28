@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -32,6 +32,7 @@ import { EgvoXLogo } from '@/packages/design-system';
 import { useAppState } from '@/lib/hooks/useAppState';
 import { SuperAdminDashboardView } from './SuperAdminDashboardView';
 import { BreakGlassAccessModal } from './SuperAdminModals';
+import { egvoxAuth, egvoxApi } from '@/lib/egvox-api';
 import {
   AdminModulePart1Id,
   SuperAdminModulesPart1,
@@ -42,25 +43,6 @@ import {
 } from './SuperAdminModulesPart2';
 
 export type AdminModuleId = 'dashboard' | AdminModulePart1Id | AdminModulePart2Id;
-
-function subscribeAdminAuth(callback: () => void) {
-  window.addEventListener('storage', callback);
-  window.addEventListener('egvox-admin-auth', callback);
-  return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('egvox-admin-auth', callback);
-  };
-}
-
-function getAdminAuthClient(): boolean {
-  try {
-    return window.sessionStorage.getItem('egvox_admin_auth') === '1';
-  } catch {
-    return false;
-  }
-}
-
-const getAdminAuthServer = (): boolean => false;
 
 const ADMIN_NAV_ITEMS: {
   id: AdminModuleId;
@@ -105,72 +87,60 @@ export const SuperAdminPortal: React.FC<{
     toggleTheme,
     notifications,
     setNotificationsModalOpen,
-    appendAuditLog,
     showToast,
   } = useAppState();
   const isId = locale === 'id';
 
-  const isAuthenticated = useSyncExternalStore(
-    subscribeAdminAuth,
-    getAdminAuthClient,
-    getAdminAuthServer
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [factorId, setFactorId] = useState('');
+  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string}>('/sessions')]); if (active && roles.items.some(r => r.id === 'super_admin') && assurance.aal === 'aal2') setIsAuthenticated(true); } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
 
   // 2-Step Provisioned Login + Mandatory 6-Digit MFA
   const [loginStep, setLoginStep] = useState<'credentials' | 'mfa'>('credentials');
-  const [adminEmail, setAdminEmail] = useState('admin@egvox.ai');
-  const [adminPassword, setAdminPassword] = useState('••••••••••••');
-  const [mfaCode, setMfaCode] = useState('123456');
-  const [rememberDevice, setRememberDevice] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
 
   const [activeModule, setActiveModule] = useState<AdminModuleId>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [breakGlassOpen, setBreakGlassOpen] = useState(false);
 
-  const handleCredentialsSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginStep('mfa');
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setAuthError('');
+    try {
+      await egvoxAuth('signin', { email: adminEmail, password: adminPassword });
+      const roles = await egvoxApi<{items:{id:string}[]}>('/me/roles');
+      if (!roles.items.some((role) => role.id === 'super_admin')) {
+        await egvoxAuth('signout'); throw new Error('This account is not provisioned as Super Admin.');
+      }
+      const assurance = await egvoxApi<{aal:string}>('/sessions');
+      if (assurance.aal !== 'aal2') {
+        const factors = await fetch('/api/auth/mfa-list', { cache: 'no-store' }).then(r => r.json());
+        const factor = [...(factors.totp || []), ...(factors.phone || [])].find((item:any) => item.status === 'verified');
+        if (!factor) { window.location.assign('/account/security'); return; }
+        setFactorId(factor.id); setLoginStep('mfa'); return;
+      }
+      setIsAuthenticated(true);
+    } catch (error) { setAuthError(error instanceof Error ? error.message : 'Authentication failed'); }
   };
 
-  const handleMfaVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mfaCode.trim().length < 6) {
-      showToast(isId ? 'Masukkan 6 digit kode MFA.' : 'Please enter the 6-digit MFA code.');
-      return;
-    }
+  const handleMfaVerify = async (e: React.FormEvent) => {
+    e.preventDefault(); setAuthError('');
+    if (!factorId || !/^\\d{6}$/.test(mfaCode)) { setAuthError('Enter a valid 6-digit authenticator code.'); return; }
     try {
-      window.sessionStorage.setItem('egvox_admin_auth', '1');
-    } catch {
-      // ignore storage errors
-    }
-    window.dispatchEvent(new Event('egvox-admin-auth'));
-    appendAuditLog(
-      isId ? 'Super Admin MFA Login Berhasil' : 'Super Admin MFA Login Verified',
-      'admin.egvox.ai',
-      'SA-001',
-      'Super Admin'
-    );
-    showToast(
-      isId
-        ? 'Verifikasi MFA berhasil. Selamat datang di EgvoX Control Plane.'
-        : 'MFA verification succeeded. Welcome to EgvoX Control Plane.'
-    );
+      const challenge = await egvoxAuth('mfa-challenge', { factor_id: factorId });
+      await egvoxAuth('mfa-verify', { factor_id: factorId, challenge_id: challenge.challenge.id, code: mfaCode });
+      const assurance = await egvoxApi<{aal:string}>('/sessions');
+      if (assurance.aal !== 'aal2') throw new Error('MFA assurance did not reach AAL2.');
+      setIsAuthenticated(true);
+    } catch (error) { setAuthError(error instanceof Error ? error.message : 'MFA verification failed'); }
   };
 
-  const handleAdminLogout = () => {
-    try {
-      window.sessionStorage.removeItem('egvox_admin_auth');
-    } catch {
-      // ignore
-    }
-    window.dispatchEvent(new Event('egvox-admin-auth'));
-    setLoginStep('credentials');
-    showToast(
-      isId
-        ? 'Sesi Super Admin Control Plane ditutup.'
-        : 'Super Admin Control Plane session closed.'
-    );
+  const handleAdminLogout = async () => {
+    await egvoxAuth('signout'); setIsAuthenticated(false); setLoginStep('credentials');
+    showToast(isId ? 'Sesi Super Admin ditutup.' : 'Super Admin session closed.');
   };
 
   if (!isAuthenticated || forceLoginScreen) {
@@ -208,11 +178,12 @@ export const SuperAdminPortal: React.FC<{
                   ? 'Akses hanya untuk akun yang telah diprovisioning oleh EgvoX. Tidak ada registrasi publik.'
                   : 'Access restricted to EgvoX-provisioned internal accounts. Public signup is disabled.'
                 : isId
-                ? 'Masukkan kode 6 digit dari aplikasi authenticator internal Anda (kode evaluasi: 123456).'
-                : 'Enter the 6-digit code from your internal authenticator app (demo code: 123456).'}
+                ? 'Masukkan kode 6 digit dari authenticator yang sudah terdaftar.'
+                : 'Enter the 6-digit code from your enrolled authenticator app.'}
             </p>
           </div>
 
+          {authError && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-xs text-red-700">{authError}</p>}
           {loginStep === 'credentials' ? (
             <form onSubmit={handleCredentialsSubmit} className="space-y-3.5 text-xs">
               <div>
@@ -269,19 +240,7 @@ export const SuperAdminPortal: React.FC<{
                   className="w-full rounded-xl border border-[#027F86] bg-[var(--egvox-bg-canvas)] px-4 py-3 text-center text-lg font-mono font-bold tracking-[0.5em]"
                 />
               </div>
-              <label className="flex items-center gap-2 text-[var(--egvox-text-secondary)]">
-                <input
-                  type="checkbox"
-                  checked={rememberDevice}
-                  onChange={(e) => setRememberDevice(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span>
-                  {isId
-                    ? 'Ingat perangkat terpercaya ini (30 hari)'
-                    : 'Trust this verified device for 30 days'}
-                </span>
-              </label>
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
