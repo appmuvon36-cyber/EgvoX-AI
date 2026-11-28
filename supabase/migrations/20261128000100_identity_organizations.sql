@@ -332,7 +332,8 @@ create or replace function public.mutate_org_invitation(
 returns boolean language plpgsql security definer
 set search_path=pg_catalog,public,auth as $$
 begin
-  if not public.has_permission('organization.members.invite',p_org_id) then
+  if not exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=p_org_id)
+    or not public.has_permission('organization.members.invite',p_org_id) then
     raise exception 'permission denied' using errcode='42501';
   end if;
   if p_action='revoke' then
@@ -490,13 +491,13 @@ alter table public.audit_events enable row level security;
 create policy profiles_select_self on public.profiles for select to authenticated
   using (id=auth.uid() or exists (
     select 1 from public.organization_members m where m.user_id=profiles.id and m.status='active'
-      and public.has_permission('organization.members.read',m.organization_id)
+      and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=m.organization_id) and public.has_permission('organization.members.read',m.organization_id)
   ));
 create policy profiles_update_self on public.profiles for update to authenticated
   using (id=auth.uid() and status='active') with check (id=auth.uid() and status='active');
 create policy preferences_self on public.user_preferences for all to authenticated
   using (user_id=auth.uid())
-  with check (user_id=auth.uid() and (active_organization_id is null or public.is_active_org_member(active_organization_id)));
+  with check (user_id=auth.uid() and (active_organization_id is null or public.is_active_org_member(active_organization_id) or public.has_permission('organization.read',active_organization_id)));
 create policy roles_read on public.roles for select to authenticated using (true);
 create policy permissions_read on public.permissions for select to authenticated using (true);
 create policy role_permissions_read on public.role_permissions for select to authenticated using (true);
@@ -507,26 +508,26 @@ create policy organizations_create_self on public.organizations for insert to au
   with check (created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 create policy organizations_update_manager on public.organizations for update to authenticated
-  using (public.has_permission('organization.manage',id))
-  with check (public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
+  using (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=id) and public.has_permission('organization.manage',id))
+  with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=id) and public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
 
 create policy members_read on public.organization_members for select to authenticated
-  using (user_id=auth.uid() or public.has_permission('organization.members.read',organization_id));
+  using (user_id=auth.uid() or (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id)));
 create policy members_create_owner on public.organization_members for insert to authenticated
   with check (user_id=auth.uid() and created_by=auth.uid() and status='active'
     and public.organization_owner_role_valid(organization_id,role_id)
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 create policy members_manage on public.organization_members for update to authenticated
-  using (public.has_permission('organization.members.manage',organization_id)
+  using (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.manage',organization_id)
     and role_id not in ('vendor_owner','enterprise_owner'))
-  with check (public.has_permission('organization.members.manage',organization_id)
+  with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.manage',organization_id)
     and role_id not in ('vendor_owner','enterprise_owner'));
 
 create policy invitations_read on public.organization_invitations for select to authenticated
-  using (public.has_permission('organization.members.read',organization_id)
+  using ((exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id))
     or lower(email)=lower(coalesce(auth.jwt()->>'email','')));
 create policy invitations_create on public.organization_invitations for insert to authenticated
-  with check (public.has_permission('organization.members.invite',organization_id)
+  with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.invite',organization_id)
     and invited_by=auth.uid() and status='pending'
     and exists(select 1 from public.organizations o where o.id=organization_id
       and ((o.kind='vendor' and role_id in ('vendor_admin','vendor_project_manager'))
@@ -542,14 +543,14 @@ create policy role_assignments_freelancer_self on public.user_role_assignments f
 create policy verification_read on public.verification_cases for select to authenticated
   using (submitted_by=auth.uid()
     or (subject_type='freelancer' and subject_id=auth.uid())
-    or (subject_type='organization' and public.is_active_org_member(subject_id))
+    or (subject_type='organization' and public.is_active_org_member(subject_id) and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id))
     or public.has_permission('verification.read',null)
     or public.has_permission('verification.review',null));
 create policy verification_submit on public.verification_cases for insert to authenticated
   with check (submitted_by=auth.uid() and status='submitted'
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
     and ((subject_type='freelancer' and subject_id=auth.uid())
-      or (subject_type='organization' and public.has_permission('verification.submit',subject_id))));
+      or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
 create policy verification_review on public.verification_cases for update to authenticated
   using (public.has_permission('verification.review',null))
   with check (public.has_permission('verification.review',null));
