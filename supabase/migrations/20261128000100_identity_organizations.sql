@@ -9,6 +9,13 @@ begin
   end if;
 end;
 $;
+do $
+begin
+  if exists(select 1 from pg_roles where rolname='egvox_api' and (rolcanlogin or rolsuper or rolbypassrls)) then
+    raise exception 'egvox_api must remain NOLOGIN, non-superuser and subject to RLS';
+  end if;
+end;
+$;
 grant egvox_api to postgres;
 grant usage on schema public,auth to egvox_api;
 
