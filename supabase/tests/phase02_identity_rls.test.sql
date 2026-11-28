@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(18);
 select has_table('public','profiles','profiles table exists');
 select has_table('public','user_preferences','user preferences table exists');
 select has_table('public','organizations','organizations table exists');
@@ -15,5 +15,8 @@ select ok((select relrowsecurity from pg_class where oid='public.organization_me
 select ok((select not has_function_privilege('anon','public.provision_platform_role(uuid,text,text)','EXECUTE')),'anon cannot provision platform roles');
 select ok((select not has_function_privilege('authenticated','public.provision_resource_assignment(uuid,text,uuid,uuid,text,text)','EXECUTE')),'authenticated cannot provision resource assignments');
 select ok((select not has_table_privilege('authenticated','public.verification_cases','UPDATE')),'verification decisions cannot bypass the MFA RPC');
+select ok((select not has_table_privilege('authenticated','public.organizations','INSERT')),'browser clients cannot create organizations outside FastAPI');
+select ok((select not has_function_privilege('authenticated','public.accept_org_invitation(text)','EXECUTE')),'browser clients cannot mutate invitations outside FastAPI');
+select ok((select has_table_privilege('egvox_api','public.organizations','INSERT')),'private FastAPI role can create organizations through RLS');
 select * from finish();
 rollback;
