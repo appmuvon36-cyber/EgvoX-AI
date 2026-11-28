@@ -285,13 +285,13 @@ async def upload_document(case_id:UUID,file:UploadFile=File(...),a:Actor=Depends
     if res.status_code>=300: raise HTTPException(502,"Private upload failed")
     try:
         row=await db.fetchrow("""insert into public.verification_documents(case_id,storage_path,original_filename,mime_type,size_bytes,uploaded_by) values($1::uuid,$2,$3,$4,$5,$6::uuid) returning id::text,original_filename,mime_type,size_bytes""",case_id,path,name,file.content_type,len(data),a.user_id)
+        await db.execute("""select public.write_audit_event('verification.document_uploaded','verification_document',$1::uuid,
+            jsonb_build_object('case_id',$2::uuid,'mime_type',$3,'size_bytes',$4))""",row["id"],case_id,file.content_type,len(data))
     except Exception:
         async with httpx.AsyncClient(timeout=15) as cleanup:
             await cleanup.delete(f"{base}/storage/v1/object/verification-private/{path}",
                 headers={"Authorization":f"Bearer {key}","apikey":key})
         raise
-    await db.execute("""select public.write_audit_event('verification.document_uploaded','verification_document',$1::uuid,
-        jsonb_build_object('case_id',$2::uuid,'mime_type',$3,'size_bytes',$4))""",row["id"],case_id,file.content_type,len(data))
     return dict(row)
 @router.get("/verification/{case_id}/documents",response_model=VerificationDocumentListResponse)
 async def list_verification_documents(case_id:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
