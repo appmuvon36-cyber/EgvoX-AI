@@ -61,8 +61,8 @@ create table public.organizations (
   kind text not null check (kind in ('vendor','enterprise')),
   legal_name text not null,
   trading_name text,
-  country_code char(2) not null,
-  registration_identifier text not null,
+  country_code char(2) not null check (country_code ~ '^[A-Z]{2}$'),
+  registration_identifier text not null check (length(trim(registration_identifier)) between 2 and 100),
   website text,
   business_email text not null,
   address jsonb not null default '{}'::jsonb,
@@ -81,6 +81,8 @@ create table public.organizations (
   updated_at timestamptz not null default now(),
   unique (country_code, registration_identifier)
 );
+create unique index organizations_country_registration_normalized_key
+  on public.organizations(upper(country_code),upper(registration_identifier));
 alter table public.user_preferences
   add constraint user_preferences_active_org_fk
   foreign key (active_organization_id) references public.organizations(id) on delete set null;
