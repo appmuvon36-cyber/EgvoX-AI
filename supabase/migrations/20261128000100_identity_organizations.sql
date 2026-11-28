@@ -115,6 +115,65 @@ returns boolean language sql stable security definer set search_path=pg_catalog,
 select exists(select 1 from public.organization_members m join public.profiles p on p.id=m.user_id
 where m.organization_id=p_organization_id and m.user_id=auth.uid() and m.status='active' and p.status='active');
 $$;
+create or replace function public.is_org_creator(p_organization_id uuid)
+returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $
+ select exists(select 1 from public.organizations where id=p_organization_id and created_by=auth.uid());
+$;
+create or replace function public.accept_org_invitation(p_token_hash text)
+returns uuid language plpgsql security definer set search_path=pg_catalog,public,auth as $
+declare v_inv public.organization_invitations%rowtype; v_uid uuid:=auth.uid(); v_email text:=lower(coalesce(auth.jwt()->>'email',''));
+begin
+ if v_uid is null or v_email='' then raise exception 'authentication required' using errcode='28000'; end if;
+ select * into v_inv from public.organization_invitations where token_hash=p_token_hash for update;
+ if not found or v_inv.status<>'pending' or v_inv.expires_at<=now() then raise exception 'invitation invalid or expired' using errcode='22023'; end if;
+ if lower(v_inv.email)<>v_email then raise exception 'invitation email mismatch' using errcode='42501'; end if;
+ if not exists(select 1 from public.organizations o where o.id=v_inv.organization_id
+   and ((o.kind='vendor' and v_inv.role_id in('vendor_admin','vendor_project_manager'))
+     or (o.kind='enterprise' and v_inv.role_id='enterprise_member'))) then
+   raise exception 'invitation role does not match organization' using errcode='22023';
+ end if;
+ insert into public.organization_members(organization_id,user_id,role_id,status,created_by)
+ values(v_inv.organization_id,v_uid,v_inv.role_id,'active',v_inv.invited_by)
+ on conflict(organization_id,user_id) do update set role_id=excluded.role_id,status='active',updated_at=now();
+ update public.organization_invitations set status='accepted',accepted_by=v_uid,responded_at=now() where id=v_inv.id;
+ insert into public.audit_events(actor_user_id,action,target_type,target_id)
+ values(v_uid,'organization.invitation_accepted','invitation',v_inv.id);
+ return v_inv.organization_id;
+end; $;
+create or replace function public.mutate_org_invitation(p_org_id uuid,p_invitation_id uuid,p_action text,p_new_hash text default null)
+returns boolean language plpgsql security definer set search_path=pg_catalog,public,auth as $
+begin
+ if not public.has_permission('organization.members.invite',p_org_id) then raise exception 'permission denied' using errcode='42501'; end if;
+ if p_action='revoke' then
+   update public.organization_invitations set status='revoked',responded_at=now()
+   where id=p_invitation_id and organization_id=p_org_id and status='pending';
+ elsif p_action='resend' and p_new_hash is not null and length(p_new_hash)=64 then
+   update public.organization_invitations set token_hash=p_new_hash,status='pending',
+     expires_at=now()+interval '7 days',responded_at=null
+   where id=p_invitation_id and organization_id=p_org_id and status in('pending','expired');
+ else raise exception 'invalid invitation action' using errcode='22023';
+ end if;
+ return found;
+end; $;
+create or replace function public.review_verification_case(p_case_id uuid,p_status text,p_reason text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public,auth as $
+declare v_case public.verification_cases%rowtype;
+begin
+ if auth.jwt()->>'aal' <> 'aal2' then raise exception 'MFA AAL2 required' using errcode='42501'; end if;
+ if not public.has_permission('verification.review',null) then raise exception 'permission denied' using errcode='42501'; end if;
+ if p_status not in('under_review','changes_requested','approved','rejected') then raise exception 'invalid decision' using errcode='22023'; end if;
+ update public.verification_cases set status=p_status,review_reason=p_reason,reviewed_by=auth.uid(),reviewed_at=now()
+ where id=p_case_id and status in('submitted','under_review','changes_requested') returning * into v_case;
+ if not found then raise exception 'reviewable case not found' using errcode='P0002'; end if;
+ if v_case.subject_type='organization' and p_status='approved' then
+   update public.organizations set verification_status='approved',verified_at=now(),updated_at=now() where id=v_case.subject_id;
+ elsif v_case.subject_type='organization' and p_status in('changes_requested','rejected') then
+   update public.organizations set verification_status=p_status,updated_at=now() where id=v_case.subject_id;
+ end if;
+ insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
+ values(auth.uid(),'verification.decision','verification_case',v_case.id,jsonb_build_object('status',p_status,'reason',p_reason));
+ return jsonb_build_object('id',v_case.id,'status',v_case.status,'review_reason',v_case.review_reason,'reviewed_at',v_case.reviewed_at);
+end; $;
 create or replace function public.create_profile_for_auth_user()
 returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
 begin
@@ -138,7 +197,7 @@ alter table public.verification_documents enable row level security;
 alter table public.audit_events enable row level security;
 create policy profiles_select_self on public.profiles for select to authenticated using(id=auth.uid());
 create policy profiles_update_self on public.profiles for update to authenticated using(id=auth.uid() and status='active') with check(id=auth.uid() and status='active');
-create policy preferences_self on public.user_preferences for all to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid());
+create policy preferences_self on public.user_preferences for all to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid() and (active_organization_id is null or public.is_active_org_member(active_organization_id)));
 create policy roles_read on public.roles for select to authenticated using(true);
 create policy permissions_read on public.permissions for select to authenticated using(true);
 create policy role_permissions_read on public.role_permissions for select to authenticated using(true);
@@ -146,11 +205,11 @@ create policy organizations_read_member on public.organizations for select to au
 create policy organizations_create_self on public.organizations for insert to authenticated with check(created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false);
 create policy organizations_update_manager on public.organizations for update to authenticated using(public.has_permission('organization.manage',id)) with check(public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
 create policy members_read on public.organization_members for select to authenticated using(user_id=auth.uid() or public.has_permission('organization.members.read',organization_id));
-create policy members_create_owner on public.organization_members for insert to authenticated with check(user_id=auth.uid() and created_by=auth.uid() and status='active' and role_id in('vendor_owner','enterprise_owner') and exists(select 1 from public.organizations o where o.id=organization_id and ((o.kind='vendor' and role_id='vendor_owner') or (o.kind='enterprise' and role_id='enterprise_owner'))));
+create policy members_create_owner on public.organization_members for insert to authenticated with check(user_id=auth.uid() and created_by=auth.uid() and status='active' and role_id in('vendor_owner','enterprise_owner') and public.is_org_creator(organization_id) and exists(select 1 from public.organizations o where o.id=organization_id and ((o.kind='vendor' and role_id='vendor_owner') or (o.kind='enterprise' and role_id='enterprise_owner'))));
 create policy members_manage on public.organization_members for update to authenticated using(public.has_permission('organization.members.manage',organization_id) and role_id not in('vendor_owner','enterprise_owner')) with check(public.has_permission('organization.members.manage',organization_id) and role_id not in('vendor_owner','enterprise_owner'));
 create policy invitations_read on public.organization_invitations for select to authenticated using(public.has_permission('organization.members.read',organization_id) or lower(email)=lower(coalesce(auth.jwt()->>'email','')));
 create policy invitations_create on public.organization_invitations for insert to authenticated with check(public.has_permission('organization.members.invite',organization_id) and invited_by=auth.uid() and role_id in('vendor_admin','vendor_project_manager','enterprise_member') and status='pending');
-create policy invitations_update on public.organization_invitations for update to authenticated using(public.has_permission('organization.members.invite',organization_id) or lower(email)=lower(coalesce(auth.jwt()->>'email',''))) with check(status in('accepted','rejected','revoked','pending','expired'));
+-- Invitation status transitions are restricted to SECURITY DEFINER RPCs below.
 create policy role_assignments_read_self on public.user_role_assignments for select to authenticated using(user_id=auth.uid());
 create policy role_assignments_freelancer_self on public.user_role_assignments for insert to authenticated with check(user_id=auth.uid() and created_by=auth.uid() and organization_id is null and role_id in('freelancer_contributor','freelancer_annotator','freelancer_qa_specialist'));
 create policy verification_read on public.verification_cases for select to authenticated using(submitted_by=auth.uid() or (subject_type='freelancer' and subject_id=auth.uid()) or (subject_type='organization' and public.is_active_org_member(subject_id)) or public.has_permission('verification.review',null));
@@ -161,13 +220,13 @@ create policy verification_docs_create on public.verification_documents for inse
 create policy audit_read on public.audit_events for select to authenticated using(public.has_permission('platform.audit.read',null));
 create policy audit_insert on public.audit_events for insert to authenticated with check(actor_user_id=auth.uid());
 revoke all on all tables in schema public from anon;
-grant select,insert,update on public.profiles,public.user_preferences,public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,public.verification_cases,public.verification_documents,public.audit_events to authenticated;
+grant select,insert on public.profiles to authenticated;\ngrant update(display_name,phone) on public.profiles to authenticated;\ngrant select,insert,update(locale,timezone,active_organization_id) on public.user_preferences to authenticated;\ngrant select,insert on public.organizations to authenticated;\ngrant update(legal_name,trading_name,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,updated_at) on public.organizations to authenticated;\ngrant select,insert on public.organization_members to authenticated;\ngrant update(status,updated_at) on public.organization_members to authenticated;\ngrant select,insert on public.organization_invitations to authenticated;\ngrant select,insert on public.user_role_assignments to authenticated;\ngrant select,insert on public.verification_cases to authenticated;\ngrant update(status,review_reason,reviewed_by,reviewed_at) on public.verification_cases to authenticated;\ngrant select,insert on public.verification_documents to authenticated;\ngrant select,insert on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
 grant usage,select on sequence public.audit_events_id_seq to authenticated;
-grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid) to authenticated;
+grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.accept_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
 revoke execute on function public.rls_auto_enable() from public,anon,authenticated;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-values('verification-private','verification-private',false,10485760,array['application/pdf','image/jpeg','image/png']);
+values('verification-private','verification-private',false,10485760,array['application/pdf','image/jpeg','image/png']) on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 create policy verification_storage_insert on storage.objects for insert to authenticated
 with check(bucket_id='verification-private' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy verification_storage_read on storage.objects for select to authenticated
