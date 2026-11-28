@@ -82,7 +82,7 @@ export const DataOpsPortal: React.FC<{
 
   const [activeModule, setActiveModule] = useState<OpsModuleId>(initialModule);
   const [opsRole, setOpsRole] = useState<OpsStaffRole>('data_operations');
-  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string}>('/sessions')]); const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id)); if (active && role && assurance.aal === 'aal2') { setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole); setOperatorEmail(session.user?.email || ''); setIsAuthenticated(true); } } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string;recent_mfa:boolean}>('/sessions')]); const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id)); if (active && role && assurance.aal === 'aal2' && assurance.recent_mfa) { setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole); setOperatorEmail(session.user?.email || ''); setIsAuthenticated(true); } } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [helpSopOpen, setHelpSopOpen] = useState(false);
@@ -103,7 +103,7 @@ export const DataOpsPortal: React.FC<{
       const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id));
       if (!role) { await egvoxAuth('signout'); throw new Error('This account has no provisioned Data Operations role.'); }
       const assurance = await egvoxApi<{aal:string}>('/sessions');
-      if (assurance.aal !== 'aal2') { window.location.assign('/account/security'); return; }
+      if (assurance.aal !== 'aal2' || !assurance.recent_mfa) { window.location.assign('/account/security'); return; }
       setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole);
       setOperatorEmail(loginEmail); setIsAuthenticated(true);
     } catch (error) { setAuthError(error instanceof Error ? error.message : 'Authentication failed'); }
