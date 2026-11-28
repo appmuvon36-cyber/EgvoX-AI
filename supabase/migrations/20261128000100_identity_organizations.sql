@@ -212,6 +212,28 @@ returns boolean language sql stable security definer set search_path=pg_catalog,
  select exists(select 1 from public.organizations o where o.id=p_org_id and o.created_by=auth.uid()
    and ((o.kind='vendor' and p_role_id='vendor_owner') or (o.kind='enterprise' and p_role_id='enterprise_owner')));
 $;
+create or replace function public.write_audit_event(p_action text,p_target_type text,p_target_id uuid,p_metadata jsonb default '{}'::jsonb)
+returns void language plpgsql security definer set search_path=pg_catalog,public,auth as $
+begin
+ if auth.uid() is null or not exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') then
+   raise exception 'active actor required for audit event' using errcode='42501';
+ end if;
+ if p_action='identity.freelancer_onboarded' then
+   if p_target_type<>'profile' or p_target_id<>auth.uid() then raise exception 'invalid identity audit target' using errcode='42501'; end if;
+ elsif p_action='organization.created' then
+   if p_target_type<>'organization' or not exists(select 1 from public.organizations o where o.id=p_target_id and o.created_by=auth.uid()) then raise exception 'invalid organization audit target' using errcode='42501'; end if;
+ elsif p_action='organization.invitation_created' then
+   if p_target_type<>'invitation' or not exists(select 1 from public.organization_invitations i where i.id=p_target_id and i.invited_by=auth.uid()) then raise exception 'invalid invitation audit target' using errcode='42501'; end if;
+ elsif p_action='organization.membership_status_updated' then
+   if p_target_type<>'organization_member' or not exists(select 1 from public.organization_members m where m.id=p_target_id and public.has_permission('organization.members.manage',m.organization_id)) then raise exception 'invalid membership audit target' using errcode='42501'; end if;
+ elsif p_action='verification.submitted' then
+   if p_target_type<>'verification_case' or not exists(select 1 from public.verification_cases c where c.id=p_target_id and c.submitted_by=auth.uid()) then raise exception 'invalid verification audit target' using errcode='42501'; end if;
+ else
+   raise exception 'unsupported audit action' using errcode='22023';
+ end if;
+ insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
+ values(auth.uid(),p_action,p_target_type,p_target_id,coalesce(p_metadata,'{}'::jsonb));
+end; $;
 create or replace function public.create_profile_for_auth_user()
 returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$$
 begin
@@ -256,7 +278,7 @@ create policy verification_review on public.verification_cases for update to aut
 create policy verification_docs_read on public.verification_documents for select to authenticated using(uploaded_by=auth.uid() or exists(select 1 from public.verification_cases c where c.id=case_id and public.has_permission('verification.review',null)));
 create policy verification_docs_create on public.verification_documents for insert to authenticated with check(uploaded_by=auth.uid() and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and exists(select 1 from public.verification_cases c where c.id=case_id and c.submitted_by=auth.uid() and c.status in('draft','submitted')));
 create policy audit_read on public.audit_events for select to authenticated using(public.has_permission('platform.audit.read',null));
-create policy audit_insert on public.audit_events for insert to authenticated with check(actor_user_id=auth.uid());
+
 revoke all on all tables in schema public from anon;
 grant select,insert on public.profiles to authenticated;
 grant update(display_name,phone,country_code,city,bio) on public.profiles to authenticated;
@@ -270,11 +292,11 @@ grant select,insert on public.user_role_assignments to authenticated;
 grant select,insert on public.verification_cases to authenticated;
 grant update(status,review_reason,reviewed_by,reviewed_at) on public.verification_cases to authenticated;
 grant select,insert on public.verification_documents to authenticated;
-grant select,insert on public.audit_events to authenticated;
+grant select on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
-grant usage,select on sequence public.audit_events_id_seq to authenticated;
-revoke execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) from public,anon;
-grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
+
+revoke execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),public.write_audit_event(text,text,uuid,jsonb) from public,anon;
+grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),public.write_audit_event(text,text,uuid,jsonb) to authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
 grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
 do $$ begin
