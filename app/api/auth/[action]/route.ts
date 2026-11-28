@@ -136,6 +136,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       return failure(404, 'Unknown auth action');
   }
   if (!result.response.ok) {
+    if (action === 'refresh' && [400, 401].includes(result.response.status)) {
+      const response = failure(401, 'Session expired. Sign in again.');
+      clearSession(response);
+      return response;
+    }
     const message = typeof result.data?.msg === 'string' ? result.data.msg :
       typeof result.data?.message === 'string' ? result.data.message : 'Authentication request failed';
     return failure(result.response.status, message);
