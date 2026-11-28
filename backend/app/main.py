@@ -3,7 +3,6 @@ import logging
 from uuid import uuid4
 import asyncpg
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
