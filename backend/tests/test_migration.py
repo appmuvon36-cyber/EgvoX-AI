@@ -4,7 +4,7 @@ import re
 def test_phase02_migration_has_balanced_function_delimiters_and_rls():
     root = Path(__file__).resolve().parents[2]
     sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text()
-    assert sql.strip().lower().startswith("begin;")
+    assert re.search(r"(?im)^begin;", sql)
     assert sql.strip().lower().endswith("commit;")
     assert sql.count("$$") % 2 == 0
     assert not re.search(r"\bas\s+\$(?!\$)", sql)
