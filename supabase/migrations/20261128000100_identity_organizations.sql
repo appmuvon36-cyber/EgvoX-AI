@@ -70,7 +70,7 @@ create table public.verification_documents(
 create table public.audit_events(
  id bigint generated always as identity primary key,actor_user_id uuid references public.profiles(id),
  action text not null,target_type text not null,target_id uuid,metadata jsonb not null default '{}'::jsonb,
- request_id text,created_at timestamptz not null default now()
+ request_id text default nullif(current_setting('egvox.request_id',true),''),created_at timestamptz not null default now()
 );
 create index audit_events_target_idx on public.audit_events(target_type,target_id,created_at desc);
 create index audit_events_actor_idx on public.audit_events(actor_user_id,created_at desc);
