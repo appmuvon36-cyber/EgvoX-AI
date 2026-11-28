@@ -697,19 +697,29 @@ grant select on public.audit_events to egvox_api;
 
 revoke execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
+  public.has_resource_permission(text,text,uuid,uuid),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.has_resource_permission(text,text,uuid,uuid),public.review_verification_case(uuid,text,text),
-  public.write_audit_event(text,text,uuid,jsonb)
-  from public,anon;
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),
+  public.review_verification_case(uuid,text,text),public.write_audit_event(text,text,uuid,jsonb)
+  from public,anon,authenticated,egvox_api;
 grant execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
-  public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
-  public.write_audit_event(text,text,uuid,jsonb)
+  public.has_resource_permission(text,text,uuid,uuid)
   to authenticated,egvox_api;
-revoke execute on function public.provision_platform_role(uuid,text,text),public.provision_resource_assignment(uuid,text,uuid,uuid,text,text) from public,anon,authenticated;
-revoke execute on function public.set_profile_status(uuid,text,text),public.create_profile_for_auth_user() from public,anon,authenticated,egvox_api;
-grant execute on function public.provision_platform_role(uuid,text,text),public.set_profile_status(uuid,text,text),public.provision_resource_assignment(uuid,text,uuid,uuid,text,text) to service_role;
+grant execute on function public.accept_org_invitation(text),public.reject_org_invitation(text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),
+  public.review_verification_case(uuid,text,text),public.write_audit_event(text,text,uuid,jsonb)
+  to egvox_api;
+revoke execute on function public.provision_platform_role(uuid,text,text),
+  public.provision_resource_assignment(uuid,text,uuid,uuid,text,text),
+  public.set_profile_status(uuid,text,text)
+  from public,anon,authenticated,egvox_api;
+revoke execute on function public.create_profile_for_auth_user()
+  from public,anon,authenticated,egvox_api;
+grant execute on function public.provision_platform_role(uuid,text,text),
+  public.set_profile_status(uuid,text,text),
+  public.provision_resource_assignment(uuid,text,uuid,uuid,text,text)
+  to service_role;
 
 do $$
 begin
