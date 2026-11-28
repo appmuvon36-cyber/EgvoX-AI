@@ -6,7 +6,7 @@ EgvoX remains one monorepo and one FastAPI runtime. Identity and Organizations a
 
 - **Web PWA:** existing Next.js App Router and current marketplace/workspace UI.
 - **BFF:** same-origin Next.js route handlers own the browser cookie boundary. Browser code never reads Supabase access/refresh tokens.
-- **FastAPI:** single business API under `/api/v1`; validates Supabase JWTs and owns all identity/organization business operations.
+- **FastAPI:** single business API under `/api/v1`; validates Supabase JWTs and owns all identity/organization business operations. Shared TypeScript DTOs are in `packages/api-contracts`; browser transport is in `packages/api-client-ts`.
 - **Supabase Auth:** identity provider for sign-up, sign-in, email verification, password recovery, refresh and TOTP MFA.
 - **Supabase PostgreSQL:** primary application database, transaction boundary, RLS and audit trail.
 - **Private Storage:** verification documents are stored in the private `verification-private` bucket; upload/download is mediated by FastAPI with its backend-only service-role key.
