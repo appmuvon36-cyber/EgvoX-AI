@@ -47,6 +47,8 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
         from public.organizations where created_by=$1::uuid and country_code=$2
         and registration_identifier=$3""",a.user_id,p.country_code.upper(),p.registration_identifier)
     if existing:
+        if existing['kind']!=p.kind:
+            raise HTTPException(409,'This registration identifier is already associated with another organization type')
         return dict(existing)
     oid=str(uuid4()); owner="vendor_owner" if p.kind=="vendor" else "enterprise_owner"
     try:
