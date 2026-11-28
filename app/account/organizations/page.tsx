@@ -1,13 +1,14 @@
 'use client';
 import React,{useEffect,useState} from 'react';
 import {egvoxApi} from '@/lib/egvox-api';
-type Org={id:string;kind:string;legal_name:string;verification_status:string;role_id?:string|null};
+import type {OrganizationDTO,OrganizationListDTO} from '@/packages/api-contracts';
+type Org=OrganizationDTO;
 type Member={id:string;display_name:string;role_id:string;status:string};
 type Invitation={id:string;email:string;role_id:string;status:string;expires_at:string};
 export default function AccountOrganizationsPage(){
  const [orgs,setOrgs]=useState<Org[]>([]);const [selected,setSelected]=useState('');const [members,setMembers]=useState<Member[]>([]);const [invitations,setInvitations]=useState<Invitation[]>([]);
  const [email,setEmail]=useState('');const [role,setRole]=useState('vendor_admin');const [inviteUrl,setInviteUrl]=useState('');const [error,setError]=useState('');
- useEffect(()=>{let active=true;Promise.all([egvoxApi<{items:Org[]}>('/organizations'),egvoxApi<{profile:{active_organization_id:string|null}}>('/me')]).then(([o,m])=>{if(active){setOrgs(o.items);if(m.profile.active_organization_id)setSelected(m.profile.active_organization_id);}}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to load organizations');});return()=>{active=false;};},[]);
+ useEffect(()=>{let active=true;Promise.all([egvoxApi<OrganizationListDTO>('/organizations'),egvoxApi<{profile:{active_organization_id:string|null}}>('/me')]).then(([o,m])=>{if(active){setOrgs(o.items);if(m.profile.active_organization_id)setSelected(m.profile.active_organization_id);}}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to load organizations');});return()=>{active=false;};},[]);
  useEffect(()=>{if(!selected)return;Promise.all([egvoxApi<{items:Member[]}>('/organizations/'+selected+'/members'),egvoxApi<{items:Invitation[]}>('/organizations/'+selected+'/invitations')]).then(([m,i])=>{setMembers(m.items);setInvitations(i.items);}).catch(e=>setError(e instanceof Error?e.message:'Unable to load organization details'));},[selected]);
  const active=orgs.find(o=>o.id===selected);
  const switchOrg=async(id:string)=>{if(!id)return;try{await egvoxApi('/organizations/'+id+'/context',{method:'POST'});setSelected(id);setError('');}catch(e){setError(e instanceof Error?e.message:'Organization switch failed');}};
