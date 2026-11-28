@@ -24,7 +24,10 @@ Web CSS semantic mapping is in `app/globals.css`. Use the CSS variables `--egvox
 |---|---|
 | `EgvoXLogo` | Full wordmark and compact existing symbol |
 | `Button` | Primary, secondary, tertiary, ghost, destructive; sm/md/lg, loading, full-width, icon-only |
-| `TextInput` | Native input, disabled and invalid state |
+| `TextInput` | Native text/email/password/number/date/time/datetime-local/search inputs, disabled and invalid state |
+| `SelectInput` | Native accessible select, disabled and invalid state |
+| `ComboBox` | Native input + datalist suggestions; no custom keyboard behavior |
+| `FileInput` | Native file picker, accept/multiple and invalid state |
 | `FormField` | Label, required marker, hint, accessible error association |
 | `Badge` | Neutral, success, warning, danger, info |
 | `Card` | None/sm/md/lg padding; optional interactive elevation |

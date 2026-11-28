@@ -16,6 +16,12 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './components/Button
 export { FormField } from './components/FormField';
 export type { FormFieldProps } from './components/FormField';
 export { TextInput } from './components/TextInput';
+export { SelectInput } from './components/SelectInput';
+export type { SelectInputProps } from './components/SelectInput';
+export { ComboBox } from './components/ComboBox';
+export type { ComboBoxProps, ComboBoxOption } from './components/ComboBox';
+export { FileInput } from './components/FileInput';
+export type { FileInputProps } from './components/FileInput';
 export type { TextInputProps } from './components/TextInput';
 export { Badge } from './components/Badge';
 export type { BadgeTone } from './components/Badge';
