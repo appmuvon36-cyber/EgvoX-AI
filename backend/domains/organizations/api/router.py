@@ -1,4 +1,5 @@
-import hashlib,secrets
+import hashlib,secrets,re
+import asyncpg
 from datetime import datetime,timedelta,timezone
 from uuid import uuid4
 from fastapi import APIRouter,Depends,HTTPException,File,UploadFile
@@ -103,14 +104,19 @@ async def accept(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
     digest=hashlib.sha256(p.token.encode()).hexdigest()
     try:
         org_id=await db.fetchval("select public.accept_org_invitation($1)",digest)
-    except Exception as exc:
-        raise HTTPException(403,"Invitation is invalid, expired, or not addressed to this account") from exc
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate in {"42501","22023"}:
+            raise HTTPException(403,"Invitation is invalid, expired, or not addressed to this account") from exc
+        raise
     return {"status":"accepted","organization_id":str(org_id)}
 @router.post("/organizations/invitations/reject")
 async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
     try: await db.fetchval("select public.reject_org_invitation($1)",digest)
-    except Exception as exc: raise HTTPException(403,"Invitation is invalid or addressed to another account") from exc
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate in {"42501","22023"}:
+            raise HTTPException(403,"Invitation is invalid or addressed to another account") from exc
+        raise
     return {"status":"rejected"}
 @router.post("/organizations/{oid}/invitations/{iid}/revoke")
 async def revoke(oid:str,iid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -156,12 +162,18 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
     if not signatures.get(file.content_type,False): raise HTTPException(415,"File signature does not match its declared MIME type")
     case=await db.fetchrow("select id from public.verification_cases where id=$1::uuid and submitted_by=$2::uuid and status in ('draft','submitted')",case_id,a.user_id)
     if not case: raise HTTPException(404,"Verification case not found")
-    name=(file.filename or "document").replace("/","_").replace(chr(92),"_")[:100]
+    name=re.sub(r"[^A-Za-z0-9._-]+","_",(file.filename or "document")).strip("._")[:80] or "document"
     path=f"{a.user_id}/{case_id}/{uuid4()}-{name}"; base=str(settings.supabase_url).rstrip("/")
     async with httpx.AsyncClient(timeout=30) as client:
         res=await client.post(f"{base}/storage/v1/object/verification-private/{path}",content=data,headers={"Authorization":f"Bearer {key}","apikey":key,"Content-Type":file.content_type,"x-upsert":"false"})
     if res.status_code>=300: raise HTTPException(502,"Private upload failed")
-    row=await db.fetchrow("""insert into public.verification_documents(case_id,storage_path,original_filename,mime_type,size_bytes,uploaded_by) values($1::uuid,$2,$3,$4,$5,$6::uuid) returning id::text,original_filename,mime_type,size_bytes""",case_id,path,name,file.content_type,len(data),a.user_id)
+    try:
+        row=await db.fetchrow("""insert into public.verification_documents(case_id,storage_path,original_filename,mime_type,size_bytes,uploaded_by) values($1::uuid,$2,$3,$4,$5,$6::uuid) returning id::text,original_filename,mime_type,size_bytes""",case_id,path,name,file.content_type,len(data),a.user_id)
+    except Exception:
+        async with httpx.AsyncClient(timeout=15) as cleanup:
+            await cleanup.delete(f"{base}/storage/v1/object/verification-private/{path}",
+                headers={"Authorization":f"Bearer {key}","apikey":key})
+        raise
     return dict(row)
 @router.get("/verification/{case_id}/documents")
 async def list_verification_documents(case_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -190,6 +202,9 @@ async def download_document(case_id:str,document_id:str,a:Actor=Depends(require_
 async def decision(case_id:str,p:DecisionInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     try:
         row=await db.fetchrow("select * from public.review_verification_case($1::uuid,$2,$3)",case_id,p.status,p.reason)
-    except Exception as exc:
-        raise HTTPException(403,"AAL2 privileged reviewer permission is required") from exc
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate == "42501": raise HTTPException(403,"Recent AAL2 privileged reviewer permission is required") from exc
+        if exc.sqlstate == "P0002": raise HTTPException(404,"Verification case not found") from exc
+        if exc.sqlstate == "22023": raise HTTPException(422,"Invalid verification decision") from exc
+        raise
     return dict(row)
