@@ -28,7 +28,8 @@
   --egvox-warning: #80520D;
   --egvox-warning-bg: #FFF5DF;
   --egvox-warning-border: #F2D28C;
-  --egvox-danger: #A52D35;\n  --egvox-danger-solid: #B4232F;
+  --egvox-danger: #A52D35;
+  --egvox-danger-solid: #B4232F;
   --egvox-danger-bg: #FCEBED;
   --egvox-danger-border: #EAB8BD;
   --egvox-info: #20588D;
@@ -89,7 +90,8 @@
   --egvox-warning: #F5CE79;
   --egvox-warning-bg: #493817;
   --egvox-warning-border: #80652B;
-  --egvox-danger: #F0A0A6;\n  --egvox-danger-solid: #A52D35;
+  --egvox-danger: #F0A0A6;
+  --egvox-danger-solid: #A52D35;
   --egvox-danger-bg: #4A252A;
   --egvox-danger-border: #804047;
   --egvox-info: #9BC5EF;
