@@ -34,3 +34,23 @@ def test_org_scoped_policies_require_explicit_active_context():
     assert "active_organization_id=p_org_id" in sql
     assert "active_organization_id=subject_id" in sql
     assert "active_organization_id=organization_id" in sql
+
+def test_resource_and_project_assignment_authorization_is_scoped():
+    root = Path(__file__).resolve().parents[2]
+    sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text().lower()
+    assert "create table public.resource_assignments" in sql
+    assert "create policy resource_assignments_read_self" in sql
+    assert "create or replace function public.has_resource_permission" in sql
+    assert "create or replace function public.provision_resource_assignment" in sql
+    assert "public.has_resource_permission(text,text,uuid,uuid)" in sql
+    assert "ra.organization_id=active_organization_id" in sql
+    assert "grant update(status,review_reason,reviewed_by,reviewed_at)" not in sql
+    assert "create policy verification_review" not in sql
+
+def test_auth_invitation_and_mfa_security_invariants():
+    root = Path(__file__).resolve().parents[2]
+    sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text().lower()
+    assert sql.count("email_confirmed_at is not null") == 2
+    assert "recent mfa re-authentication required" in sql
+    assert "verification documents required" in sql
+    assert "verification-private bucket security mismatch" in sql
