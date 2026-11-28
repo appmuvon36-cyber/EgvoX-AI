@@ -87,12 +87,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   let result: { response: Response; data: any };
   switch (action) {
     case 'signup':
-      if (!body.email || !body.password || !body.full_name) return failure(422, 'Name, email and password are required');
+      if (typeof body.email !== 'string' || body.email.length > 254 || typeof body.password !== 'string' || body.password.length < 12 || body.password.length > 256 || body.password.length > 256 || typeof body.full_name !== 'string' || body.full_name.trim().length < 2 || body.full_name.trim().length > 120) return failure(422, 'Valid name, email and 12–256 character password are required');
       const persona = ['freelancer','vendor','enterprise'].includes(body.requested_persona) ? body.requested_persona : 'freelancer';
       result = await supabase('signup?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email?persona=' + persona), 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name } });
       break;
     case 'signin':
-      if (!body.email || !body.password) return failure(422, 'Email and password are required');
+      if (typeof body.email !== 'string' || body.email.length > 254 || typeof body.password !== 'string' || body.password.length > 256) return failure(422, 'Valid email and password are required');
       result = await supabase('token?grant_type=password', 'POST', { email: body.email, password: body.password });
       break;
     case 'refresh': {
@@ -105,11 +105,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       if (access) await supabase('logout?scope=global', 'POST', undefined, access);
       { const response = NextResponse.json({ ok: true }); clearSession(response); return response; }
     case 'recover':
-      if (!body.email) return failure(422, 'Email is required');
+      if (typeof body.email !== 'string' || body.email.length > 254) return failure(422, 'Valid email is required');
       result = await supabase('recover?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email'), 'POST', { email: body.email });
       break;
     case 'verify':
-      if (!body.token_hash || !['signup', 'email', 'recovery', 'invite', 'magiclink'].includes(body.type)) return failure(422, 'Verification token and valid type are required');
+      if (typeof body.token_hash !== 'string' || body.token_hash.length < 20 || body.token_hash.length > 256 || !['signup', 'email', 'recovery', 'invite', 'magiclink'].includes(body.type)) return failure(422, 'Verification token and valid type are required');
       result = await supabase('verify', 'POST', { token_hash: body.token_hash, type: body.type });
       break;
     case 'update-password':
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       result = await supabase(`factors/${encodeURIComponent(body.factor_id)}/challenge`, 'POST', {}, access);
       break;
     case 'mfa-verify':
-      if (!access || !body.factor_id || !body.challenge_id || !body.code) return failure(422, 'Factor, challenge and code are required');
+      if (!access || typeof body.factor_id !== 'string' || typeof body.challenge_id !== 'string' || typeof body.code !== 'string' || !/^\d{6}$/.test(body.code)) return failure(422, 'A factor, challenge and six-digit authenticator code are required');
       result = await supabase(`factors/${encodeURIComponent(body.factor_id)}/verify`, 'POST', { challenge_id: body.challenge_id, code: body.code }, access);
       break;
     case 'mfa-unenroll':
