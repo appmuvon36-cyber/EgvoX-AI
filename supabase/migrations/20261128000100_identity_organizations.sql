@@ -220,17 +220,21 @@ set search_path=pg_catalog,public,auth as $$
   select exists (
     select 1 from public.profiles p where p.id=auth.uid() and p.status='active'
   ) and (
-    not exists (
-      select 1 from public.user_role_assignments u join public.roles r on r.id=u.role_id
+    exists (
+      select 1 from public.user_role_assignments u
+      join public.role_permissions rp on rp.role_id=u.role_id
       where u.user_id=auth.uid() and u.organization_id is null
-        and u.status='active' and r.scope='platform'
+        and u.status='active' and rp.permission_id=p_permission
     )
     or (
-      coalesce(auth.jwt()->>'aal','aal1')='aal2'
-      and exists (
-        select 1 from jsonb_array_elements(coalesce(auth.jwt()->'amr','[]'::jsonb)) as amr(value)
-        where amr.value->>'method'='totp'
-          and coalesce(amr.value->>'timestamp','') ~ '^[0-9]+
+      p_organization_id is not null and exists (
+        select 1 from public.organization_members m
+        join public.role_permissions rp on rp.role_id=m.role_id
+        where m.user_id=auth.uid() and m.organization_id=p_organization_id
+          and m.status='active' and rp.permission_id=p_permission
+      )
+    )
+  );
 $$;
 
 create or replace function public.is_active_org_member(p_organization_id uuid)
@@ -283,8 +287,7 @@ begin
   ) then
     raise exception 'invitation role does not match organization' using errcode='22023';
   end if;
-  if exists(select 1 from public.organization_members m
-      where m.organization_id=v_inv.organization_id and m.user_id=v_uid) then
+  if exists(select 1 from public.organization_members m where m.organization_id=v_inv.organization_id and m.user_id=v_uid) then
     raise exception 'user is already an organization member' using errcode='23505';
   end if;
   insert into public.organization_members(organization_id,user_id,role_id,status,created_by)
@@ -353,30 +356,20 @@ $$;
 
 create or replace function public.submit_verification_case(p_case_id uuid)
 returns table(id uuid,status text,submitted_at timestamptz)
-language plpgsql security definer
-set search_path=pg_catalog,public,auth as $
+language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 declare v_case public.verification_cases%rowtype;
 begin
-  if auth.uid() is null or not exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') then
-    raise exception 'active authenticated profile required' using errcode='42501';
-  end if;
-  select * into v_case from public.verification_cases where id=p_case_id and submitted_by=auth.uid() and status='draft' for update;
-  if not found then raise exception 'verification draft not found' using errcode='P0002'; end if;
-  if v_case.subject_type='freelancer' and v_case.subject_id<>auth.uid() then
-    raise exception 'freelancer verification subject mismatch' using errcode='42501';
-  elsif v_case.subject_type='organization' then
-    if not exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=v_case.subject_id)
-      or not public.has_permission('verification.submit',v_case.subject_id) then
-      raise exception 'active organization verification permission required' using errcode='42501';
-    end if;
-  end if;
-  update public.verification_cases set status='submitted',submitted_at=now()
-    where id=v_case.id returning * into v_case;
-  insert into public.audit_events(actor_user_id,action,target_type,target_id)
-    values(auth.uid(),'verification.submitted','verification_case',v_case.id);
-  return query select v_case.id,v_case.status,v_case.submitted_at;
-end;
-$;
+ if auth.uid() is null or not exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') then raise exception 'active profile required' using errcode='42501'; end if;
+ select * into v_case from public.verification_cases where id=p_case_id and submitted_by=auth.uid() and status='draft' for update;
+ if not found then raise exception 'verification draft not found' using errcode='P0002'; end if;
+ if v_case.subject_type='freelancer' and v_case.subject_id<>auth.uid() then raise exception 'subject mismatch' using errcode='42501';
+ elsif v_case.subject_type='organization' then
+  if not exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=v_case.subject_id) or not public.has_permission('verification.submit',v_case.subject_id) then raise exception 'active organization permission required' using errcode='42501'; end if;
+ end if;
+ update public.verification_cases set status='submitted',submitted_at=now() where id=v_case.id returning * into v_case;
+ insert into public.audit_events(actor_user_id,action,target_type,target_id) values(auth.uid(),'verification.submitted','verification_case',v_case.id);
+ return query select v_case.id,v_case.status,v_case.submitted_at;
+end; $$;
 
 create or replace function public.review_verification_case(p_case_id uuid,p_status text,p_reason text)
 returns table(id uuid,status text,review_reason text,reviewed_at timestamptz)
@@ -396,9 +389,7 @@ begin
   ) then
     raise exception 'recent MFA re-authentication required' using errcode='42501';
   end if;
-  if p_status in ('changes_requested','rejected') and coalesce(trim(p_reason),'')='' then
-    raise exception 'review reason is required for this decision' using errcode='22023';
-  end if;
+  if p_status in ('changes_requested','rejected') and coalesce(trim(p_reason),'')='' then raise exception 'review reason is required' using errcode='22023'; end if;
   if not public.has_permission('verification.review',null) then
     raise exception 'permission denied' using errcode='42501';
   end if;
@@ -410,9 +401,7 @@ begin
     where id=p_case_id and status in ('submitted','under_review','changes_requested')
     returning * into v_case;
   if not found then raise exception 'reviewable case not found' using errcode='P0002'; end if;
-  if p_status='approved' and not exists(select 1 from public.verification_documents d where d.case_id=v_case.id) then
-    raise exception 'verification documents are required before approval' using errcode='23514';
-  end if;
+  if p_status='approved' and not exists(select 1 from public.verification_documents d where d.case_id=v_case.id) then raise exception 'verification documents required' using errcode='23514'; end if;
   if v_case.subject_type='organization' and p_status='under_review' then
     update public.organizations set verification_status='under_review',updated_at=now() where id=v_case.subject_id;
   elsif v_case.subject_type='organization' and p_status='approved' then
@@ -490,6 +479,16 @@ begin
       jsonb_build_object('role_id',p_role_id,'reason',p_reason));
 end;
 $$;
+
+create or replace function public.set_profile_status(p_user_id uuid,p_status text,p_reason text)
+returns void language plpgsql security definer set search_path=pg_catalog,public,auth as $$
+begin
+ if coalesce(auth.role(),'')<>'service_role' then raise exception 'service role required' using errcode='42501'; end if;
+ if p_status not in ('active','suspended','deleted') or coalesce(trim(p_reason),'')='' then raise exception 'valid status and reason required' using errcode='22023'; end if;
+ update public.profiles set status=p_status,updated_at=now() where id=p_user_id;
+ if not found then raise exception 'profile not found' using errcode='P0002'; end if;
+ insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata) values(null,'identity.profile_status_changed','profile',p_user_id,jsonb_build_object('status',p_status,'reason',p_reason));
+end; $$;
 
 create or replace function public.create_profile_for_auth_user()
 returns trigger language plpgsql security definer
@@ -577,23 +576,17 @@ create policy verification_read on public.verification_cases for select to authe
     or (subject_type='organization' and public.is_active_org_member(subject_id) and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id))
     or public.has_permission('verification.read',null)
     or public.has_permission('verification.review',null));
-create policy verification_draft_create on public.verification_cases for insert to authenticated
-  with check (submitted_by=auth.uid() and status='draft'
-    and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
-    and ((subject_type='freelancer' and subject_id=auth.uid())
-      or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
+create policy verification_draft_create on public.verification_cases for insert to authenticated with check (submitted_by=auth.uid() and status='draft' and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and ((subject_type='freelancer' and subject_id=auth.uid()) or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
 create policy verification_submit on public.verification_cases for insert to authenticated
   with check (submitted_by=auth.uid() and status='submitted'
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
     and ((subject_type='freelancer' and subject_id=auth.uid())
       or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
--- No direct UPDATE policy: reviewer decisions must pass through the MFA-enforcing RPC.
+-- No direct UPDATE policy: verification decisions use the MFA-enforcing RPC.
 create policy verification_docs_read on public.verification_documents for select to authenticated
   using (uploaded_by=auth.uid()
-    or exists(select 1 from public.verification_cases c where c.id=case_id and (
-      public.has_permission('verification.review',null) or
-      (c.subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id) and public.has_permission('verification.read',c.subject_id))
-    )));
+    or exists(select 1 from public.verification_cases c where c.id=case_id
+      and public.has_permission('verification.review',null)));
 create policy verification_docs_create on public.verification_documents for insert to authenticated
   with check (uploaded_by=auth.uid()
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
@@ -603,9 +596,7 @@ create policy verification_docs_create on public.verification_documents for inse
 create policy audit_read on public.audit_events for select to authenticated
   using (public.has_permission('platform.audit.read',null));
 
-revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,
-  public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,
-  public.verification_cases,public.verification_documents,public.audit_events from anon;
+revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,public.verification_cases,public.verification_documents,public.audit_events from anon;
 grant select on public.profiles to authenticated;
 grant update(display_name,phone,country_code,city,bio,updated_at) on public.profiles to authenticated;
 grant select,insert,update(locale,timezone,active_organization_id,updated_at) on public.user_preferences to authenticated;
@@ -617,7 +608,7 @@ grant update(status,updated_at) on public.organization_members to authenticated;
 grant select,insert on public.organization_invitations to authenticated;
 grant select,insert on public.user_role_assignments to authenticated;
 grant select,insert on public.verification_cases to authenticated;
--- Verification decisions are callable only through review_verification_case(), which enforces MFA and audit.
+-- Verification decisions are callable only through review_verification_case().
 grant select,insert on public.verification_documents to authenticated;
 grant select on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
@@ -631,12 +622,12 @@ revoke execute on function public.has_permission(text,uuid),
 grant execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.review_verification_case(uuid,text,text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   to authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
-revoke execute on function public.create_profile_for_auth_user() from public,anon,authenticated;
-grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
+revoke execute on function public.set_profile_status(uuid,text,text),public.create_profile_for_auth_user() from public,anon,authenticated;
+grant execute on function public.provision_platform_role(uuid,text,text),public.set_profile_status(uuid,text,text) to service_role;
 
 do $$
 begin
@@ -650,12 +641,9 @@ insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values ('verification-private','verification-private',false,10485760,
   array['application/pdf','image/jpeg','image/png'])
 on conflict(id) do nothing;
-do $ begin
-  if not exists(select 1 from storage.buckets where id='verification-private' and public=false
-    and file_size_limit=10485760 and allowed_mime_types @> array['application/pdf','image/jpeg','image/png']) then
-    raise exception 'verification-private bucket exists with incompatible security settings';
-  end if;
-end; $;
+do $$ begin
+ if not exists(select 1 from storage.buckets where id='verification-private' and public=false and file_size_limit=10485760 and allowed_mime_types @> array['application/pdf','image/jpeg','image/png']) then raise exception 'verification-private bucket security mismatch'; end if;
+end; $$;
 
 -- No authenticated Storage policies: private document upload/download uses FastAPI and its backend-only service role.
 commit;
