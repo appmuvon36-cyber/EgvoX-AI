@@ -226,8 +226,8 @@ async def member_status(oid:UUID,mid:UUID,p:MemberStatus,a:Actor=Depends(require
 async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     sid=a.user_id if p.subject_type=="freelancer" else p.subject_id
     if not sid: raise HTTPException(422,"Organization subject_id is required")
-    if p.subject_type=="freelancer" and p.subject_id and p.subject_id!=a.user_id: raise HTTPException(403,"Cannot submit for another user")
-    if p.subject_type=="organization": await require_permission(db,a,"verification.submit",sid)
+    if p.subject_type=="freelancer" and p.subject_id and str(p.subject_id)!=a.user_id: raise HTTPException(403,"Cannot submit for another user")
+    if p.subject_type=="organization": await require_permission(db,a,"verification.submit",str(sid))
     row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by,submitted_at) values($1,$2::uuid,$3,'submitted',$4,$5::uuid,now()) returning id::text,status,created_at,submitted_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
     await db.execute("select public.write_audit_event('verification.submitted','verification_case',$1::uuid,'{}'::jsonb)",row["id"])
     return dict(row)
