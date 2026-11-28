@@ -65,6 +65,7 @@ async def db_connection(request, actor: Actor = Depends(require_actor)):
             await conn.execute("SELECT set_config('request.jwt.claims',$1,true)",
                 json.dumps(actor.claims, separators=(",", ":")))
             await conn.execute("SELECT set_config('request.jwt.claim.sub',$1,true)", actor.user_id)
+            await conn.execute("SELECT set_config('egvox.request_id',$1,true)", getattr(request.state, "request_id", ""))
             yield conn
 
 def require_aal2(actor: Actor) -> None:
