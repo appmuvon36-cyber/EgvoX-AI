@@ -93,8 +93,8 @@ jobs:
           scan_status=$?
           set -e
 
-          if [ -f ${{ runner.temp }}/gitleaks-report.json ]; then
-            jq -r '.[] | "finding rule=\(.RuleID) file=\(.File) line=\(.StartLine) description=\(.Description)"' /tmp/gitleaks-report.json
+          if [ -f "${{ runner.temp }}/gitleaks-report.json" ]; then
+            jq -r '.[] | "finding rule=\(.RuleID) file=\(.File) line=\(.StartLine) description=\(.Description)"' "${{ runner.temp }}/gitleaks-report.json"
           fi
 
           exit "$scan_status"
