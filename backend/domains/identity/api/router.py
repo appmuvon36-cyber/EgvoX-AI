@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from pydantic import field_validator
 from shared.security import Actor, db_connection, require_actor, has_recent_mfa
 
 router = APIRouter(tags=["identity"])
@@ -8,11 +10,19 @@ router = APIRouter(tags=["identity"])
 class ProfilePatch(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     phone: str | None = Field(default=None, max_length=40)
-    country_code: str | None = Field(default=None, min_length=2, max_length=2)
+    country_code: str | None = Field(default=None, pattern="^[A-Za-z]{2}$")
     city: str | None = Field(default=None, max_length=120)
     bio: str | None = Field(default=None, max_length=2000)
     locale: str | None = Field(default=None, pattern="^(id|en)$")
     timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None):
+        if value is not None:
+            try: ZoneInfo(value)
+            except ZoneInfoNotFoundError as exc: raise ValueError("Unknown IANA timezone") from exc
+        return value
 
 class ProfileResponse(BaseModel):
     id: str
@@ -51,7 +61,7 @@ class SessionResponse(BaseModel):
 
 class FreelancerOnboarding(BaseModel):
     persona_roles: list[str] = Field(min_length=1, max_length=3)
-    country_code: str = Field(min_length=2, max_length=2)
+    country_code: str = Field(pattern="^[A-Za-z]{2}$")
     city: str = Field(min_length=2, max_length=120)
     bio: str | None = Field(default=None, max_length=2000)
 
