@@ -1,165 +1,92 @@
-# Phase 02 — Identity, Authentication & Organizations Audit
+# Phase 02 — Identity, Authentication & Organizations Audit & Implementation Record
 
 **Date:** 2026-11-28  
 **Repository:** `appmuvon36-cyber/EgvoX-AI`  
-**Branch:** `main`  
-**Audited baseline:** `00e90d7de0f605fab0575e181e122ad099de0c68`  
+**Branch:** `main` (direct commits only)  
 **Canonical specification:** `MASTER_PRD.md` v1.3  
-**Phase status:** IN PROGRESS — audit completed; implementation not yet delivered  
-**Production impact:** Read-only inspection only. No production DDL, data writes, Auth configuration changes, Storage writes, deployment, or real-user tests.
+**Governance:** `AGENTS.md`, `CONTRIBUTING.md`, Phase 00–01 records  
+**Status:** IN PROGRESS — broad implementation committed; release and security closure gaps remain  
+**Production impact:** No production DDL, data write, Auth setting change, Storage write, deployment, staging or real-user test.
 
-## 1. Authority and scope
+## 1. Audit baseline and governing boundaries
 
-Re-read the current `AGENTS.md`, `MASTER_PRD.md` v1.3, `CONTRIBUTING.md`, Phase Delivery Governance Checklist, Phase 00 audit, and Phase 01 design-system documentation.
+The initial Phase 02 audit used baseline commit `00e90d7de0f605fab0575e181e122ad099de0c68`. It re-read the governance/PRD documents, checked the monorepo tree, audited existing login/register/onboarding/account/admin/operations flows and inspected the existing Supabase project read-only.
 
-Phase 02 scope is limited to Supabase Auth, user profile lifecycle, Vendor/Enterprise onboarding, organization membership and invitations, backend RBAC/permissions, verification submissions, privileged-role MFA, and secure session lifecycle. Phase 03 and later business domains remain excluded.
+The baseline findings remain valid as historical evidence:
+- Root Next.js App Router and existing `apps/web`, `apps/admin`, `apps/operations`, design system and shared packages were retained.
+- No FastAPI backend, application migration directory, identity schema, organization schema or typed API contract existed at the baseline.
+- Login/register and onboarding were local-state flows; Super Admin/Operations used client-side session flags and demo credentials/MFA.
+- Local KYC state could display verification status without a persisted reviewer decision.
+- Supabase project `chbnaxhkklwudynedhki` was active/healthy with PostgreSQL 17.12; no application public tables, RLS policies, migrations, storage buckets, Auth users, sessions or MFA factors were found at baseline.
+- Supabase Security Advisor reported broad EXECUTE grants on `public.rls_auto_enable()`. The migration artifact now includes a privilege revocation, but it has not been applied to production.
 
-Key architecture constraints:
-- Supabase Auth is the identity provider; FastAPI is the only business API.
-- Existing Supabase PostgreSQL project is the only business database.
-- Existing Web PWA, route hierarchy, page composition and Phase 01 design system remain the UI source of truth.
-- No public Super Admin self-registration. Platform roles require privileged provisioning.
-- Authorization is server-side and combines role, membership, ownership and assignment; user-editable metadata is not authoritative.
-- No staging, real-world testing, production smoke tests, deployments or production schema mutation.
+No existing app/service was duplicated. Identity and Organizations are bounded domains inside one FastAPI runtime.
 
-## 2. Repository baseline and architecture reconciliation
+## 2. Implemented repository structure
 
-The current recursive Git tree contains 255 entries and is not truncated. The latest `main` commit at audit time is `00e90d7de0f605fab0575e181e122ad099de0c68`.
+Added or updated:
+- `backend/app`, `backend/shared`, `backend/domains/identity/api`, `backend/domains/organizations/api`
+- `backend/tests`, `backend/scripts`, backend configuration and environment documentation
+- `supabase/config.toml`, `supabase/migrations/20261128000100_identity_organizations.sql`, `supabase/tests/phase02_identity_rls.test.sql`
+- Existing root Next.js BFF routes under `app/api/auth` and `app/api/v1`
+- Existing account/onboarding/auth pages and existing Admin/Operations surfaces
+- `packages/api-client-ts` and typed response contracts in the identity/organization FastAPI routers
+- `packages/shared-types` extended with platform role identifiers
+- `docs/architecture`, `docs/api`, `docs/database`, `docs/security` and engineering phase evidence
 
-| Area | Actual state on main | Phase 02 implication |
-|---|---|---|
-| Next.js app | Root `app/` App Router | Preserve existing routes; do not relocate the application during this phase |
-| Web packages | `apps/web/corporate-site`, `apps/web/marketplace`, `apps/web/workspace` | Existing UI components remain the client surfaces |
-| Admin | `apps/admin/super-admin` | Existing login gate is not secure authentication |
-| Operations | `apps/operations/data-operations` | Existing login gate is not secure authentication |
-| Design system | `packages/design-system` | Reuse Phase 01 components and tokens |
-| Shared types | `packages/shared-types` | Existing product types are UI/domain types, not a verified identity API contract |
-| Validation | `packages/validation-schemas` | Current validators are frontend utilities, not server-side authorization |
-| Typed API client/contracts | No `packages/api-client-ts` or `packages/api-contracts` found | Must be added only as part of the approved API implementation |
-| FastAPI | No `backend/` or `pyproject.toml` found | Major prerequisite: establish the single FastAPI runtime and shared infrastructure |
-| Supabase migrations | No `supabase/` directory, `config.toml`, or migration files found | Migration history must be established before any schema rollout |
-| Auth routes | `/login`, `/register`, `/forgot-password`, `/verify-email`, `/admin/login`, `/ops/login` | Routes exist but do not establish authentication |
-| Onboarding routes | `/onboarding/freelancer`, `/onboarding/vendor`, `/onboarding/enterprise` | Existing forms are local-state workflows |
+The existing root App Router and Phase 01 design system were preserved. No second web app, database, Railway service or independent identity service was created.
 
-The target folder structure in the Phase 02 prompt is a boundary guide, not permission to duplicate existing applications. In particular, retain the root Next.js App Router and existing `apps/web`, `apps/admin`, and `apps/operations` modules. Add one FastAPI runtime under `backend/` with bounded `identity` and `organizations` domains; do not create separate services per domain.
+## 3. Nine-deliverable status matrix
 
-## 3. Existing authentication and UI findings
-
-### Public login and registration
-
-- `app/login/page.tsx` and `app/register/page.tsx` render `LoginView` and `RegisterView`.
-- `RegisterView.handleSubmit` validates only local form fields, calls local `setActiveRole`, displays a success toast, and routes to onboarding. It does not create a Supabase Auth user.
-- `LoginView.handleLogin` accepts non-empty email/password, sets local role to freelancer, displays a success toast and routes to `/workspace`. No credential verification occurs.
-- GitHub OAuth button only displays a success toast and invokes its callback. It does not perform OAuth.
-- Google sign-in in `lib/google-workspace/auth.ts` is Firebase Authentication used for Google Workspace scopes; it is not the EgvoX identity provider and must not be reused as one.
-- Root `package.json` has Firebase but no `@supabase/ssr` or `@supabase/supabase-js` dependency. `.env.example` currently contains only Firebase and Gemini placeholders.
-
-### Onboarding and verification
-
-- Freelancer onboarding writes through `useAppState` local functions, invokes local `submitKyc`, sets local role and navigates to workspace.
-- Vendor onboarding starts with example organization values (including `PT Contoh Data Nusantara`), invokes local KYC state, then navigates to workspace.
-- Enterprise onboarding is a partnership inquiry form, not a persisted authenticated organization onboarding flow.
-- `useAppState.tsx` initializes `kycStatus` to `verified`; its local `createFreelancerService` sets `verified: true`, `kycStatus: 'verified'`, and `consentVerified: true`. These are not valid verification decisions.
-- The current `useAppState` is a large client state store containing business and admin/operations state; it is not a server authorization boundary.
-
-### Privileged surfaces
-
-- `SuperAdminPortal.tsx` uses `sessionStorage.egvox_admin_auth` as its authentication flag and includes a demo MFA code `123456`. This is not MFA or privileged authentication.
-- `DataOpsPortal.tsx` uses `sessionStorage.egvox_ops_auth`, prefilled example credentials, and a client-selectable operations role. This is not authentication or RBAC.
-- These surfaces must ultimately consume verified FastAPI actor context. Platform roles must be provisioned server-side and MFA must be enforced by the backend.
-
-## 4. Supabase production inspection — read-only
-
-Project `chbnaxhkklwudynedhki` was returned as `ACTIVE_HEALTHY`, PostgreSQL 17.12.0.002, region `ap-southeast-1`.
-
-| Inspection | Observed result |
-|---|---|
-| Auth schema | Supabase Auth internal tables exist, including `auth.users`, `auth.sessions`, and MFA factor tables |
-| Auth users | 0 |
-| Auth sessions | 0 |
-| MFA factors | 0 |
-| MFA recovery code sets | 0 |
-| Public business tables | 0 |
-| Public RLS policies | 0 |
-| Storage buckets | 0 |
-| Storage custom policies | 0 |
-| Application migration history | Empty (`list_migrations` returned no migrations) |
-| Installed extensions | `plpgsql`, `pg_stat_statements`, `uuid-ossp`, `pgcrypto`, `supabase_vault` |
-| Custom public function | `public.rls_auto_enable()`, SECURITY DEFINER |
-| Event trigger | `ensure_rls` invokes `rls_auto_enable()` for DDL events |
-
-Supabase Auth's internal schema includes session and MFA structures, but no application profile, organization, role, invitation, verification, or document metadata schema exists in `public`. Auth dashboard provider configuration, SMTP configuration, redirect allowlists, password policy and MFA verification settings were not available through the read-only database inspection and remain unverified.
-
-### Existing security finding
-
-Supabase Security Advisor reports:
-- `anon_security_definer_function_executable`: `public.rls_auto_enable()` is executable by `anon`.
-- `authenticated_security_definer_function_executable`: the same function is executable by `authenticated`.
-
-The function is an event-trigger handler that enables RLS for newly created public tables. Its current EXECUTE ACL is broader than necessary. A reviewed migration should revoke direct execution from `PUBLIC`, `anon`, and `authenticated` while retaining only the privileges required for the event-trigger owner/runtime. Do not change it directly in production during this phase.
-
-No other Security Advisor lints were returned for health or performance. This does not constitute a full security certification.
-
-## 5. Nine-deliverable gap matrix
-
-| # | Deliverable | Baseline evidence | Audit status |
+| # | Deliverable | Current implementation evidence | Status / remaining gap |
 |---|---|---|---|
-| 01 | Supabase Auth integration | UI login/register is local-only; no Supabase SDK dependency or FastAPI verifier | NOT IMPLEMENTED |
-| 02 | User profile lifecycle | No public profile/preferences tables or profile API | NOT IMPLEMENTED |
-| 03 | Organization onboarding | Existing UI forms only; vendor sample defaults; no organization persistence | NOT IMPLEMENTED |
-| 04 | Organization membership | No membership table, active-org context API or server-side checks | NOT IMPLEMENTED |
-| 05 | Invitation lifecycle | No invitation schema, token workflow or endpoints found | NOT IMPLEMENTED |
-| 06 | RBAC and permissions | Local role state, client-selectable ops role, mock admin role data; no backend policy | NOT IMPLEMENTED |
-| 07 | Verification submission | Local KYC status and document-type label; no private document storage or reviewer decision persistence | NOT IMPLEMENTED |
-| 08 | Privileged MFA | Demo code in Super Admin UI; no backend AAL enforcement | NOT IMPLEMENTED |
-| 09 | Session management | Client-only sessionStorage flags; no Supabase cookie session or backend session validation | NOT IMPLEMENTED |
+| 01 | Supabase Auth integration | Same-origin BFF for signup/signin/signout/email verification/password recovery/refresh/TOTP; FastAPI JWKS/HS256 allowlist, issuer/audience/exp/iat/sub/role and anonymous checks | Implemented in code. Hosted Auth templates/SMTP/redirect/provider configuration not verified. |
+| 02 | User profile lifecycle | Auth-user trigger creates profile/preferences idempotently; GET/PATCH `/me`; profile status service-role function; typed DTOs | Implemented in code. Production trigger/migration not applied. |
+| 03 | Organization onboarding | Vendor/Enterprise schema and API, terms acceptance, business identifiers/contact/address/purpose, initial owner membership, submitted verification state, catalog publishing forced false | Implemented in code. Real organization documents/verification are not live-tested. |
+| 04 | Organization membership | Membership lifecycle, owner/admin/member role restrictions, explicit active-org context, switch API, generic resource/project assignment relation and permission helper | Implemented in code. Later project domains must call the resource authorization helper; no project CRUD was added. |
+| 05 | Invitation lifecycle | High-entropy token, digest-only storage, confirmed email binding, expiry, row locking, accept/reject/revoke/resend, duplicate-member prevention and audit | Implemented in code. Email delivery provider is not configured; administrator receives a shareable one-time link. |
+| 06 | RBAC and permissions | All listed persona/platform role IDs and permission mappings; platform provisioning is service-role-only; RLS and `egvox_api` private database role; no browser DML grants | Implemented in code. Resource assignment is a generic authorization primitive; project-specific policy mapping remains a later-domain dependency. |
+| 07 | Verification submission | Draft/submit/status API, private document upload/list/download, MIME/signature/size validation, reviewer RPC, decision reason and evidence requirement | Implemented in code. Reviewer operational workflow and document storage have not been tested against the hosted project. |
+| 08 | Privileged MFA | Supabase TOTP enroll/challenge/verify/unenroll UI; AAL2 plus recent TOTP AMR checks in API/RLS/reviewer RPC and Admin/Operations gates | Core enforcement implemented. No recovery-code or self-service factor-loss flow; manual recovery procedure remains a blocker. |
+| 09 | Session management | HttpOnly access/refresh cookies, CSRF double-submit/same-origin checks, refresh rotation, global signout, expired refresh cookie clearing, request ID propagation, local JWT lifetime 900 seconds | Implemented in code. Global signout cannot revoke an already issued JWT before expiry; hosted expiry/session configuration remains unverified. |
 
-## 6. Migration and API implementation constraints
+## 4. Security controls and notable blocker fixes
 
-No migration was applied or generated. The application migration directory is absent and the Supabase project has no application migration history. Before writing the first migration:
-1. Initialize the repository's Supabase CLI configuration using the installed CLI version and its documented `migration new` command.
-2. Establish a local schema baseline from the remote project without mutating production.
-3. Confirm exact auth JWT issuer/JWKS configuration, database connection strategy, and the approved Storage bucket/privacy design.
-4. Add narrowly scoped tables, constraints, indexes, RLS policies and private storage policy definitions.
-5. Include the reviewed EXECUTE privilege correction for `public.rls_auto_enable()`.
-6. Validate SQL and policies in an isolated local/CI database only. Do not apply to the hosted project.
+- FastAPI no longer trusts frontend role state or user-editable metadata.
+- Anonymous Supabase JWT actors are rejected.
+- Supabase browser `authenticated` role receives SELECT-only privileges on Phase 02 tables. A private `NOLOGIN egvox_api` role owns application DML/RPC execution inside the backend transaction; it is not BYPASSRLS.
+- Mutating invitation, verification, audit and provisioning RPCs are not executable by browser-authenticated clients.
+- Direct verification-case UPDATE grants and policy were removed so reviewer decisions cannot bypass recent MFA and audit.
+- Invitation acceptance requires an active profile, confirmed Auth email, matching invitation email, unexpired digest, row lock and no pre-existing membership.
+- Organization context is explicit. Organization-scoped operations compare the requested organization to the active context.
+- Resource/project assignments are explicit and service-role provisioned; no project business domain was implemented.
+- Private verification documents are stored outside public buckets; only metadata and short-lived signed URLs are returned.
+- Profile status, platform role and resource assignment provisioning are restricted to service-role functions.
+- Request IDs are sanitized and passed into the transaction for audit correlation.
 
-The API contract inventory is specified in Master PRD §17.3–17.4. The implementation must expose versioned `/api/v1` routes from one FastAPI runtime and resolve actor, active organization, memberships, platform roles, project assignments and MFA assurance server-side. No client-supplied role or organization identifier is trusted.
+## 5. Known gaps preventing Phase 02 COMPLETE
 
-## 7. Supabase platform documentation checked
+1. **MFA recovery:** backup TOTP factor enrollment exists, but no recovery-code lifecycle or fully automated account recovery procedure for loss of all factors. A verified manual support/identity-proof workflow must be designed and implemented.
+2. **Hosted Supabase configuration:** production email templates, SMTP, redirect allowlist, password policy, TOTP enforcement, JWT expiry and `postgres` membership in `egvox_api` have not been changed or verified. No production changes were authorized.
+3. **Invitation delivery:** no email provider integration; invite links are returned to the authorized organization administrator for manual delivery.
+4. **Rate limiting and idempotency:** no durable rate-limiting layer; verification submissions do not yet accept a client idempotency key. Organization registration uniqueness and invitation uniqueness are protected by database constraints.
+5. **Database execution evidence:** the migration is a repository artifact only. It has not been applied to local Supabase or hosted production; PostgreSQL role creation, policy behavior, trigger execution and storage bucket validation still require isolated Supabase CLI execution.
+6. **CI final state:** final CI for the exact latest commit must complete successfully. An earlier CI run caught a frontend TypeScript issue in the organization terms checkbox; the misplaced checkbox was corrected, and later commits must be revalidated.
+7. **No real-world validation:** by instruction, no live Auth, real user, customer document, production smoke test, staging or deployment has been performed.
 
-- Supabase Next.js SSR guidance recommends `@supabase/ssr`, PKCE, cookie-backed sessions, and `getClaims()`/verified user claims rather than trusting a cookie-decoded session object.
-- Supabase MFA guidance defines `aal1` and `aal2` in the JWT and explicitly states that MFA UI alone does not enforce policy; backend/API and database checks must enforce assurance level.
-- Supabase changelog notes that newly created public tables are no longer automatically exposed through the Data API by default (enforced for all projects from 2026-10-30). EgvoX business CRUD will use FastAPI/PostgreSQL, not browser Data API access.
-- Supabase Auth release notes in November 2026 include MFA recovery-code support and token invalidation behavior for certain admin identity changes. Recovery-code availability/configuration must be confirmed before it is promised in product UI.
+## 6. Validation evidence
 
-## 8. Execution environment and blockers
+Engineering workflow includes:
+- Python static checks and selected identity/security/invitation tests.
+- Static SQL migration checks for transaction boundaries, dollar delimiters, RLS coverage, private database role, MFA, verification and storage security invariants.
+- Supabase pgTAP policy/privilege test file.
+- Frontend ESLint, TypeScript and Next.js production build.
+- Existing Trivy, Semgrep and Gitleaks CI jobs.
 
-- The connected GitHub integration can read and write repository files on `main`, but the container cannot resolve `github.com`; a local clone could not be obtained.
-- Without a local checkout, Bun lockfile updates, Python dependency resolution, local FastAPI tests, frontend lint/type/build, and SQL lint/test execution cannot be performed in this execution environment.
-- No Supabase CLI is exposed through the connected tools; therefore the mandatory migration creation workflow and isolated migration validation have not been run.
-- No Supabase application schema or storage bucket exists yet. The production project was intentionally left untouched.
-- No production Auth provider/SMTP/redirect/MFA settings were changed or live-tested.
+Only checks whose CI job completes successfully on the exact final commit may be reported as PASS. No local command is claimed as run because no repository checkout/Supabase CLI was available in the execution environment. No migration was applied.
 
-These are execution blockers, not reasons to substitute mock authentication, invent a production session, or weaken authorization. Phase 02 remains IN PROGRESS. No deliverable is marked complete based on UI presence.
+## 7. Conclusion
 
-## 9. Required implementation sequence (Phase 02 only)
+**Phase 02 remains IN PROGRESS.** The nine implementation areas now have code and migration artifacts, but the phase cannot be called COMPLETE while MFA recovery, hosted configuration, invitation delivery, rate limiting/idempotency and isolated database execution/CI evidence remain open.
 
-1. Establish one FastAPI runtime and shared configuration/database/security/error/observability foundations.
-2. Implement Supabase JWT/JWKS validation, actor context, email/password lifecycle and secure session handling.
-3. Create identity/profile and organization schemas, repositories, transactions, RLS and private verification-document storage policies through reviewed migrations.
-4. Implement server-side RBAC/permissions, organization context and membership lifecycle.
-5. Implement secure invitation tokens and atomic accept/reject/revoke/resend/expiry transitions.
-6. Implement freelancer/vendor/enterprise onboarding persistence and verification submission/review lifecycle.
-7. Implement privileged-role MFA enrollment/challenge and backend AAL2 enforcement; remove demo admin/operations gates.
-8. Connect existing PWA forms and protected workspace surfaces to typed FastAPI contracts, retaining Phase 01 design components.
-9. Run isolated JWT/RBAC/membership/invitation/session/verification tests, migration validation, frontend lint/type/build and existing CI security checks.
-10. Update API, database, architecture, security and phase governance evidence. Do not begin Phase 03 until all Phase 02 exit criteria have evidence.
-
-## 10. Audit conclusion
-
-**Phase 02: IN PROGRESS — audit baseline established, implementation pending.**
-
-The principal blockers are the absence of the FastAPI runtime, absence of application migrations and identity/organization schema, local-only/fake authentication and verification flows, missing invitation/membership/RBAC enforcement, and demo MFA/session gates. The existing Supabase Auth service is available as the identity provider, but no application-level integration has been proven.
-
-No production data, Auth configuration, schema, Storage, deployment, or real-user session was changed during this audit.
+Phase 03 — Public Website & CMS is not started and must remain blocked until the Phase 02 exit criteria are evidenced.
