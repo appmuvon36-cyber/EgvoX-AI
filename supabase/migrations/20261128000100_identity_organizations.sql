@@ -2,6 +2,16 @@
 -- Reviewed migration artifact. Do not apply to hosted production without separate release authorization.
 begin;
 
+do $
+begin
+  if not exists(select 1 from pg_roles where rolname='egvox_api') then
+    execute 'create role egvox_api nologin nosuperuser nocreatedb nocreaterole noinherit noreplication';
+  end if;
+end;
+$;
+grant egvox_api to postgres;
+grant usage on schema public,auth to egvox_api;
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
@@ -578,74 +588,74 @@ alter table public.verification_cases enable row level security;
 alter table public.verification_documents enable row level security;
 alter table public.audit_events enable row level security;
 
-create policy profiles_select_self on public.profiles for select to authenticated
+create policy profiles_select_self on public.profiles for select to authenticated,egvox_api
   using (id=auth.uid() or exists (
     select 1 from public.organization_members m where m.user_id=profiles.id and m.status='active'
       and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=m.organization_id) and public.has_permission('organization.members.read',m.organization_id)
   ));
-create policy profiles_update_self on public.profiles for update to authenticated
+create policy profiles_update_self on public.profiles for update to authenticated,egvox_api
   using (id=auth.uid() and status='active') with check (id=auth.uid() and status='active');
-create policy preferences_self on public.user_preferences for all to authenticated
+create policy preferences_self on public.user_preferences for all to authenticated,egvox_api
   using (user_id=auth.uid())
   with check (user_id=auth.uid() and (active_organization_id is null or public.is_active_org_member(active_organization_id) or public.has_permission('organization.read',active_organization_id) or exists(select 1 from public.resource_assignments ra where ra.user_id=auth.uid() and ra.organization_id=active_organization_id and ra.status='active')));
-create policy roles_read on public.roles for select to authenticated using (true);
-create policy permissions_read on public.permissions for select to authenticated using (true);
-create policy role_permissions_read on public.role_permissions for select to authenticated using (true);
+create policy roles_read on public.roles for select to authenticated,egvox_api using (true);
+create policy permissions_read on public.permissions for select to authenticated,egvox_api using (true);
+create policy role_permissions_read on public.role_permissions for select to authenticated,egvox_api using (true);
 
-create policy organizations_read_member on public.organizations for select to authenticated
+create policy organizations_read_member on public.organizations for select to authenticated,egvox_api
   using (public.is_active_org_member(id) or public.has_permission('organization.read',id) or exists(select 1 from public.resource_assignments ra where ra.user_id=auth.uid() and ra.organization_id=id and ra.status='active'));
-create policy organizations_create_self on public.organizations for insert to authenticated
+create policy organizations_create_self on public.organizations for insert to authenticated,egvox_api
   with check (created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
-create policy organizations_update_manager on public.organizations for update to authenticated
+create policy organizations_update_manager on public.organizations for update to authenticated,egvox_api
   using (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=id) and public.has_permission('organization.manage',id))
   with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=id) and public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
 
-create policy members_read on public.organization_members for select to authenticated
+create policy members_read on public.organization_members for select to authenticated,egvox_api
   using (user_id=auth.uid() or (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id)));
-create policy members_create_owner on public.organization_members for insert to authenticated
+create policy members_create_owner on public.organization_members for insert to authenticated,egvox_api
   with check (user_id=auth.uid() and created_by=auth.uid() and status='active'
     and public.organization_owner_role_valid(organization_id,role_id)
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
-create policy members_manage on public.organization_members for update to authenticated
+create policy members_manage on public.organization_members for update to authenticated,egvox_api
   using (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.manage',organization_id)
     and role_id not in ('vendor_owner','enterprise_owner'))
   with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.manage',organization_id)
     and role_id not in ('vendor_owner','enterprise_owner'));
 
-create policy invitations_read on public.organization_invitations for select to authenticated
+create policy invitations_read on public.organization_invitations for select to authenticated,egvox_api
   using ((exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id))
     or lower(email)=lower(coalesce(auth.jwt()->>'email','')));
-create policy invitations_create on public.organization_invitations for insert to authenticated
+create policy invitations_create on public.organization_invitations for insert to authenticated,egvox_api
   with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.invite',organization_id)
     and invited_by=auth.uid() and status='pending'
     and exists(select 1 from public.organizations o where o.id=organization_id
       and ((o.kind='vendor' and role_id in ('vendor_admin','vendor_project_manager'))
         or (o.kind='enterprise' and role_id='enterprise_member'))));
 
-create policy role_assignments_read_self on public.user_role_assignments for select to authenticated
+create policy role_assignments_read_self on public.user_role_assignments for select to authenticated,egvox_api
   using (user_id=auth.uid());
-create policy resource_assignments_read_self on public.resource_assignments for select to authenticated
+create policy resource_assignments_read_self on public.resource_assignments for select to authenticated,egvox_api
   using (user_id=auth.uid());
-create policy role_assignments_freelancer_self on public.user_role_assignments for insert to authenticated
+create policy role_assignments_freelancer_self on public.user_role_assignments for insert to authenticated,egvox_api
   with check (user_id=auth.uid() and created_by=auth.uid() and organization_id is null
     and role_id in ('freelancer_contributor','freelancer_annotator','freelancer_qa_specialist')
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 
-create policy verification_read on public.verification_cases for select to authenticated
+create policy verification_read on public.verification_cases for select to authenticated,egvox_api
   using (submitted_by=auth.uid()
     or (subject_type='freelancer' and subject_id=auth.uid())
     or (subject_type='organization' and public.is_active_org_member(subject_id) and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id))
     or public.has_permission('verification.read',null)
     or public.has_permission('verification.review',null));
-create policy verification_draft_create on public.verification_cases for insert to authenticated with check (submitted_by=auth.uid() and status='draft' and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and ((subject_type='freelancer' and subject_id=auth.uid()) or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
-create policy verification_submit on public.verification_cases for insert to authenticated
+create policy verification_draft_create on public.verification_cases for insert to authenticated,egvox_api with check (submitted_by=auth.uid() and status='draft' and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and ((subject_type='freelancer' and subject_id=auth.uid()) or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
+create policy verification_submit on public.verification_cases for insert to authenticated,egvox_api
   with check (submitted_by=auth.uid() and status='submitted'
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
     and ((subject_type='freelancer' and subject_id=auth.uid())
       or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
 -- No direct UPDATE policy: verification decisions use the MFA-enforcing RPC.
-create policy verification_docs_read on public.verification_documents for select to authenticated
+create policy verification_docs_read on public.verification_documents for select to authenticated,egvox_api
   using (uploaded_by=auth.uid()
     or exists(select 1 from public.verification_cases c where c.id=case_id and (
       public.has_permission('verification.review',null)
@@ -653,32 +663,37 @@ create policy verification_docs_read on public.verification_documents for select
         and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id)
         and public.has_permission('verification.read',c.subject_id))
     )));
-create policy verification_docs_create on public.verification_documents for insert to authenticated
+create policy verification_docs_create on public.verification_documents for insert to authenticated,egvox_api
   with check (uploaded_by=auth.uid()
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
     and exists(select 1 from public.verification_cases c where c.id=case_id
       and c.submitted_by=auth.uid() and c.status in ('draft','submitted')));
 
-create policy audit_read on public.audit_events for select to authenticated
+create policy audit_read on public.audit_events for select to authenticated,egvox_api
   using (public.has_permission('platform.audit.read',null));
 
-revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,public.resource_assignments,public.verification_cases,public.verification_documents,public.audit_events from anon;
-grant select on public.profiles to authenticated;
-grant update(display_name,phone,country_code,city,bio,updated_at) on public.profiles to authenticated;
-grant select,insert,update(locale,timezone,active_organization_id,updated_at) on public.user_preferences to authenticated;
-grant select,insert on public.organizations to authenticated;
-grant update(legal_name,trading_name,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,updated_at)
-  on public.organizations to authenticated;
-grant select,insert on public.organization_members to authenticated;
-grant update(status,updated_at) on public.organization_members to authenticated;
-grant select,insert on public.organization_invitations to authenticated;
-grant select,insert on public.user_role_assignments to authenticated;
-grant select on public.resource_assignments to authenticated;
-grant select,insert on public.verification_cases to authenticated;
--- Verification decisions are callable only through review_verification_case().
-grant select,insert on public.verification_documents to authenticated;
-grant select on public.audit_events to authenticated;
-grant select on public.roles,public.permissions,public.role_permissions to authenticated;
+revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,
+  public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,
+  public.resource_assignments,public.verification_cases,public.verification_documents,public.audit_events
+  from anon,authenticated;
+grant select on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,
+  public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,
+  public.resource_assignments,public.verification_cases,public.verification_documents,public.audit_events
+  to authenticated;
+grant select on public.profiles,public.roles,public.permissions,public.role_permissions,
+  public.resource_assignments,public.audit_events to egvox_api;
+grant select,update(display_name,phone,country_code,city,bio,updated_at) on public.profiles to egvox_api;
+grant select,insert,update(locale,timezone,active_organization_id,updated_at) on public.user_preferences to egvox_api;
+grant select,insert,update(legal_name,trading_name,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,updated_at)
+  on public.organizations to egvox_api;
+grant select,insert,update(status,updated_at) on public.organization_members to egvox_api;
+grant select,insert on public.organization_invitations to egvox_api;
+grant select,insert on public.user_role_assignments to egvox_api;
+grant select on public.resource_assignments to egvox_api;
+grant select,insert on public.verification_cases to egvox_api;
+grant select,insert on public.verification_documents to egvox_api;
+grant select on public.audit_events to egvox_api;
+
 
 revoke execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
@@ -691,15 +706,15 @@ grant execute on function public.has_permission(text,uuid),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
   public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
-  to authenticated;
+  to authenticated,egvox_api;
 revoke execute on function public.provision_platform_role(uuid,text,text),public.provision_resource_assignment(uuid,text,uuid,uuid,text,text) from public,anon,authenticated;
-revoke execute on function public.set_profile_status(uuid,text,text),public.create_profile_for_auth_user() from public,anon,authenticated;
+revoke execute on function public.set_profile_status(uuid,text,text),public.create_profile_for_auth_user() from public,anon,authenticated,egvox_api;
 grant execute on function public.provision_platform_role(uuid,text,text),public.set_profile_status(uuid,text,text),public.provision_resource_assignment(uuid,text,uuid,uuid,text,text) to service_role;
 
 do $$
 begin
   if to_regprocedure('public.rls_auto_enable()') is not null then
-    execute 'revoke execute on function public.rls_auto_enable() from public, anon, authenticated';
+    execute 'revoke execute on function public.rls_auto_enable() from public, anon, authenticated, egvox_api';
   end if;
 end;
 $$;
