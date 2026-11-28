@@ -5,6 +5,7 @@ import { Download, Smartphone } from 'lucide-react';
 import { useAppState } from '@/lib/hooks/useAppState';
 import { usePWAInstall } from '@/lib/hooks/usePWAInstall';
 import { Modal } from './Modal';
+import { Button } from './Button';
 
 export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({
   compact = false,
@@ -17,10 +18,12 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({
 
   if (isInstallable) {
     return (
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         onClick={install}
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[var(--egvox-brand-teal-700)] bg-[var(--egvox-bg-surface)] px-3 py-2 text-xs font-semibold text-[var(--egvox-brand-teal-700)] transition-colors hover:bg-[var(--egvox-bg-subtle)] dark:text-[var(--egvox-brand-teal-300)]"
+        className="gap-2 border-[var(--egvox-brand-teal-700)] text-xs text-[var(--egvox-brand-teal-700)] hover:bg-[var(--egvox-bg-subtle)] dark:text-[var(--egvox-brand-teal-300)]"
       >
         <Download className="h-4 w-4" aria-hidden="true" />
         <span>
@@ -28,7 +31,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({
             ? locale === 'id' ? 'Pasang' : 'Install'
             : locale === 'id' ? 'Pasang Aplikasi' : 'Install App'}
         </span>
-      </button>
+      </Button>
     );
   }
 
@@ -65,13 +68,9 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({
             ? <>3. Ketuk <strong className="text-[var(--egvox-text-primary)]">Add</strong> untuk memasang EgvoX.</>
             : <>3. Tap <strong className="text-[var(--egvox-text-primary)]">Add</strong> to install EgvoX.</>}</li>
         </ol>
-        <button
-          type="button"
-          onClick={() => setShowGuide(false)}
-          className="mt-5 min-h-11 w-full rounded-lg bg-[var(--egvox-brand-teal-700)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--egvox-brand-teal-600)]"
-        >
+        <Button type="button" fullWidth className="mt-5">
           {locale === 'id' ? 'Mengerti' : 'Got It'}
-        </button>
+        </Button>
       </Modal>
     </>
   );
