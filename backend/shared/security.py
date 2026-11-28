@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 import jwt
 from jwt import InvalidTokenError, PyJWKClient, PyJWKClientError
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from shared.config import settings
 
@@ -58,7 +58,7 @@ async def require_actor(credentials: HTTPAuthorizationCredentials | None = Depen
     return Actor(str(claims["sub"]), str(claims.get("email", "")).lower(),
         str(claims.get("aal", "aal1")), claims)
 
-async def db_connection(request, actor: Actor = Depends(require_actor)):
+async def db_connection(request: Request, actor: Actor = Depends(require_actor)):
     pool = request.app.state.pool
     async with pool.acquire() as conn:
         async with conn.transaction():
