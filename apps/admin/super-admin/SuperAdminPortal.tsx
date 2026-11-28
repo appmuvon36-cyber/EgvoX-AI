@@ -115,7 +115,7 @@ export const SuperAdminPortal: React.FC<{
       if (!roles.items.some((role) => role.id === 'super_admin')) {
         await egvoxAuth('signout'); throw new Error('This account is not provisioned as Super Admin.');
       }
-      const assurance = await egvoxApi<{aal:string}>('/sessions');
+      const assurance = await egvoxApi<{aal:string;recent_mfa:boolean}>('/sessions');
       if (assurance.aal !== 'aal2' || !assurance.recent_mfa) {
         const factors = await fetch('/api/auth/mfa-list', { cache: 'no-store' }).then(r => r.json());
         const factor = [...(factors.totp || []), ...(factors.phone || [])].find((item:any) => item.status === 'verified');
@@ -132,7 +132,7 @@ export const SuperAdminPortal: React.FC<{
     try {
       const challenge = await egvoxAuth('mfa-challenge', { factor_id: factorId });
       await egvoxAuth('mfa-verify', { factor_id: factorId, challenge_id: challenge.challenge.id, code: mfaCode });
-      const assurance = await egvoxApi<{aal:string}>('/sessions');
+      const assurance = await egvoxApi<{aal:string;recent_mfa:boolean}>('/sessions');
       if (assurance.aal !== 'aal2') throw new Error('MFA assurance did not reach AAL2.');
       setIsAuthenticated(true);
     } catch (error) { setAuthError(error instanceof Error ? error.message : 'MFA verification failed'); }
