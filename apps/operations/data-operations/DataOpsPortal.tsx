@@ -102,7 +102,7 @@ export const DataOpsPortal: React.FC<{
       const roles = await egvoxApi<{items:{id:string}[]}>('/me/roles');
       const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id));
       if (!role) { await egvoxAuth('signout'); throw new Error('This account has no provisioned Data Operations role.'); }
-      const assurance = await egvoxApi<{aal:string}>('/sessions');
+      const assurance = await egvoxApi<{aal:string;recent_mfa:boolean}>('/sessions');
       if (assurance.aal !== 'aal2' || !assurance.recent_mfa) { window.location.assign('/account/security'); return; }
       setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole);
       setOperatorEmail(loginEmail); setIsAuthenticated(true);
