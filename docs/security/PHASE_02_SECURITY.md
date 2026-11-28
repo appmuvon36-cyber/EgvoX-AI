@@ -1,16 +1,28 @@
 # Phase 02 security controls and remaining configuration
 
-- Access JWT: Supabase JWKS signature, issuer, audience, exp, iat, sub UUID and authenticated role validation. Legacy HS256 requires an explicitly configured backend-only secret.
-- Web tokens: access and refresh tokens stored in HttpOnly cookies; CSRF token is separate and non-HttpOnly; mutating BFF requests require same-origin and matching CSRF header.
-- API: BFF proxy attaches Bearer token; backend switches to `authenticated` role and applies RLS.
-- RBAC: platform roles cannot be self-assigned; role + membership + organization scope enforced in PostgreSQL; platform authorization requires AAL2.
-- Invitations: one-time random token, digest-only persistence, matching verified email, expiry and atomic accept/reject/revoke/resend transitions.
-- Verification: reviewer-only decision RPC, private Storage bucket, server-side MIME and size checks, RLS-protected metadata and short-lived signed download URL.
-- Session: refresh rotation, global sign-out and invalid/expired token rejection.
-- Privileged re-authentication: AAL2 plus a TOTP `amr` timestamp within 10 minutes for platform-authorized API operations and verification decisions.
-- MFA recovery: enroll a second TOTP factor on a separate device as a backup. Native recovery-code support is not assumed or enabled by this implementation; factor loss requires the documented account recovery process and privileged manual identity verification.
-- Service-role key is backend-only.
+## Enforced in code and migration artifact
 
-External configuration still required before operational use: Supabase Auth email templates must redirect with `token_hash` and `type` to `/verify-email`; confirm provider, SMTP, redirect allowlist, password policy, MFA/TOTP and recovery-code settings; configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `EGVOX_API_URL`, and backend secrets. Invitation delivery currently returns a one-time shareable link to the organization administrator; no email-delivery provider is configured.
+- **JWT:** FastAPI verifies Supabase JWKS signature (or explicitly configured legacy HS256), issuer, audience, expiry, issued-at, UUID subject, authenticated role and rejects anonymous Supabase identities. The actor is built only from verified claims.
+- **Database boundary:** private `egvox_api` NOLOGIN role is assumed only by the backend database connection. Supabase's public `authenticated` role has SELECT-only privileges on Phase 02 application tables; mutating RPCs/DML are restricted to `egvox_api`. Platform/resource provisioning is service-role only.
+- **RLS:** profile, organization, membership, invitation, resource assignment, verification, document and audit policies use actor/role/context ownership. Resource/project assignments are explicit, not inferred from frontend role state.
+- **RBAC:** platform roles cannot be self-assigned. Freelancer persona self-assignment is allowlisted. Vendor/Enterprise owner roles are derived from organization creation. Invitations cannot assign owner or platform roles.
+- **Organization context:** organization-scoped backend operations require an explicit active organization. Users can switch only to an active membership or a resource-assigned organization.
+- **Invitations:** high-entropy one-time token, SHA-256 digest-only persistence, confirmed-email binding, expiry, row lock, atomic membership creation, duplicate-member prevention and audit trail.
+- **Verification:** private bucket, backend-only service role, 10 MiB cap, MIME plus file-signature validation, RLS-protected metadata, five-minute signed URL. Direct authenticated UPDATE grants/policies are removed; decisions use a recent-MFA reviewer RPC and require evidence documents before approval.
+- **MFA:** Supabase TOTP enrollment/challenge/verify/unenroll; privileged operations require AAL2 and a TOTP AMR timestamp within ten minutes. Super Admin and Operations UI gates also check recent assurance.
+- **Sessions:** HttpOnly access/refresh cookies, host-only scope, SameSite=Lax, Secure in production, separate CSRF cookie, same-origin and double-submit CSRF validation for mutations, refresh rotation and global sign-out. Local Supabase JWT lifetime is set to 900 seconds.
+- **Audit:** request ID is sanitized, propagated into the database transaction and stored with supported identity/organization events. Mutating audit writer is backend-only.
+- **Service-role key:** only backend environment; never in public web variables.
 
-No production Auth configuration, database migration, Storage write or deployment was performed.
+## Recovery and operational limitations
+
+- The UI supports enrolling a second TOTP factor as a backup. No recovery-code storage/verification or self-service factor-loss recovery workflow has been implemented. If all factors are lost, account recovery requires a separately verified support procedure and privileged manual identity review; this operational procedure is not yet automated or evidenced. This remains a Phase 02 gap.
+- Invitation creation/resend returns a one-time link to the authorized administrator. SMTP/email delivery is not configured; no invitation email is sent by this implementation.
+- Global sign-out invalidates refresh sessions. An already-issued access JWT remains cryptographically valid until its expiry; the local config is 15 minutes, but production Auth JWT expiry/session settings have not been changed or verified.
+- Production database role membership (`postgres` assuming `egvox_api`), Auth email templates, SMTP, redirect allowlist, password policy, TOTP settings and JWT expiry must be verified/configured in the hosted Supabase project before release.
+- Rate limiting and durable idempotency keys for every mutation are not yet implemented. Organization onboarding and invitation uniqueness are protected by constraints/transactions, but verification submission has no client idempotency key.
+- No live Auth, user, storage, or production database tests were run. The migration has not been applied.
+
+## Release boundary
+
+No production migration, Auth configuration mutation, Storage write, staging deployment, production deployment, production smoke test or real-user test was performed. The reviewed migration must pass local Supabase/RLS tests and a separate security review before an explicitly authorized release.
