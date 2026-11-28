@@ -68,3 +68,10 @@ def test_application_dml_is_private_to_fastapi_database_role():
     assert "grant select,insert on public.organizations to authenticated" not in sql
     assert "grant select,insert on public.verification_cases to authenticated" not in sql
     assert "grant select on public.profiles" in sql and "to authenticated" in sql
+
+def test_all_platform_permission_paths_require_recent_mfa():
+    root = Path(__file__).resolve().parents[2]
+    sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text().lower()
+    assert "r.scope='platform'" in sql
+    assert "coalesce(auth.jwt()->>'aal','aal1')='aal2'" in sql
+    assert "now()+interval '30 seconds'" in sql
