@@ -59,14 +59,36 @@ async def members(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connectio
     await require_permission(db,a,"organization.members.read",oid)
     rows=await db.fetch("""select m.id::text,m.user_id::text,p.display_name,m.role_id,m.status,m.created_at from public.organization_members m join public.profiles p on p.id=m.user_id where m.organization_id=$1::uuid order by m.created_at""",oid)
     return {"items":[dict(r) for r in rows]}
+@router.get("/organizations/{oid}/invitations")
+async def list_invitations(oid: str, a: Actor = Depends(require_actor), db=Depends(db_connection)):
+    await require_permission(db, a, "organization.members.read", oid)
+    rows = await db.fetch("""select id::text,email,role_id,status,expires_at,created_at
+        from public.organization_invitations where organization_id=$1::uuid
+        order by created_at desc""", oid)
+    return {"items": [dict(row) for row in rows]}
+
 @router.post("/organizations/{oid}/invitations",status_code=201)
-async def invite(oid:str,p:InviteInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    await require_permission(db,a,"organization.members.invite",oid)
-    if p.role_id not in {"vendor_admin","vendor_project_manager","enterprise_member"}: raise HTTPException(422,"Invitation role is not assignable")
-    raw=secrets.token_urlsafe(40); digest=hashlib.sha256(raw.encode()).hexdigest()
-    try:\n        row=await db.fetchrow("""insert into public.organization_invitations(organization_id,email,role_id,token_hash,status,expires_at,invited_by) values($1::uuid,$2,$3,$4,'pending',$5,$6::uuid) returning id::text,email,role_id,status,expires_at""",oid,str(p.email).lower(),p.role_id,digest,datetime.now(timezone.utc)+timedelta(days=p.expires_in_days),a.user_id)
-    await db.execute("insert into public.audit_events(actor_user_id,action,target_type,target_id) values($1::uuid,'organization.invitation_created','invitation',$2::uuid)",a.user_id,row["id"])
-    return {"invitation":dict(row),"token":raw}
+async def invite(oid: str, p: InviteInput, a: Actor = Depends(require_actor), db=Depends(db_connection)):
+    await require_permission(db, a, "organization.members.invite", oid)
+    if p.role_id not in {"vendor_admin", "vendor_project_manager", "enterprise_member"}:
+        raise HTTPException(422, "Invitation role is not assignable")
+    raw = secrets.token_urlsafe(40)
+    digest = hashlib.sha256(raw.encode()).hexdigest()
+    try:
+        row = await db.fetchrow("""insert into public.organization_invitations
+            (organization_id,email,role_id,token_hash,status,expires_at,invited_by)
+            values($1::uuid,$2,$3,$4,'pending',$5,$6::uuid)
+            returning id::text,email,role_id,status,expires_at""",
+            oid, str(p.email).lower(), p.role_id, digest,
+            datetime.now(timezone.utc) + timedelta(days=p.expires_in_days), a.user_id)
+    except Exception as exc:
+        if "organization_invitations_pending_email_key" in str(exc):
+            raise HTTPException(409, "A pending invitation already exists for this email") from exc
+        raise
+    await db.execute("""insert into public.audit_events(actor_user_id,action,target_type,target_id)
+        values($1::uuid,'organization.invitation_created','invitation',$2::uuid)""", a.user_id, row["id"])
+    return {"invitation": dict(row), "token": raw}
+
 @router.post("/organizations/invitations/accept")
 async def accept(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
