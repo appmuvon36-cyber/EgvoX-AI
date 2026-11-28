@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -36,25 +36,7 @@ import { AnnotationWorkspaceView } from '@/apps/web/workspace/AnnotationWorkspac
 import { DataOpsDashboardView } from './DataOpsDashboardView';
 import { OpsHelpSopModal } from './DataOpsModals';
 import { DataOpsPipelineModules, OpsModuleId } from './DataOpsPipelineModules';
-
-function subscribeOpsAuth(callback: () => void) {
-  window.addEventListener('storage', callback);
-  window.addEventListener('egvox-ops-auth', callback);
-  return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('egvox-ops-auth', callback);
-  };
-}
-
-function getOpsAuthClient(): boolean {
-  try {
-    return window.sessionStorage.getItem('egvox_ops_auth') === '1';
-  } catch {
-    return false;
-  }
-}
-
-const getOpsAuthServer = (): boolean => false;
+import { egvoxAuth, egvoxApi } from '@/lib/egvox-api';
 
 const OPS_NAV_ITEMS: {
   id: OpsModuleId;
@@ -94,11 +76,10 @@ export const DataOpsPortal: React.FC<{
   } = useAppState();
   const isId = locale === 'id';
 
-  const isAuthenticated = useSyncExternalStore(
-    subscribeOpsAuth,
-    getOpsAuthClient,
-    getOpsAuthServer
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [operatorEmail, setOperatorEmail] = useState('');
+  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string}>('/sessions')]); const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id)); if (active && role && assurance.aal === 'aal2') { setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole); setOperatorEmail(session.user?.email || ''); setIsAuthenticated(true); } } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
 
   const [activeModule, setActiveModule] = useState<OpsModuleId>(initialModule);
   const [opsRole, setOpsRole] = useState<OpsStaffRole>('data_operations');
@@ -111,32 +92,25 @@ export const DataOpsPortal: React.FC<{
   );
 
   // Login Gate state
-  const [loginEmail, setLoginEmail] = useState('ops@egvox.ai');
-  const [loginPassword, setLoginPassword] = useState('••••••••••••');
-  const [useMfa, setUseMfa] = useState(true);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
-  const handleOpsLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpsLogin = async (e: React.FormEvent) => {
+    e.preventDefault(); setAuthError('');
     try {
-      window.sessionStorage.setItem('egvox_ops_auth', '1');
-    } catch {
-      // ignore storage errors
-    }
-    window.dispatchEvent(new Event('egvox-ops-auth'));
-    showToast(
-      isId
-        ? 'Berhasil masuk ke Data Operations Workspace (ops.egvox.ai).'
-        : 'Signed in to Data Operations Workspace (ops.egvox.ai).'
-    );
+      await egvoxAuth('signin', { email: loginEmail, password: loginPassword });
+      const roles = await egvoxApi<{items:{id:string}[]}>('/me/roles');
+      const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id));
+      if (!role) { await egvoxAuth('signout'); throw new Error('This account has no provisioned Data Operations role.'); }
+      const assurance = await egvoxApi<{aal:string}>('/sessions');
+      if (assurance.aal !== 'aal2') { window.location.assign('/account/security'); return; }
+      setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole);
+      setOperatorEmail(loginEmail); setIsAuthenticated(true);
+    } catch (error) { setAuthError(error instanceof Error ? error.message : 'Authentication failed'); }
   };
 
-  const handleOpsLogout = () => {
-    try {
-      window.sessionStorage.removeItem('egvox_ops_auth');
-    } catch {
-      // ignore
-    }
-    window.dispatchEvent(new Event('egvox-ops-auth'));
+  const handleOpsLogout = async () => {
+    await egvoxAuth('signout'); setIsAuthenticated(false);
     showToast(isId ? 'Sesi Ops Workspace ditutup.' : 'Ops session signed out.');
   };
 
@@ -196,15 +170,6 @@ export const DataOpsPortal: React.FC<{
                 className="w-full rounded-xl border border-[var(--egvox-border-default)] bg-[var(--egvox-bg-canvas)] px-3.5 py-2.5"
               />
             </div>
-            <label className="flex items-center gap-2 text-[var(--egvox-text-secondary)]">
-              <input
-                type="checkbox"
-                checked={useMfa}
-                onChange={(e) => setUseMfa(e.target.checked)}
-                className="h-4 w-4 text-[#027F86]"
-              />
-              <span>{isId ? 'Gunakan MFA Internal' : 'Use Internal MFA'}</span>
-            </label>
             <button
               type="submit"
               className="w-full rounded-xl bg-[#027F86] py-3 text-xs font-bold text-white hover:bg-[#039998] transition-colors"
@@ -213,6 +178,7 @@ export const DataOpsPortal: React.FC<{
             </button>
           </form>
 
+          {authError && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-xs text-red-700">{authError}</p>}
           <div className="rounded-xl bg-[#027F86]/10 border border-[#027F86]/25 p-3 text-[11px] text-[var(--egvox-text-secondary)] flex items-start gap-2">
             <Lock className="h-4 w-4 text-[#027F86] shrink-0 mt-0.5" />
             <span>
@@ -271,29 +237,9 @@ export const DataOpsPortal: React.FC<{
           </button>
         </div>
 
-        {/* Staff Role Switcher */}
-        <div className="p-3 border-b border-white/10">
-          <label className="block text-[10px] uppercase tracking-wider text-white/60 mb-1">
-            {isId ? 'Peran Staf Internal' : 'Internal Staff Role'}
-          </label>
-          <select
-            value={opsRole}
-            onChange={(e) => setOpsRole(e.target.value as OpsStaffRole)}
-            className="w-full rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-xs font-semibold text-white"
-          >
-            <option value="data_operations" className="text-black">
-              Data Operations
-            </option>
-            <option value="qa_reviewer" className="text-black">
-              QA Specialist / QA Ops
-            </option>
-            <option value="project_manager" className="text-black">
-              Project Manager
-            </option>
-            <option value="annotation_ops" className="text-black">
-              Annotation Operations
-            </option>
-          </select>
+        <div className="border-b border-white/10 p-3 text-xs text-white/70">
+          {isId ? 'Peran tervalidasi oleh server' : 'Server-verified role'}
+          <p className="mt-1 font-semibold text-white">{opsRole.replace('_',' ')}</p>
         </div>
 
         {/* Nav List */}
@@ -339,7 +285,7 @@ export const DataOpsPortal: React.FC<{
               className="h-9 w-9 rounded-full object-cover shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate">Rizal Ops</p>
+              <p className="text-xs font-bold truncate">{operatorEmail || (isId ? "Operator terautentikasi" : "Authenticated operator")}</p>
               <p className="text-[10px] text-[#04B8B4] font-medium truncate">
                 {opsRole.replace('_', ' ')}
               </p>
