@@ -124,7 +124,7 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
     return dict(row)
 @router.get("/organizations",response_model=OrganizationListResponse)
 async def orgs(a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    rows=await db.fetch("""select o.id::text,o.kind,o.legal_name,o.verification_status,m.role_id,m.status membership_status
+    rows=await db.fetch("""select o.id::text,o.kind,o.legal_name,o.verification_status,o.created_at,m.role_id,m.status membership_status
         from public.organizations o left join public.organization_members m
           on m.organization_id=o.id and m.user_id=$1::uuid and m.status='active'
         where m.id is not null or public.has_permission('organization.read',o.id) or exists(select 1 from public.resource_assignments ra where ra.user_id=$1::uuid and ra.organization_id=o.id and ra.status='active')
