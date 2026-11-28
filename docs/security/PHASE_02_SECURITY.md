@@ -6,7 +6,9 @@
 - RBAC: platform roles cannot be self-assigned; role + membership + organization scope enforced in PostgreSQL; platform authorization requires AAL2.
 - Invitations: one-time random token, digest-only persistence, matching verified email, expiry and atomic accept/reject/revoke/resend transitions.
 - Verification: reviewer-only decision RPC, private Storage bucket, server-side MIME and size checks, RLS-protected metadata and short-lived signed download URL.
-- Session: refresh rotation, global sign-out and invalid/expired token rejection.\n- Privileged re-authentication: AAL2 plus a TOTP `amr` timestamp within 10 minutes for platform-authorized API operations and verification decisions.\n- MFA recovery: enroll a second TOTP factor on a separate device as a backup. Native recovery-code support is not assumed or enabled by this implementation; factor loss requires the documented account recovery process and privileged manual identity verification.
+- Session: refresh rotation, global sign-out and invalid/expired token rejection.
+- Privileged re-authentication: AAL2 plus a TOTP `amr` timestamp within 10 minutes for platform-authorized API operations and verification decisions.
+- MFA recovery: enroll a second TOTP factor on a separate device as a backup. Native recovery-code support is not assumed or enabled by this implementation; factor loss requires the documented account recovery process and privileged manual identity verification.
 - Service-role key is backend-only.
 
 External configuration still required before operational use: Supabase Auth email templates must redirect with `token_hash` and `type` to `/verify-email`; confirm provider, SMTP, redirect allowlist, password policy, MFA/TOTP and recovery-code settings; configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `EGVOX_API_URL`, and backend secrets. Invitation delivery currently returns a one-time shareable link to the organization administrator; no email-delivery provider is configured.
