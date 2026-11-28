@@ -275,11 +275,11 @@ revoke execute on function public.has_permission(text,uuid),public.is_active_org
 grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
 grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
-do $ begin
+do $$ begin
  if to_regprocedure('public.rls_auto_enable()') is not null then
   execute 'revoke execute on function public.rls_auto_enable() from public, anon, authenticated';
  end if;
-end $;
+end $$;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('verification-private','verification-private',false,10485760,array['application/pdf','image/jpeg','image/png']) on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 -- No authenticated Storage policies: all private document upload/download goes through FastAPI using its backend-only service role key.
