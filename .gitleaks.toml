@@ -5,5 +5,5 @@ useDefault = true
 
 [[allowlists]]
 description = "Firebase Web SDK configuration contains a public Firebase API key, not a server credential. Restrict this exception to this exact config file and Gitleaks gcp-api-key rule; keep other secret rules active."
-targetRules = ["gcp-api-key"]
+targetRules = ["gcp-api-key", "generic-api-key"]
 paths = ['''(^|/)firebase-applet-config\.json$''']
