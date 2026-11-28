@@ -585,8 +585,12 @@ create policy verification_submit on public.verification_cases for insert to aut
 -- No direct UPDATE policy: verification decisions use the MFA-enforcing RPC.
 create policy verification_docs_read on public.verification_documents for select to authenticated
   using (uploaded_by=auth.uid()
-    or exists(select 1 from public.verification_cases c where c.id=case_id
-      and public.has_permission('verification.review',null)));
+    or exists(select 1 from public.verification_cases c where c.id=case_id and (
+      public.has_permission('verification.review',null)
+      or (c.subject_type='organization'
+        and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id)
+        and public.has_permission('verification.read',c.subject_id))
+    )));
 create policy verification_docs_create on public.verification_documents for insert to authenticated
   with check (uploaded_by=auth.uid()
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
