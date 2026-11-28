@@ -154,7 +154,7 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
     if file.content_type not in {"application/pdf","image/jpeg","image/png"}: raise HTTPException(415,"Only PDF, JPEG and PNG are accepted")
     data=await file.read(settings.verification_max_upload_bytes+1)
     if len(data)>settings.verification_max_upload_bytes: raise HTTPException(413,"Document too large")
-    signatures={"application/pdf":data.startswith(b"%PDF-"),"image/jpeg":data.startswith(b"\\xff\\xd8\\xff"),"image/png":data.startswith(b"\\x89PNG\\r\\n\\x1a\\n")}
+    signatures={"application/pdf":data.startswith(b"%PDF-"),"image/jpeg":data.startswith(bytes.fromhex("ffd8ff")),"image/png":data.startswith(bytes.fromhex("89504e470d0a1a0a"))}
     if not signatures.get(file.content_type,False): raise HTTPException(415,"File signature does not match its declared MIME type")
     case=await db.fetchrow("select id from public.verification_cases where id=$1::uuid and submitted_by=$2::uuid and status in ('draft','submitted')",case_id,a.user_id)
     if not case: raise HTTPException(404,"Verification case not found")
