@@ -1,7 +1,7 @@
 import hashlib,secrets,re,json
 import asyncpg
 from datetime import datetime,timedelta,timezone
-from uuid import uuid4
+from uuid import UUID,uuid4
 from fastapi import APIRouter,Depends,HTTPException,File,UploadFile
 from pydantic import BaseModel,Field,EmailStr,AnyUrl
 import httpx
@@ -96,7 +96,7 @@ class TokenInput(BaseModel): token:str=Field(min_length=32,max_length=128)
 class MemberStatus(BaseModel): status:str=Field(pattern="^(active|suspended|removed)$")
 class VerificationInput(BaseModel):
     subject_type:str=Field(pattern="^(freelancer|organization)$")
-    subject_id:str|None=None
+    subject_id:UUID|None=None
     case_type:str=Field(min_length=3,max_length=80)
     notes:str|None=None
 class DecisionInput(BaseModel):
@@ -131,7 +131,7 @@ async def orgs(a:Actor=Depends(require_actor),db=Depends(db_connection)):
         order by o.created_at desc""",a.user_id)
     return {"items":[dict(r) for r in rows]}
 @router.post("/organizations/{oid}/context")
-async def switch_org(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def switch_org(oid:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     ok=await db.fetchval("""select exists(select 1 from public.organization_members where organization_id=$1::uuid and user_id=$2::uuid and status='active')
         or public.has_permission('organization.read',$1::uuid)
         or exists(select 1 from public.resource_assignments ra where ra.user_id=$2::uuid and ra.organization_id=$1::uuid and ra.status='active')""",oid,a.user_id)
@@ -139,21 +139,21 @@ async def switch_org(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connec
     await db.execute("""insert into public.user_preferences(user_id,active_organization_id) values($1::uuid,$2::uuid) on conflict(user_id) do update set active_organization_id=$2::uuid,updated_at=now()""",a.user_id,oid)
     return {"active_organization_id":oid}
 @router.get("/organizations/{oid}/members",response_model=MemberListResponse)
-async def members(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    await require_permission(db,a,"organization.members.read",oid)
+async def members(oid:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    await require_permission(db,a,"organization.members.read",str(oid))
     rows=await db.fetch("""select m.id::text,m.user_id::text,p.display_name,m.role_id,m.status,m.created_at from public.organization_members m join public.profiles p on p.id=m.user_id where m.organization_id=$1::uuid order by m.created_at""",oid)
     return {"items":[dict(r) for r in rows]}
 @router.get("/organizations/{oid}/invitations",response_model=InvitationListResponse)
-async def list_invitations(oid: str, a: Actor = Depends(require_actor), db=Depends(db_connection)):
-    await require_permission(db, a, "organization.members.read", oid)
+async def list_invitations(oid: UUID, a: Actor = Depends(require_actor), db=Depends(db_connection)):
+    await require_permission(db, a, "organization.members.read", str(oid))
     rows = await db.fetch("""select id::text,email,role_id,case when status='pending' and expires_at<=now() then 'expired' else status end status,expires_at,created_at
         from public.organization_invitations where organization_id=$1::uuid
         order by created_at desc""", oid)
     return {"items": [dict(row) for row in rows]}
 
 @router.post("/organizations/{oid}/invitations",status_code=201)
-async def invite(oid: str, p: InviteInput, a: Actor = Depends(require_actor), db=Depends(db_connection)):
-    await require_permission(db, a, "organization.members.invite", oid)
+async def invite(oid: UUID, p: InviteInput, a: Actor = Depends(require_actor), db=Depends(db_connection)):
+    await require_permission(db, a, "organization.members.invite", str(oid))
     if p.role_id not in {"vendor_admin", "vendor_project_manager", "enterprise_member"}:
         raise HTTPException(422, "Invitation role is not assignable")
     raw = secrets.token_urlsafe(40)
@@ -165,10 +165,8 @@ async def invite(oid: str, p: InviteInput, a: Actor = Depends(require_actor), db
             returning id::text,email,role_id,status,expires_at""",
             oid, str(p.email).lower(), p.role_id, digest,
             datetime.now(timezone.utc) + timedelta(days=p.expires_in_days), a.user_id)
-    except Exception as exc:
-        if "organization_invitations_pending_email_key" in str(exc):
-            raise HTTPException(409, "A pending invitation already exists for this email") from exc
-        raise
+    except asyncpg.UniqueViolationError as exc:
+        raise HTTPException(409, "A pending invitation already exists for this email") from exc
     await db.execute("select public.write_audit_event('organization.invitation_created','invitation',$1::uuid,'{}'::jsonb)",row["id"])
     return {"invitation": dict(row), "token": raw}
 
@@ -184,7 +182,7 @@ async def accept(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
         raise
     return {"status":"accepted","organization_id":str(org_id)}
 @router.post("/organizations/{oid}/members",status_code=201)
-async def accept_org_member(oid:str,p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def accept_org_member(oid:UUID,p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
     try:
         org_id=await db.fetchval("select public.accept_org_invitation($1)",digest)
@@ -192,7 +190,7 @@ async def accept_org_member(oid:str,p:TokenInput,a:Actor=Depends(require_actor),
         if exc.sqlstate in {"42501","22023"}: raise HTTPException(403,"Invitation is invalid, expired, or not addressed to this account") from exc
         if exc.sqlstate=="23505": raise HTTPException(409,"This account is already a member of the organization") from exc
         raise
-    if str(org_id)!=oid: raise HTTPException(403,"Invitation belongs to another organization")
+    if str(org_id)!=str(oid): raise HTTPException(403,"Invitation belongs to another organization")
     return {"status":"accepted","organization_id":str(org_id)}
 
 @router.post("/organizations/invitations/reject")
@@ -205,20 +203,20 @@ async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
         raise
     return {"status":"rejected"}
 @router.post("/organizations/{oid}/invitations/{iid}/revoke")
-async def revoke(oid:str,iid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def revoke(oid:UUID,iid:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'revoke',null)",oid,iid)
     if not ok: raise HTTPException(404,"Pending invitation not found")
     return {"status":"revoked"}
 @router.post("/organizations/{oid}/invitations/{iid}/resend")
-async def resend(oid:str,iid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def resend(oid:UUID,iid:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     raw=secrets.token_urlsafe(40); digest=hashlib.sha256(raw.encode()).hexdigest()
     ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'resend',$3)",oid,iid,digest)
     if not ok: raise HTTPException(404,"Invitation cannot be resent")
     row=await db.fetchrow("select id::text,email,role_id,expires_at from public.organization_invitations where id=$1::uuid",iid)
     return {"invitation":dict(row),"token":raw}
 @router.patch("/organizations/{oid}/members/{mid}")
-async def member_status(oid:str,mid:str,p:MemberStatus,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    await require_permission(db,a,"organization.members.manage",oid)
+async def member_status(oid:UUID,mid:UUID,p:MemberStatus,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    await require_permission(db,a,"organization.members.manage",str(oid))
     result=await db.execute("update public.organization_members set status=$3,updated_at=now() where id=$1::uuid and organization_id=$2::uuid and role_id not in ('vendor_owner','enterprise_owner')",mid,oid,p.status)
     if result.endswith(" 0"): raise HTTPException(404,"Member not found or owner cannot be changed")
     await db.execute("""select public.write_audit_event('organization.membership_status_updated','organization_member',$1::uuid,
@@ -244,7 +242,7 @@ async def create_verification_draft(p:VerificationInput,a:Actor=Depends(require_
     return dict(row)
 
 @router.post("/verification/{case_id}/submit")
-async def submit_verification_draft(case_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def submit_verification_draft(case_id:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     try:
         row=await db.fetchrow("select * from public.submit_verification_case($1::uuid)",case_id)
     except asyncpg.PostgresError as exc:
@@ -258,7 +256,7 @@ async def verification_status(a:Actor=Depends(require_actor),db=Depends(db_conne
     rows=await db.fetch("""select id::text,subject_type,subject_id::text,case_type,status,review_reason,created_at,submitted_at,reviewed_at from public.verification_cases where submitted_by=$1::uuid or subject_id=$1::uuid or (subject_type='organization' and exists(select 1 from public.organization_members m join public.user_preferences up on up.user_id=m.user_id and up.active_organization_id=m.organization_id where m.organization_id=verification_cases.subject_id and m.user_id=$1::uuid and m.status='active')) order by created_at desc""",a.user_id)
     return {"items":[dict(r) for r in rows]}
 @router.post("/verification/{case_id}/documents",status_code=201)
-async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def upload_document(case_id:UUID,file:UploadFile=File(...),a:Actor=Depends(require_actor),db=Depends(db_connection)):
     key=settings.supabase_service_role_key
     if not key: raise HTTPException(503,"Private storage is not configured")
     if file.content_type not in {"application/pdf","image/jpeg","image/png"}: raise HTTPException(415,"Only PDF, JPEG and PNG are accepted")
@@ -282,13 +280,13 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
         raise
     return dict(row)
 @router.get("/verification/{case_id}/documents",response_model=VerificationDocumentListResponse)
-async def list_verification_documents(case_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def list_verification_documents(case_id:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     rows=await db.fetch("""select d.id::text,d.original_filename,d.mime_type,d.size_bytes,d.created_at
         from public.verification_documents d where d.case_id=$1::uuid order by d.created_at desc""",case_id)
     return {"items":[dict(row) for row in rows]}
 
 @router.get("/verification/{case_id}/documents/{document_id}/download")
-async def download_document(case_id:str,document_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def download_document(case_id:UUID,document_id:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     key=settings.supabase_service_role_key
     if not key: raise HTTPException(503,"Private storage is not configured")
     row=await db.fetchrow("""select d.storage_path from public.verification_documents d
