@@ -1,4 +1,5 @@
 import json
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -72,12 +73,27 @@ def require_aal2(actor: Actor) -> None:
     if actor.aal != "aal2":
         raise HTTPException(403, "Privileged platform sessions require MFA (AAL2)")
 
+def require_recent_mfa(actor: Actor, max_age_seconds: int = 600) -> None:
+    require_aal2(actor)
+    methods = actor.claims.get("amr", [])
+    now = int(time.time())
+    for method in methods if isinstance(methods, list) else []:
+        if not isinstance(method, dict) or method.get("method") != "totp":
+            continue
+        try:
+            timestamp = int(method.get("timestamp", 0))
+        except (TypeError, ValueError):
+            continue
+        if now - max_age_seconds <= timestamp <= now + 30:
+            return
+    raise HTTPException(403, "Recent MFA re-authentication is required")
+
 async def require_permission(conn, actor: Actor, permission: str, org_id: str | None = None):
     privileged = await conn.fetchval("""select exists(select 1 from public.user_role_assignments u
         join public.roles r on r.id=u.role_id where u.user_id=$1::uuid and u.status='active'
         and r.scope='platform')""", actor.user_id)
     if privileged:
-        require_aal2(actor)
+        require_recent_mfa(actor)
     allowed = await conn.fetchval("select public.has_permission($1,$2::uuid)", permission, org_id)
     if not allowed:
         raise HTTPException(403, "Insufficient permission")
