@@ -88,7 +88,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   switch (action) {
     case 'signup':
       if (!body.email || !body.password || !body.full_name) return failure(422, 'Name, email and password are required');
-      result = await supabase('signup', 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name } });
+      result = await supabase('signup?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email'), 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name } });
       break;
     case 'signin':
       if (!body.email || !body.password) return failure(422, 'Email and password are required');
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       { const response = NextResponse.json({ ok: true }); clearSession(response); return response; }
     case 'recover':
       if (!body.email) return failure(422, 'Email is required');
-      result = await supabase('recover', 'POST', { email: body.email, redirect_to: `${request.nextUrl.origin}/verify-email` });
+      result = await supabase('recover?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email'), 'POST', { email: body.email });
       break;
     case 'verify':
       if (!body.token_hash || !['signup', 'email', 'recovery', 'invite', 'magiclink'].includes(body.type)) return failure(422, 'Verification token and valid type are required');
