@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
+import asyncpg
 from uuid import uuid4
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
