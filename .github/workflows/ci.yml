@@ -98,3 +98,31 @@ jobs:
           fi
 
           exit "$scan_status"
+
+  backend-identity:
+    name: FastAPI identity tests and migration static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend dependencies
+        working-directory: backend
+        run: python -m pip install -e ".[dev]"
+      - name: Python static checks
+        working-directory: backend
+        run: |
+          ruff check shared app domains tests --select F
+          python -m compileall -q app shared domains tests
+      - name: Isolated identity and invitation tests
+        working-directory: backend
+        run: pytest -q
+      - name: Static migration validation
+        working-directory: backend
+        run: python scripts/validate_migration.py
