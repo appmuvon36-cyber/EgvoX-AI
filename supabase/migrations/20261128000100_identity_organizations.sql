@@ -102,7 +102,7 @@ insert into public.role_permissions values
 ('platform_sales_partnership','organization.read'),('platform_sales_partnership','verification.read'),('platform_project_manager','verification.read'),('data_operations','verification.read'),('qa_reviewer','verification.read'),('qa_reviewer','verification.review'),('trust_safety','verification.read'),('trust_safety','verification.review'),
 ('compliance_officer','verification.read'),('compliance_officer','verification.review'),('finance_operator','platform.audit.read');
 create or replace function public.has_permission(p_permission text,p_organization_id uuid default null)
-returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $$
+returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $$$
 select exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and (
  exists(select 1 from public.user_role_assignments u join public.role_permissions rp on rp.role_id=u.role_id
  where u.user_id=auth.uid() and u.organization_id is null and u.status='active' and rp.permission_id=p_permission)
@@ -111,16 +111,16 @@ select exists(select 1 from public.profiles p where p.id=auth.uid() and p.status
  and m.organization_id=p_organization_id and m.status='active' and rp.permission_id=p_permission)));
 $$;
 create or replace function public.is_active_org_member(p_organization_id uuid)
-returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $$
+returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $$$
 select exists(select 1 from public.organization_members m join public.profiles p on p.id=m.user_id
 where m.organization_id=p_organization_id and m.user_id=auth.uid() and m.status='active' and p.status='active');
 $$;
 create or replace function public.is_org_creator(p_organization_id uuid)
-returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $
+returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $$
  select exists(select 1 from public.organizations where id=p_organization_id and created_by=auth.uid());
 $;
 create or replace function public.accept_org_invitation(p_token_hash text)
-returns uuid language plpgsql security definer set search_path=pg_catalog,public,auth as $
+returns uuid language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 declare v_inv public.organization_invitations%rowtype; v_uid uuid:=auth.uid(); v_email text:=lower(coalesce(auth.jwt()->>'email',''));
 begin
  if v_uid is null or v_email='' then raise exception 'authentication required' using errcode='28000'; end if;
@@ -139,9 +139,9 @@ begin
  insert into public.audit_events(actor_user_id,action,target_type,target_id)
  values(v_uid,'organization.invitation_accepted','invitation',v_inv.id);
  return v_inv.organization_id;
-end; $;
+end; $$;
 create or replace function public.mutate_org_invitation(p_org_id uuid,p_invitation_id uuid,p_action text,p_new_hash text default null)
-returns boolean language plpgsql security definer set search_path=pg_catalog,public,auth as $
+returns boolean language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 begin
  if not public.has_permission('organization.members.invite',p_org_id) then raise exception 'permission denied' using errcode='42501'; end if;
  if p_action='revoke' then
@@ -154,9 +154,9 @@ begin
  else raise exception 'invalid invitation action' using errcode='22023';
  end if;
  return found;
-end; $;
+end; $$;
 create or replace function public.review_verification_case(p_case_id uuid,p_status text,p_reason text)
-returns table(id uuid,status text,review_reason text,reviewed_at timestamptz) language plpgsql security definer set search_path=pg_catalog,public,auth as $
+returns table(id uuid,status text,review_reason text,reviewed_at timestamptz) language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 declare v_case public.verification_cases%rowtype;
 begin
  if auth.jwt()->>'aal' <> 'aal2' then raise exception 'MFA AAL2 required' using errcode='42501'; end if;
@@ -173,9 +173,9 @@ begin
  insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
  values(auth.uid(),'verification.decision','verification_case',v_case.id,jsonb_build_object('status',p_status,'reason',p_reason));
  return query select v_case.id,v_case.status,v_case.review_reason,v_case.reviewed_at;
-end; $;
+end; $$;
 create or replace function public.reject_org_invitation(p_token_hash text)
-returns boolean language plpgsql security definer set search_path=pg_catalog,public,auth as $
+returns boolean language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 declare v_inv public.organization_invitations%rowtype; v_uid uuid:=auth.uid(); v_email text:=lower(coalesce(auth.jwt()->>'email',''));
 begin
  select * into v_inv from public.organization_invitations where token_hash=p_token_hash for update;
@@ -185,9 +185,9 @@ begin
  insert into public.audit_events(actor_user_id,action,target_type,target_id)
  values(v_uid,'organization.invitation_rejected','invitation',v_inv.id);
  return true;
-end; $;
+end; $$;
 create or replace function public.provision_platform_role(p_user_id uuid,p_role_id text,p_reason text)
-returns void language plpgsql security definer set search_path=pg_catalog,public,auth as $
+returns void language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 begin
  if coalesce(auth.role(),'')<>'service_role' then raise exception 'service role provisioning required' using errcode='42501'; end if;
  if not exists(select 1 from public.roles where id=p_role_id and scope='platform') then raise exception 'invalid platform role' using errcode='22023'; end if;
@@ -196,9 +196,9 @@ begin
  on conflict(user_id,role_id,organization_id) do update set status='active';
  insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
  values(null,'platform.role_provisioned','profile',p_user_id,jsonb_build_object('role_id',p_role_id,'reason',p_reason));
-end; $;
+end; $$;
 create or replace function public.create_profile_for_auth_user()
-returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$$
 begin
  insert into public.profiles(id,display_name) values(new.id,nullif(new.raw_user_meta_data->>'full_name','')) on conflict(id) do nothing;
  insert into public.user_preferences(user_id) values(new.id) on conflict(user_id) do nothing;
@@ -259,6 +259,7 @@ grant select,insert on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
 grant usage,select on sequence public.audit_events_id_seq to authenticated;
 grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
+revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
 grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
 revoke execute on function public.rls_auto_enable() from public,anon,authenticated;
