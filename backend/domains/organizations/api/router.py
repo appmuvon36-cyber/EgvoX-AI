@@ -52,7 +52,7 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
             raise HTTPException(409,"This registration identifier is already registered") from exc
         raise
     await db.execute("insert into public.organization_members(organization_id,user_id,role_id,status,created_by) values($1::uuid,$2::uuid,$3,'active',$2::uuid)",oid,a.user_id,owner)
-    await db.execute("insert into public.audit_events(actor_user_id,action,target_type,target_id) values($1::uuid,'organization.created','organization',$2::uuid)",a.user_id,oid)
+    await db.execute("select public.write_audit_event('organization.created','organization',$1::uuid,'{}'::jsonb)",oid)
     return dict(row)
 @router.get("/organizations")
 async def orgs(a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -95,8 +95,7 @@ async def invite(oid: str, p: InviteInput, a: Actor = Depends(require_actor), db
         if "organization_invitations_pending_email_key" in str(exc):
             raise HTTPException(409, "A pending invitation already exists for this email") from exc
         raise
-    await db.execute("""insert into public.audit_events(actor_user_id,action,target_type,target_id)
-        values($1::uuid,'organization.invitation_created','invitation',$2::uuid)""", a.user_id, row["id"])
+    await db.execute("select public.write_audit_event('organization.invitation_created','invitation',$1::uuid,'{}'::jsonb)",row["id"])
     return {"invitation": dict(row), "token": raw}
 
 @router.post("/organizations/invitations/accept")
@@ -130,9 +129,8 @@ async def member_status(oid:str,mid:str,p:MemberStatus,a:Actor=Depends(require_a
     await require_permission(db,a,"organization.members.manage",oid)
     result=await db.execute("update public.organization_members set status=$3,updated_at=now() where id=$1::uuid and organization_id=$2::uuid and role_id not in ('vendor_owner','enterprise_owner')",mid,oid,p.status)
     if result.endswith(" 0"): raise HTTPException(404,"Member not found or owner cannot be changed")
-    await db.execute("""insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
-        values($1::uuid,'organization.membership_status_updated','organization_member',$2::uuid,
-        jsonb_build_object('organization_id',$3::uuid,'status',$4))""",a.user_id,mid,oid,p.status)
+    await db.execute("""select public.write_audit_event('organization.membership_status_updated','organization_member',$1::uuid,
+        jsonb_build_object('organization_id',$2::uuid,'status',$3))""",mid,oid,p.status)
     return {"status":p.status}
 @router.post("/verification/submissions",status_code=201)
 async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -141,7 +139,7 @@ async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor)
     if p.subject_type=="freelancer" and p.subject_id and p.subject_id!=a.user_id: raise HTTPException(403,"Cannot submit for another user")
     if p.subject_type=="organization": await require_permission(db,a,"verification.submit",sid)
     row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by) values($1,$2::uuid,$3,'submitted',$4,$5::uuid) returning id::text,status,created_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
-    await db.execute("insert into public.audit_events(actor_user_id,action,target_type,target_id) values($1::uuid,'verification.submitted','verification_case',$2::uuid)",a.user_id,row["id"])
+    await db.execute("select public.write_audit_event('verification.submitted','verification_case',$1::uuid,'{}'::jsonb)",row["id"])
     return dict(row)
 @router.get("/verification/status")
 async def verification_status(a:Actor=Depends(require_actor),db=Depends(db_connection)):
