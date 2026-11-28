@@ -43,6 +43,9 @@ def test_resource_and_project_assignment_authorization_is_scoped():
     assert "create or replace function public.has_resource_permission" in sql
     assert "create or replace function public.provision_resource_assignment" in sql
     assert "public.has_resource_permission(text,text,uuid,uuid)" in sql
+    assert "('freelancer_contributor','resource.contribute')" in sql
+    assert "('freelancer_annotator','resource.annotate')" in sql
+    assert "('freelancer_qa_specialist','resource.review')" in sql
     assert "ra.organization_id=active_organization_id" in sql
     assert "grant update(status,review_reason,reviewed_by,reviewed_at)" not in sql
     assert "create policy verification_review" not in sql
