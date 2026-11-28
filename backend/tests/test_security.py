@@ -35,3 +35,11 @@ def test_recent_mfa_requires_fresh_totp_claim(monkeypatch):
     stale = Actor(user_id, "test@example.invalid", "aal2", {"amr": [{"method": "totp", "timestamp": now - 601}]})
     with pytest.raises(HTTPException):
         require_recent_mfa(stale)
+
+def test_recent_mfa_rejects_missing_totp_timestamp(monkeypatch):
+    now = 1_800_000_000
+    monkeypatch.setattr("shared.security.time.time", lambda: now)
+    actor = Actor("00000000-0000-0000-0000-000000000001", "test@example.invalid", "aal2",
+                  {"amr": [{"method": "totp"}]})
+    with pytest.raises(HTTPException):
+        require_recent_mfa(actor)
