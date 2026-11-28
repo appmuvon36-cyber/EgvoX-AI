@@ -23,7 +23,7 @@ class FreelancerOnboarding(BaseModel):
 async def me(actor: Actor = Depends(require_actor), db=Depends(db_connection)):
     row = await db.fetchrow("""select p.id::text,p.display_name,p.phone,p.country_code,p.city,p.bio,
         p.status,p.onboarding_completed_at,coalesce(u.locale,'id') locale,
-        coalesce(u.timezone,'Asia/Jakarta') timezone
+        coalesce(u.timezone,'Asia/Jakarta') timezone, u.active_organization_id::text active_organization_id
         from public.profiles p left join public.user_preferences u on u.user_id=p.id
         where p.id=$1::uuid""", actor.user_id)
     if not row:
