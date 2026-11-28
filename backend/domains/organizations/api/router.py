@@ -64,7 +64,7 @@ async def invite(oid:str,p:InviteInput,a:Actor=Depends(require_actor),db=Depends
     await require_permission(db,a,"organization.members.invite",oid)
     if p.role_id not in {"vendor_admin","vendor_project_manager","enterprise_member"}: raise HTTPException(422,"Invitation role is not assignable")
     raw=secrets.token_urlsafe(40); digest=hashlib.sha256(raw.encode()).hexdigest()
-    row=await db.fetchrow("""insert into public.organization_invitations(organization_id,email,role_id,token_hash,status,expires_at,invited_by) values($1::uuid,$2,$3,$4,'pending',$5,$6::uuid) returning id::text,email,role_id,status,expires_at""",oid,str(p.email).lower(),p.role_id,digest,datetime.now(timezone.utc)+timedelta(days=p.expires_in_days),a.user_id)
+    try:\n        row=await db.fetchrow("""insert into public.organization_invitations(organization_id,email,role_id,token_hash,status,expires_at,invited_by) values($1::uuid,$2,$3,$4,'pending',$5,$6::uuid) returning id::text,email,role_id,status,expires_at""",oid,str(p.email).lower(),p.role_id,digest,datetime.now(timezone.utc)+timedelta(days=p.expires_in_days),a.user_id)
     await db.execute("insert into public.audit_events(actor_user_id,action,target_type,target_id) values($1::uuid,'organization.invitation_created','invitation',$2::uuid)",a.user_id,row["id"])
     return {"invitation":dict(row),"token":raw}
 @router.post("/organizations/invitations/accept")
@@ -78,8 +78,8 @@ async def accept(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
 @router.post("/organizations/invitations/reject")
 async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
-    result=await db.execute("update public.organization_invitations set status='rejected',responded_at=now() where token_hash=$1 and lower(email)=$2 and status='pending' and expires_at>now()",digest,a.email)
-    if result.endswith(" 0"): raise HTTPException(404,"Invitation not found")
+    try: await db.fetchval("select public.reject_org_invitation($1)",digest)
+    except Exception as exc: raise HTTPException(403,"Invitation is invalid or addressed to another account") from exc
     return {"status":"rejected"}
 @router.post("/organizations/{oid}/invitations/{iid}/revoke")
 async def revoke(oid:str,iid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -131,7 +131,7 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
 @router.patch("/verification/{case_id}/decision")
 async def decision(case_id:str,p:DecisionInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     try:
-        row=await db.fetchval("select public.review_verification_case($1::uuid,$2,$3)",case_id,p.status,p.reason)
+        row=await db.fetchrow("select * from public.review_verification_case($1::uuid,$2,$3)",case_id,p.status,p.reason)
     except Exception as exc:
         raise HTTPException(403,"AAL2 privileged reviewer permission is required") from exc
     return dict(row)
