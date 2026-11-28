@@ -7,8 +7,8 @@ Mandatory rules for all contributors, coding agents and automation. Read before 
 - Existing code is evidence of current behavior, not permission to contradict the PRD.
 - No phase, feature, integration, migration or release may be called complete without evidence.
 - Implement strictly within the currently authorized phase and its explicit deliverables. Do not start, partially implement, scaffold, migrate, or activate features/domains assigned to later phases or not listed in the current phase.
-- If a dependency outside the current phase blocks delivery, document the blocker and request a Product Owner decision. Do not expand scope to work around it.
-- No AI features in current scope: no AI annotation, video intelligence, copilots, model routing, AI agents or AI automation unless the Product Owner formally changes the PRD.
+- If a dependency outside the current phase blocks delivery, document the blocker, its impact and the required dependency resolution. Do not expand scope to work around it.
+- No AI features in current scope: no AI annotation, video intelligence, copilots, model routing, AI agents or AI automation unless the canonical PRD is formally revised and the revision is recorded.
 
 ## 2. Product invariants
 - EgvoX is an egocentric-video collection, freelancer recruitment, annotation, QA and managed dataset operations platform.
@@ -24,9 +24,9 @@ Mandatory rules for all contributors, coding agents and automation. Read before 
 
 ## 3. Existing Web PWA preservation and Expo parity
 - Preserve the existing Web PWA UI/UX: routes, page composition, layout, component hierarchy, visual language, design tokens, typography, spacing, colors, assets, responsive behavior and interaction patterns.
-- Do not redesign, reinterpret, simplify, replace or regenerate existing screens without explicit Product Owner approval.
+- Do not redesign, reinterpret, simplify, replace or regenerate existing screens unless the active PRD/phase scope explicitly includes and documents that change.
 - React Native Expo must adopt the existing Web PWA styling and layout in full. Treat the existing Web PWA as the visual and interaction source of truth; port/adapt its existing components, design tokens, spacing, typography, colors, assets, navigation patterns and screen composition to native conventions while retaining visual parity.
-- Expo implementation is an adoption of the existing Web PWA experience, not a new design direction. Any unavoidable platform-specific deviation must be documented and approved by the Product Owner before implementation.
+- Expo implementation is an adoption of the existing Web PWA experience, not a new design direction. Any unavoidable platform-specific deviation must be documented with its rationale and impact in the phase evidence before implementation.
 - Keep Web and Expo on the same FastAPI business API contracts and business rules.
 
 ## 4. Real-data-only production rule
@@ -73,30 +73,28 @@ Mandatory rules for all contributors, coding agents and automation. Read before 
 - Enforce independent QA, conflict checks, objective acceptance criteria, revision limits, partial acceptance and dispute workflow.
 - Missing/inconsistent rights evidence blocks commercial delivery.
 
-## 9. Testing, validation and acceptance policy
-- Automated engineering checks are required and are not the same as real-world product testing. Run only the automated checks appropriate to the active phase: unit tests, static analysis, lint, type checks, build, migration validation and isolated integration/contract/security tests where applicable.
+## 9. Testing and validation policy
+- Automated engineering checks are required. Run only the automated checks appropriate to the active phase: unit tests, static analysis, lint, type checks, build, migration validation and isolated integration/contract/security tests where applicable.
 - No real-user testing, live transaction testing, production-data experiments, public pilot, field trial or other real-world testing is permitted under this delivery process.
 - Do not create, deploy or use a staging environment/staging deployment. Do not add staging services or staging infrastructure. Use isolated local/CI test fixtures and disposable test resources only where the active phase requires them; never connect tests to live customer/payment/media data.
-- A passing build or automated test is technical evidence only; it is not Product Owner acceptance.
-- Product Owner acceptance is a mandatory, explicit gate after the phase deliverables and evidence are presented. Do not mark a phase accepted, release it, or proceed on the assumption of acceptance without an explicit Product Owner decision.
 - Record checks actually run, commands/results, date, commit SHA and unverified gaps. Never claim a check passed if it was not run.
-- Do not perform manual production smoke tests or real transactions as a substitute for automated checks or Product Owner acceptance.
+- Do not perform manual production smoke tests or real transactions. Production validation is not part of phase completion; release authorization remains a separate gate.
 
 ## 10. Git workflow — main only
 - All implementation, fixes, documentation, migrations and phase work must be committed directly to the repository's `main` branch.
 - Do not create or use feature, phase, development, preview or staging branches. Do not open implementation PRs as a substitute for committing to `main`.
 - Before each write, fetch the latest `main` file/commit state and avoid overwriting concurrent changes. Keep commits small, focused and phase-scoped.
 - Never force-push, rewrite shared history, or merge an unapproved branch into `main`.
-- Do not deploy automatically from a commit. Deployment requires the applicable Product Owner release authorization and separate release gate.
+- Do not deploy automatically from a commit. Deployment requires separate explicit release authorization and the applicable release gate.
 - If repository permissions or branch protection prevent direct `main` commits, stop and report the blocker; do not silently create another branch.
 
 ## 11. Phase execution and completion
 - Follow the phase sequence and deliverables in `MASTER_PRD.md` and the approved implementation plan.
-- At the start of a phase, list only its in-scope requirements, dependencies, files/domains to touch and acceptance evidence.
-- Do not implement features/domains outside that phase, even if they appear easy, related or useful. Do not pull later-phase work forward without explicit PRD/phase revision approved by the Product Owner.
+- At the start of a phase, list only its in-scope requirements, dependencies, files/domains to touch and required engineering evidence.
+- Do not implement features/domains outside that phase, even if they appear easy, related or useful. Do not pull later-phase work forward without a documented PRD/phase revision.
 - Complete and document the current phase before starting the next phase.
-- Phase completion requires: in-scope requirements mapped to implementation; required migration/API/client work complete; relevant automated checks recorded; security and failure handling addressed where in scope; documentation updated; known gaps disclosed; and explicit Product Owner acceptance.
-- A successful build, UI screenshot, generated code or migration command alone does not establish phase completion or Product Owner acceptance.
+- Phase completion requires: in-scope requirements mapped to implementation; required migration/API/client work complete; relevant automated checks recorded; security and failure handling addressed where in scope; documentation updated; and known gaps disclosed.
+- A successful build, UI screenshot, generated code or migration command alone does not establish phase completion; evidence must cover the applicable phase deliverables and exit criteria.
 
 ## 12. Secrets and operational discipline
 - Commit only safe `.env.example` placeholders. Never commit keys, passwords, database URLs, service-role credentials, webhook secrets or certificates.
