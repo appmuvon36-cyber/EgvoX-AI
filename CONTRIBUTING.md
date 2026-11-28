@@ -10,8 +10,8 @@ This guide is subordinate to `AGENTS.md` and `MASTER_PRD.md`. Read both before m
 5. Production business data must be real and served through Python FastAPI from the existing Supabase PostgreSQL project. Never use mock business data in production.
 6. Run only phase-appropriate automated checks in isolated CI/local resources. No real-world testing and no staging environment/deployment.
 7. Record files changed, commit SHA, checks and results, security/data impact, blockers and known gaps.
-8. Present the phase evidence to the Product Owner. Explicit Product Owner Acceptance is required before marking the phase accepted or proceeding.
-9. Never deploy or mutate production without separate explicit Product Owner release authorization.
+8. Mark a phase complete only when its documented implementation, engineering evidence and PRD exit criteria are satisfied. No separate Product Owner acceptance role or acceptance gate is required for phase completion.
+9. Never deploy or mutate production without separate explicit release authorization.
 
 ## Commit conventions
 Use focused imperative commit messages with a scope when useful, for example:
@@ -29,4 +29,5 @@ Do not bundle unrelated work or silently reformat large files.
 - [ ] Existing UI/UX preserved.
 - [ ] Automated checks and evidence recorded accurately.
 - [ ] No staging, real-world testing or deployment performed.
-- [ ] Product Owner acceptance requested and recorded.
+- [ ] Applicable phase exit criteria and known gaps documented.
+- [ ] Separate release authorization obtained before production deployment or mutation.
