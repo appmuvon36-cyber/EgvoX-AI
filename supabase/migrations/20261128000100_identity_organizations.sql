@@ -134,7 +134,10 @@ begin
  end if;
  insert into public.organization_members(organization_id,user_id,role_id,status,created_by)
  values(v_inv.organization_id,v_uid,v_inv.role_id,'active',v_inv.invited_by)
- on conflict(organization_id,user_id) do update set role_id=excluded.role_id,status='active',updated_at=now();
+ on conflict(organization_id,user_id) do update set
+   role_id=case when organization_members.role_id in('vendor_owner','enterprise_owner')
+     then organization_members.role_id else excluded.role_id end,
+   status='active',updated_at=now();
  update public.organization_invitations set status='accepted',accepted_by=v_uid,responded_at=now() where id=v_inv.id;
  insert into public.audit_events(actor_user_id,action,target_type,target_id)
  values(v_uid,'organization.invitation_accepted','invitation',v_inv.id);
