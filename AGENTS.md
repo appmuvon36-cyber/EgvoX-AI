@@ -34,6 +34,20 @@ This file is mandatory engineering guidance for every contributor, coding agent,
 - Identify static/demo/mock data and replace it with real API-backed data as each backend contract becomes available. Never present mock data as production data.
 - Existing visual components may remain as presentation components, but business state and business rules must move behind FastAPI APIs.
 
+## 3A. Real-data-only production rule — mandatory
+
+- Preserve existing frontend presentation, page structure, design tokens, visual components, routes and interactions unless a targeted change is required by the PRD, security or accessibility.
+- Remove all demo/mock/fixture business data from production application paths. This includes hardcoded vendors, freelancer identities, projects, catalog counts presented as live data, wallet balances, top-ups, offers, counteroffers, transactions, Work Orders, milestones, media submissions, QA decisions, payouts, reviews, notifications and enterprise records.
+- Do not replace one mock dataset with another, generate synthetic records at runtime, or silently seed fabricated users/transactions into production.
+- Real business data must be persisted in the existing Supabase PostgreSQL project and accessed through authenticated/authorized Python FastAPI endpoints. Supabase Auth may be used for identity/session verification; it does not authorize bypassing FastAPI for business CRUD.
+- Do not expose Supabase service-role credentials to web or native clients. Do not create a second business database or Firebase as a parallel source of truth.
+- When a real record does not exist, show a proper empty state. When a request fails, show an honest error/retry state. Never show a fabricated success, balance, payment, acceptance, rating, profile, order or status.
+- Static content is allowed only for non-transactional presentation content such as explanatory copy, icons, illustrations, design constants and approved taxonomy labels. Any catalog counts, availability, ratings, verification state or operational status that appears factual must come from a verified source or be omitted.
+- Development fixtures may exist only in isolated test code or explicitly isolated local development seeds. They must be clearly named, excluded from production builds/runtime and never be mistaken for production records.
+- For every migration from fixture to live API, identify the source component, API endpoint, response contract, authorization scope, loading/empty/error states and test evidence.
+- Do not delete useful UI just because its backend is not ready. Keep the presentation and implement the correct empty/loading state until the real API is available.
+- Completion means no production route reads business fixtures, no production action mutates business state only in client memory, and every displayed operational value is traceable to an authorized backend response.
+
 ## 4. Target architecture
 
 - Monorepo: keep one GitHub repository and respect its existing structure. Do not create a parallel app tree until the current tree has been inventoried and an ADR approves the change.
