@@ -42,6 +42,6 @@ Web CSS semantic mapping is in `app/globals.css`. Use the CSS variables `--egvox
 
 ## Usage boundaries
 
-This is a core foundation, not an exhaustive design-system catalogue. Rich combobox/date-time/currency/file-upload widgets, advanced data table sorting/pagination/filtering, toast provider, drawer/popover/tooltip, workflow stepper, media preview and marketplace domain cards are not all implemented as generic primitives in Phase 01. Existing feature-specific implementations remain in their current modules until their domain phase can consolidate them safely.
+This is a core foundation, not an exhaustive design-system catalogue. Advanced custom autocomplete, date-time picker, currency formatter/input mask, drag-and-drop upload, data table sorting/pagination/filtering, toast provider, drawer/popover/tooltip, workflow stepper, media preview and marketplace domain cards remain feature-specific or later enhancements. Native select, datalist combobox, file picker and native date/time/number inputs are available. Existing feature-specific implementations remain in their current modules until their domain phase can consolidate them safely.
 
 Do not use `DualPrice` or legacy price-bearing shared types to expose public freelancer listing prices; Master PRD rules take precedence. Components must not introduce sample business records or fake operational states.
