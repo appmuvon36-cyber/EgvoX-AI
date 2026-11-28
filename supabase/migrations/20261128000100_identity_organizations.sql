@@ -109,6 +109,22 @@ create table public.user_role_assignments (
   unique nulls not distinct (user_id, role_id, organization_id)
 );
 
+create table public.resource_assignments (
+  id uuid primary key default gen_random_uuid(),
+  resource_type text not null check (resource_type ~ '^[a-z][a-z0-9_]{1,63}$'),
+  resource_id uuid not null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role_id text not null references public.roles(id),
+  status text not null default 'active' check (status in ('active','suspended','revoked')),
+  assigned_by uuid references public.profiles(id),
+  reason text not null,
+  created_at timestamptz not null default now(),
+  unique(resource_type,resource_id,user_id,role_id)
+);
+create index resource_assignments_user_resource_idx
+  on public.resource_assignments(user_id,resource_type,resource_id,status);
+
 create table public.verification_cases (
   id uuid primary key default gen_random_uuid(),
   subject_type text not null check (subject_type in ('freelancer','organization')),
@@ -235,6 +251,25 @@ set search_path=pg_catalog,public,auth as $$
       )
     )
   );
+$$;
+
+create or replace function public.has_resource_permission(
+  p_permission text,p_resource_type text,p_resource_id uuid,p_organization_id uuid
+)
+returns boolean language sql stable security definer
+set search_path=pg_catalog,public,auth as $$
+  select exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
+    and (
+      public.has_permission(p_permission,null)
+      or exists(
+        select 1 from public.resource_assignments a
+        join public.role_permissions rp on rp.role_id=a.role_id
+        join public.user_preferences up on up.user_id=a.user_id and up.active_organization_id=a.organization_id
+        where a.user_id=auth.uid() and a.resource_type=p_resource_type
+          and a.resource_id=p_resource_id and a.organization_id=p_organization_id
+          and a.status='active' and rp.permission_id=p_permission
+      )
+    );
 $$;
 
 create or replace function public.is_active_org_member(p_organization_id uuid)
@@ -491,6 +526,29 @@ begin
  insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata) values(null,'identity.profile_status_changed','profile',p_user_id,jsonb_build_object('status',p_status,'reason',p_reason));
 end; $$;
 
+create or replace function public.provision_resource_assignment(
+  p_user_id uuid,p_resource_type text,p_resource_id uuid,p_organization_id uuid,p_role_id text,p_reason text
+)
+returns uuid language plpgsql security definer
+set search_path=pg_catalog,public,auth as $$
+declare v_id uuid;
+begin
+  if coalesce(auth.role(),'')<>'service_role' then raise exception 'service role resource assignment required' using errcode='42501'; end if;
+  if coalesce(trim(p_reason),'')='' or p_resource_type !~ '^[a-z][a-z0-9_]{1,63}$' then raise exception 'valid resource assignment reason and type required' using errcode='22023'; end if;
+  if not exists(select 1 from public.profiles where id=p_user_id and status='active') then raise exception 'active user profile required' using errcode='22023'; end if;
+  if not exists(select 1 from public.roles where id=p_role_id and scope in ('persona','organization')) then raise exception 'resource assignment role must be persona or organization scope' using errcode='22023'; end if;
+  insert into public.resource_assignments(resource_type,resource_id,organization_id,user_id,role_id,assigned_by,reason)
+    values(p_resource_type,p_resource_id,p_organization_id,p_user_id,p_role_id,null,p_reason)
+    on conflict(resource_type,resource_id,user_id,role_id) do update set status='active',reason=excluded.reason,assigned_by=null
+    returning id into v_id;
+  insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
+    values(null,'identity.resource_assignment_provisioned','resource_assignment',v_id,
+      jsonb_build_object('user_id',p_user_id,'resource_type',p_resource_type,'resource_id',p_resource_id,
+        'organization_id',p_organization_id,'role_id',p_role_id,'reason',p_reason));
+  return v_id;
+end;
+$$;
+
 create or replace function public.create_profile_for_auth_user()
 returns trigger language plpgsql security definer
 set search_path=pg_catalog,public as $$
@@ -515,6 +573,7 @@ alter table public.organizations enable row level security;
 alter table public.organization_members enable row level security;
 alter table public.organization_invitations enable row level security;
 alter table public.user_role_assignments enable row level security;
+alter table public.resource_assignments enable row level security;
 alter table public.verification_cases enable row level security;
 alter table public.verification_documents enable row level security;
 alter table public.audit_events enable row level security;
@@ -566,6 +625,8 @@ create policy invitations_create on public.organization_invitations for insert t
 
 create policy role_assignments_read_self on public.user_role_assignments for select to authenticated
   using (user_id=auth.uid());
+create policy resource_assignments_read_self on public.resource_assignments for select to authenticated
+  using (user_id=auth.uid());
 create policy role_assignments_freelancer_self on public.user_role_assignments for insert to authenticated
   with check (user_id=auth.uid() and created_by=auth.uid() and organization_id is null
     and role_id in ('freelancer_contributor','freelancer_annotator','freelancer_qa_specialist')
@@ -601,7 +662,7 @@ create policy verification_docs_create on public.verification_documents for inse
 create policy audit_read on public.audit_events for select to authenticated
   using (public.has_permission('platform.audit.read',null));
 
-revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,public.verification_cases,public.verification_documents,public.audit_events from anon;
+revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,public.resource_assignments,public.verification_cases,public.verification_documents,public.audit_events from anon;
 grant select on public.profiles to authenticated;
 grant update(display_name,phone,country_code,city,bio,updated_at) on public.profiles to authenticated;
 grant select,insert,update(locale,timezone,active_organization_id,updated_at) on public.user_preferences to authenticated;
@@ -612,6 +673,7 @@ grant select,insert on public.organization_members to authenticated;
 grant update(status,updated_at) on public.organization_members to authenticated;
 grant select,insert on public.organization_invitations to authenticated;
 grant select,insert on public.user_role_assignments to authenticated;
+grant select on public.resource_assignments to authenticated;
 grant select,insert on public.verification_cases to authenticated;
 -- Verification decisions are callable only through review_verification_case().
 grant select,insert on public.verification_documents to authenticated;
@@ -621,7 +683,7 @@ grant select on public.roles,public.permissions,public.role_permissions to authe
 revoke execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.review_verification_case(uuid,text,text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.has_resource_permission(text,text,uuid,uuid),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   from public,anon;
 grant execute on function public.has_permission(text,uuid),
@@ -630,9 +692,9 @@ grant execute on function public.has_permission(text,uuid),
   public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   to authenticated;
-revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
+revoke execute on function public.provision_platform_role(uuid,text,text),public.provision_resource_assignment(uuid,text,uuid,uuid,text,text) from public,anon,authenticated;
 revoke execute on function public.set_profile_status(uuid,text,text),public.create_profile_for_auth_user() from public,anon,authenticated;
-grant execute on function public.provision_platform_role(uuid,text,text),public.set_profile_status(uuid,text,text) to service_role;
+grant execute on function public.provision_platform_role(uuid,text,text),public.set_profile_status(uuid,text,text),public.provision_resource_assignment(uuid,text,uuid,uuid,text,text) to service_role;
 
 do $$
 begin
