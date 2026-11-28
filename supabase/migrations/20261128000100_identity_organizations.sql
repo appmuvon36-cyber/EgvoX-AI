@@ -269,7 +269,7 @@ declare
 begin
   if v_uid is null or v_email='' or not exists (
     select 1 from public.profiles p where p.id=v_uid and p.status='active'
-  ) then
+  ) or not exists(select 1 from auth.users u where u.id=v_uid and u.email_confirmed_at is not null) then
     raise exception 'active authentication required' using errcode='28000';
   end if;
   select * into v_inv from public.organization_invitations
@@ -315,7 +315,7 @@ begin
   end if;
   if v_uid is null or lower(v_inv.email)<>v_email or not exists (
     select 1 from public.profiles p where p.id=v_uid and p.status='active'
-  ) then
+  ) or not exists(select 1 from auth.users u where u.id=v_uid and u.email_confirmed_at is not null) then
     raise exception 'invitation identity mismatch or inactive profile' using errcode='42501';
   end if;
   update public.organization_invitations set status='rejected',responded_at=now() where id=v_inv.id;
@@ -465,6 +465,7 @@ begin
   if coalesce(auth.role(),'')<>'service_role' then
     raise exception 'service role provisioning required' using errcode='42501';
   end if;
+  if coalesce(trim(p_reason),'')='' then raise exception 'platform role provisioning reason required' using errcode='22023'; end if;
   if not exists(select 1 from public.profiles where id=p_user_id and status='active') then
     raise exception 'active user profile required' using errcode='22023';
   end if;
