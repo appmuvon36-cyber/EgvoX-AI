@@ -568,8 +568,8 @@ create policy audit_read on public.audit_events for select to authenticated
 
 revoke all on all tables in schema public from anon;
 grant select on public.profiles to authenticated;
-grant update(display_name,phone,country_code,city,bio) on public.profiles to authenticated;
-grant select,insert,update(locale,timezone,active_organization_id) on public.user_preferences to authenticated;
+grant update(display_name,phone,country_code,city,bio,updated_at) on public.profiles to authenticated;
+grant select,insert,update(locale,timezone,active_organization_id,updated_at) on public.user_preferences to authenticated;
 grant select,insert on public.organizations to authenticated;
 grant update(legal_name,trading_name,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,updated_at)
   on public.organizations to authenticated;
