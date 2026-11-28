@@ -57,6 +57,8 @@ def test_auth_invitation_and_mfa_security_invariants():
     assert "recent mfa re-authentication required" in sql
     assert "verification documents required" in sql
     assert "self-review is not permitted" in sql
+    assert "verification.document_uploaded" in sql
+    assert "('vendor_admin','verification.submit')" in sql
     assert "verification-private bucket security mismatch" in sql
 
 def test_application_dml_is_private_to_fastapi_database_role():
