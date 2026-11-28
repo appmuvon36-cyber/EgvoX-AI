@@ -52,13 +52,20 @@ export async function middleware(request: NextRequest) {
     }
   }
   if (!response.ok) return redirect(request, login);
+  const identity = await response.clone().json();
 
   if (path.startsWith('/workspace')) {
     const rolesResponse = await callApi('me/roles');
     if (!rolesResponse.ok) return redirect(request, login);
     const roles = await rolesResponse.json();
-    if (!roles.items?.some((role: {id:string}) => MEMBER_ROLES.has(role.id))) {
+    const roleIds = (roles.items || []).map((role: {id:string}) => role.id);
+    if (!roleIds.some((id:string) => MEMBER_ROLES.has(id))) {
       return redirect(request, '/onboarding/freelancer');
+    }
+    const hasFreelancer = roleIds.some((id:string) => ['freelancer_contributor','freelancer_annotator','freelancer_qa_specialist'].includes(id));
+    const hasOrganization = roleIds.some((id:string) => ['vendor_owner','vendor_admin','vendor_project_manager','enterprise_owner','enterprise_member'].includes(id));
+    if (hasOrganization && !hasFreelancer && !identity.profile?.active_organization_id) {
+      return redirect(request, '/account/organizations');
     }
   }
 
