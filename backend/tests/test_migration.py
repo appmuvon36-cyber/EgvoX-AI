@@ -1,0 +1,20 @@
+from pathlib import Path
+import re
+
+def test_phase02_migration_has_balanced_function_delimiters_and_rls():
+    root = Path(__file__).resolve().parents[2]
+    sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text()
+    assert sql.strip().lower().startswith("begin;")
+    assert sql.strip().lower().endswith("commit;")
+    assert sql.count("$$") % 2 == 0
+    assert not re.search(r"\bas\s+\$(?!\$)", sql)
+    for table in ("profiles", "user_preferences", "organizations", "organization_members",
+                  "organization_invitations", "roles", "permissions", "role_permissions",
+                  "user_role_assignments", "verification_cases", "verification_documents", "audit_events"):
+        assert f"alter table public.{table} enable row level security" in sql.lower()
+
+def test_platform_role_provisioning_is_not_public():
+    root = Path(__file__).resolve().parents[2]
+    sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text().lower()
+    assert "auth.role(),'')<>'service_role'" in sql
+    assert "revoke execute on function public.provision_platform_role" in sql
