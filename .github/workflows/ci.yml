@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: egvox-ci-${{ github.ref }}
+  group: egvox-ci-main-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
