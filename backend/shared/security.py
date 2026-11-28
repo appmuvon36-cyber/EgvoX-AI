@@ -62,7 +62,7 @@ async def db_connection(request, actor: Actor = Depends(require_actor)):
     pool = request.app.state.pool
     async with pool.acquire() as conn:
         async with conn.transaction():
-            await conn.execute("SET LOCAL ROLE authenticated")
+            await conn.execute("SET LOCAL ROLE egvox_api")
             await conn.execute("SELECT set_config('request.jwt.claims',$1,true)",
                 json.dumps(actor.claims, separators=(",", ":")))
             await conn.execute("SELECT set_config('request.jwt.claim.sub',$1,true)", actor.user_id)
