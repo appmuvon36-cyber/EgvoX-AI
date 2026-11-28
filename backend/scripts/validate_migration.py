@@ -21,6 +21,12 @@ for path in files:
         raise SystemExit(f"Verification decisions must not bypass the audited MFA RPC: {path}")
     if "create policy verification_review" in lowered:
         raise SystemExit(f"Verification decisions must not have a direct update policy: {path}")
+    if "create role egvox_api nologin" not in lowered or "grant egvox_api to postgres" not in lowered:
+        raise SystemExit(f"Private FastAPI database role is missing: {path}")
+    if "grant select,insert on public.organizations to authenticated" in lowered:
+        raise SystemExit(f"Browser authenticated role must not mutate organizations: {path}")
+    if "grant select,insert on public.verification_cases to authenticated" in lowered:
+        raise SystemExit(f"Browser authenticated role must not mutate verification cases: {path}")
     for table in (
         "profiles", "user_preferences", "organizations", "organization_members",
         "organization_invitations", "roles", "permissions", "role_permissions",
