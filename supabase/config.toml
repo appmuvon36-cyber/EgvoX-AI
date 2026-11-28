@@ -37,3 +37,7 @@ otp_expiry = 3600
 [storage]
 enabled = true
 file_size_limit = "10MiB"
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
