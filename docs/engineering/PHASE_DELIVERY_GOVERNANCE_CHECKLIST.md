@@ -87,9 +87,9 @@ No real-world testing or staging is permitted. Phase completion is based on the 
 - [x] Added shared core UI primitives and improved modal keyboard/accessibility behavior.
 - [x] Reused existing official logo and compact icon; did not redraw or fabricate monochrome assets.
 - [x] Added Phase 01 design-system documentation.
-- [ ] TypeScript, ESLint and Next.js production build — pending CI evidence.
-- [ ] Static component/token import review — record after CI/source verification.
-- [ ] Phase 01 closure — only after successful automated checks and final evidence update.
+- [x] TypeScript, ESLint and Next.js production build — CI run #24 passed.
+- [x] Static component/token import review — completed and documented.
+- [x] Phase 01 closure — final CI run #25 passed and closure evidence committed.
 
 Phase 01 remains IN PROGRESS until the CI run and closure evidence are verified.
 
@@ -120,24 +120,28 @@ Phase 01 remains IN PROGRESS until the CI run and closure evidence are verified.
 ## Phase 02 execution record — 2026-11-28
 
 - [x] Re-fetched `main` and re-read `AGENTS.md`, Master PRD v1.3, `CONTRIBUTING.md`, Phase 00 governance/audit and Phase 01 design-system documentation.
-- [x] Audited actual monorepo tree (255 entries), authentication/onboarding routes, shared state, Admin/Operations login gates, package dependencies and environment template.
-- [x] Confirmed root Next.js App Router and existing `apps/web`, `apps/admin`, `apps/operations`, and shared packages; no FastAPI `backend/`, Supabase CLI `supabase/` migration directory, or typed API client/contracts package exists on current main.
-- [x] Confirmed existing public login/register and onboarding handlers are local-state flows; GitHub OAuth button is a toast-only callback; Google Workspace Firebase auth is separate from EgvoX identity.
-- [x] Confirmed Super Admin uses a sessionStorage flag and demo MFA code; Operations uses a sessionStorage flag, prefilled example credentials and client-selectable role; local KYC state can initialize/mark verified without a reviewer decision.
-- [x] Read-only Supabase inspection: project active/healthy, PostgreSQL 17.12, no public business tables/policies, no application migrations, no storage buckets, and zero Auth users/sessions/MFA factors.
-- [x] Read-only Supabase Security Advisor inspection: identified public `rls_auto_enable()` SECURITY DEFINER EXECUTE grants to anon/authenticated; remediation must be included in a reviewed migration.
-- [x] Reviewed current Supabase SSR, MFA/AAL and changelog guidance; no live Auth configuration or production schema was changed.
-- [x] Created `docs/engineering/PHASE_02_AUDIT.md` with the nine-deliverable gap matrix and implementation sequence.
-- [ ] Supabase Auth + FastAPI JWT verification and actor context — not implemented.
-- [ ] Profile, organization, membership, invitation, RBAC and verification persistence — not implemented.
-- [ ] Privileged MFA and secure session enforcement — not implemented.
-- [ ] Existing PWA auth/onboarding/Admin/Operations integration — not implemented.
-- [ ] Isolated backend/migration/frontend validation — blocked because the container could not resolve GitHub for a local checkout and no Supabase CLI is exposed.
+- [x] Audited the existing monorepo, root App Router, existing apps/packages, auth/onboarding/account/admin/operations routes and Supabase baseline.
+- [x] Kept the existing applications and Phase 01 design system; added one FastAPI runtime with separate Identity and Organizations bounded domains.
+- [x] Implemented Supabase Auth BFF flows, HttpOnly cookies, CSRF, refresh, signout and verified FastAPI JWT actor context.
+- [x] Implemented profile/preferences lifecycle, freelancer/Vendor/Enterprise onboarding and explicit terms acceptance.
+- [x] Implemented organization membership/context, invitations, RBAC, resource/project assignment primitives and backend-only database role.
+- [x] Implemented verification drafts/submissions, private document storage integration and recent-MFA reviewer decisions.
+- [x] Replaced Super Admin/Operations mock authentication gates with Supabase Auth and server-issued platform roles; extended all platform role routing.
+- [x] Added API/database/architecture/security documentation and updated phase audit.
+- [x] Added focused JWT/MFA/invitation/migration security tests and static migration checks.
+- [ ] MFA recovery codes or complete automated factor-loss recovery procedure — outstanding blocker.
+- [ ] Hosted Supabase Auth/SMTP/redirect/JWT/MFA and database-role configuration — requires separate authorized production configuration.
+- [ ] Invitation email delivery and durable rate limiting/idempotency — outstanding operational gaps.
+- [ ] Run migration and RLS tests against an isolated local Supabase instance — pending CLI/runtime access; production migration remains prohibited.
+- [ ] Final CI for the exact latest `main` commit — pending.
+- [ ] Phase 02 COMPLETE — blocked until the above implementation and validation gaps are closed.
 
-### Phase 02 audit commit and evidence
+### Phase 02 evidence and boundary
 
-- Audit report commit: `dad3bfd7855913051ec0951719b5c12c0a16ef9e`.
-- Audit report: `docs/engineering/PHASE_02_AUDIT.md`.
-- Baseline before audit record: `00e90d7de0f605fab0575e181e122ad099de0c68`.
-- Production Supabase project was inspected read-only; no DDL, data writes, Auth setting changes, Storage writes or deployment.
-- Phase status remains **IN PROGRESS**. No Phase 02 deliverable is marked complete based on existing UI alone.
+- Main-only direct commits; no branch, implementation PR, Railway service, staging environment or deployment.
+- Migration artifact: `supabase/migrations/20261128000100_identity_organizations.sql`; not applied to hosted Supabase.
+- RLS/privilege tests: `supabase/tests/phase02_identity_rls.test.sql`.
+- Static migration validator: `backend/scripts/validate_migration.py`.
+- API, database, architecture and security docs: `docs/api/PHASE_02_IDENTITY.md`, `docs/database/PHASE_02_IDENTITY.md`, `docs/architecture/PHASE_02_IDENTITY.md`, `docs/security/PHASE_02_SECURITY.md`.
+- Detailed audit and open blockers: `docs/engineering/PHASE_02_AUDIT.md`.
+- Phase status: **IN PROGRESS**. Do not begin Phase 03 until the remaining Phase 02 gaps have implementation and CI/database evidence.
