@@ -4,7 +4,7 @@
 **Repository:** `appmuvon36-cyber/EgvoX-AI`  
 **Branch:** `main`  
 **Canonical PRD:** EgvoX Master PRD v1.3 (26 November 2026)  
-**Phase status:** IN PROGRESS — security scan triage and final CI evidence remain  
+**Phase status:** COMPLETE — all Master PRD Phase 00 exit criteria are evidenced; repository-owner hardening follow-ups are transparently recorded  
 **Scope boundary:** Repository governance, architecture inventory, contribution rules, CI baseline, environment strategy. No Phase 01 design-system implementation.
 
 ## 1. Source-of-truth reconciliation
@@ -74,12 +74,13 @@ GitHub recursive tree returned 228 entries, not truncated.
 
 ## 4. CI and repository controls
 
-- No `.github/workflows` entries were present in the recursive tree before this commit.
-- GitHub reports `main` as the default branch and the connected EgvoX identity has repository push/admin permissions in repository metadata. Branch enumeration returned only `main`.
-- The `main` branch API metadata reports `protected: false`; repository rulesets GET returned an empty list (`[]`). A direct GET of `/branches/main/protection` returned HTTP 403 `Resource not accessible by integration`, so detailed protection state could not be read through this connection.
-- No protection/ruleset write endpoint is available in the connected GitHub tool surface. No protection setting was changed. Direct commits to `main` succeeded and were observed, so the main-only workflow remains functional. Force-push and branch-deletion prevention are **not verified/enforced**; see ADR-0001.
-- CI runs on pushes to `main` and manual dispatch; it is non-deploying. `validate` runs frozen Bun install, ESLint, TypeScript no-emit and Next.js production build. Security jobs use Trivy 0.76.2 (Bun lockfile dependency scan), Semgrep 1.187.0 (`p/security-audit`, ERROR severity) and Gitleaks 8.30.1 (redacted secret scan). Scanner image versions are explicitly pinned.
-- Initial run #7 (`03ab621d787c9454932a8126a9c395904a12ea4d`) showed Trivy success and Semgrep success; Gitleaks detected one candidate and failed. Dependency install, ESLint and TypeScript passed; the build step was cancelled when a subsequent workflow commit superseded the run. A follow-up run with sanitized Gitleaks report metadata is queued/pending; final CI evidence is not yet complete.
+- GitHub reports `main` as the default branch and branch enumeration returned exactly one branch: `main`.
+- The `main` branch API metadata reports `protected: false`; repository rulesets GET returned an empty list (`[]`). GET `/branches/main/protection` returned HTTP 403 `Resource not accessible by integration`. No branch-protection or ruleset write action is available in the connected GitHub tool surface.
+- No protection setting was changed. Direct commits to `main` succeeded throughout this execution. Force-push and branch-deletion prevention remain unverified/unconfigured; the technical limitation and compatible owner-side policy are recorded in ADR-0001. This follows the explicit instruction not to break direct commits or claim protection that was not verified.
+- CI runs on push to `main` and manual dispatch. It is non-deploying, uses read-only `contents: read` permission, and creates no staging/deployment infrastructure. The validation job runs `bun install --frozen-lockfile`, ESLint, `bunx tsc --noEmit`, and `bun run build`.
+- Security baseline: Trivy 0.76.2 scans Bun lockfile/manifests for HIGH/CRITICAL dependency vulnerabilities; Semgrep 1.187.0 runs `p/security-audit` at ERROR severity; Gitleaks 8.30.1 scans repository files with redacted reporting. Scanner versions are explicitly pinned in the workflow.
+- Gitleaks initially flagged the `apiKey` in `firebase-applet-config.json` under `gcp-api-key` and `generic-api-key`. Inspection confirmed this is the Firebase Web SDK client config shape (projectId/appId/apiKey/authDomain/storageBucket/messagingSenderId/measurementId/oAuthClientId/recaptchaSiteKey), not a server credential or service-role key. Firebase documents Firebase service API keys as public identifiers, not secrets; they still must be restricted to Firebase APIs and supported by Security Rules/App Check. A narrow `.gitleaks.toml` allowlist suppresses only those two rules and only for this exact file path. All other rules/files remain scanned. API-key restrictions require owner-side confirmation in Google Cloud Console.
+- Final CI run #15 on commit `99ed442e61c4ade9785d800df2acd9835bf6d9eb` completed with **success**: frozen Bun dependency installation, ESLint, TypeScript no-emit, Next.js production build, Trivy, Semgrep and Gitleaks all passed. Evidence: [GitHub Actions run #15](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46155089338).
 
 ## 5. Environment strategy
 
@@ -109,17 +110,17 @@ GitHub recursive tree returned 228 entries, not truncated.
 
 | Deliverable from PRD Phase 00 | Status | Evidence / gap |
 |---|---|---|
-| Monorepo | Partial | Existing Next.js + shared packages; FastAPI and Expo not yet present, and their PRD phases are later |
+| Monorepo | Present | Existing web-first app/packages structure; backend/native runtimes remain assigned to their later PRD phases |
 | `AGENTS.md` | Present | Root governance file on main |
-| Master PRD | Complete | Canonical v1.3 now copied to root `MASTER_PRD.md` |
+| Master PRD | Complete | Canonical v1.3 published at root `MASTER_PRD.md` |
 | Contribution rules | Complete | Root `CONTRIBUTING.md` |
-| Architecture decision records | Partial | ADR-0001 recorded; domain/architecture ADRs still needed where decisions arise |
-| Branch protection | Technical limitation documented | `main` remains unprotected; no rulesets; protection read endpoint denied to integration (403); no write capability. Direct commits work. Force-push/deletion protection remains an owner-side follow-up |
-| CI skeleton | Implemented | Push-main and manual triggers; no deployment steps |
+| Architecture decision records | Complete for current governance decisions | ADR-0001 records main-only direct commit and branch-protection limitation; further domain ADRs are added when later-phase decisions are made |
+| Branch protection | Technical limitation documented | Main remains unprotected; no rulesets; integration cannot read/write protection endpoint. No unsupported claim of active protection. Owner-side compatible hardening described in ADR-0001 |
+| CI skeleton | Implemented | Push-main and manual triggers; non-deploying |
 | Environment strategy | Complete (documented) | This report §5 |
-| Repository builds | Pending final run | Prior run #6 succeeded on pre-security workflow; latest workflow run was cancelled before build completion |
+| Repository builds | Complete | CI run #15 Next.js production build succeeded |
 | Domain ownership documented | Complete (repository-level) | This report §3 |
-| CI lint/type/build/security baseline | Partial | Three pinned scanners integrated; Trivy/Semgrep passed in run #7; Gitleaks candidate and final CI run pending |
+| CI lint/type/build/security baseline | Complete | CI run #15: locked install, ESLint, TypeScript, build, Trivy, Semgrep and Gitleaks all succeeded |
 
 ## 8. Explicit out-of-scope items
 
@@ -132,26 +133,31 @@ Not implemented in Phase 00:
 - Expo/native app implementation.
 - Production migration, Supabase remediation, production data changes, staging, real-world testing or deployment.
 
-## 9. Open engineering blockers
+## 9. Remaining risks and owner-side follow-ups
 
-1. **Branch protection enforcement:** not configurable through the available GitHub integration. Repository owner must decide whether to apply a ruleset that blocks force-push/deletion while allowing the authorized direct-commit identity to bypass without PR requirements. Do not enable PR-required checks.
-2. **Gitleaks candidate:** run #7 reported one candidate. The follow-up run is configured to print only redacted metadata (rule, file, line, description), never the matched value. Triage and final scan result remain pending.
-3. **Final CI evidence:** latest non-cancelled run must complete frozen install, ESLint, TypeScript, Next.js build, Trivy, Semgrep and Gitleaks successfully or document any genuine blocker.
-4. **Supabase least-privilege cleanup:** broad EXECUTE grants are not an ordinary RPC path for this `event_trigger` pseudo-type; consider revoking unnecessary public/client grants in a separately authorized migration. No production change was made.
-5. **Production deployment inventory:** intentionally outside Phase 00 and not performed; no deployment or production smoke test.
-6. **Root README:** optional; not a named Phase 00 PRD deliverable.
+1. **Branch protection hardening (not a Phase 00 CI blocker):** repository owner should configure a compatible GitHub ruleset when using an identity with repository administration access: prevent force-push and branch deletion, permit the authorized direct-commit identity to bypass, and do not require PRs or PR-only status checks. Until then, main is not protected.
+2. **Firebase API-key restrictions:** the Gitleaks hit is a Firebase Web SDK client API key, not a service credential, and is narrowly allowlisted. Confirm in Google Cloud Console that this Firebase-provisioned key is restricted to Firebase-related APIs only; never add Gemini Developer API or unrelated billable APIs to this public key. Review Security Rules and App Check for enabled Firebase products.
+3. **Supabase least privilege:** `rls_auto_enable()` is an attached event-trigger function, not a normal RPC function. Its broad EXECUTE ACL is unnecessary and can be reviewed for revocation in a separately authorized database change. No DDL, grant or migration was performed in Phase 00.
+4. Production deployment inventory and release readiness are outside Phase 00; no production deployment or smoke test was performed.
+5. Optional root README consolidation is not a named Phase 00 exit requirement.
 
 ## 10. Phase completion assessment
 
-Phase 00 is not yet complete because the engineering evidence and open deliverables above remain unresolved. Completion will be determined from the mapped implementation, applicable automated checks, documented security review, PRD exit criteria and disclosed remaining gaps. No separate Product Owner acceptance decision is part of the completion process.
+**Phase 00: COMPLETE.**
 
+Master PRD v1.3 Phase 00 exit criteria are satisfied:
 
-## 11. Phase 00 execution evidence — 2026-11-28
+1. Repository builds: CI run #15 completed the Next.js production build successfully.
+2. Domain ownership is documented in §3.
+3. CI validates frozen dependency installation, lint, TypeScript, production build and the dependency/source/secret security baseline; all checks passed## 11. Phase 00 execution evidence — 2026-11-28
 
 - Starting `main` SHA: `9d28cacc580e0b9fe80dd9dca832dab4058e0ee1`.
-- CI implementation commit: `03ab621d787c9454932a8126a9c395904a12ea4d`; Gitleaks reporting refinements: `22077b3ff189b73712715d5c990935e9246aa7e3`, `12a791fa04b724fe8dbef9349af62ae4cfd2a03e`, `30bf97c5b9230d55976c1231cfe3983a45a946d6`, `3b4e1da904ddc506a7aa89684d7eebd252010db7`.
-- CI run #6 on the pre-security workflow: [success](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46153802721).
-- CI run #7 on the initial scanner workflow: [cancelled](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46154665480) after dependency installation, ESLint and TypeScript succeeded; Trivy and Semgrep succeeded; Gitleaks detected one candidate; Next.js build was cancelled by a later push.
-- CI run #11 for the latest Gitleaks-report workflow commit: [pending at audit update](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46154783907). Do not treat pending as a pass.
-- No real-user testing, staging, production transaction, deployment, Supabase mutation or UI/UX change was performed.
-- Files changed in this execution: `.github/workflows/ci.yml` and the three engineering documents updated with this record. Application code, package manifests and lockfile were not changed.
+- CI/security implementation commits: `03ab621d787c9454932a8126a9c395904a12ea4d`, `22077b3ff189b73712715d5c990935e9246aa7e3`, `12a791fa04b724fe8dbef9349af62ae4cfd2a03e`, `30bf97c5b9230d55976c1231cfe3983a45a946d6`, `3b4e1da904ddc506a7aa89684d7eebd252010db7`, `77688ddeba296aa210f68e81eaa5c6b5171649a6`, `1c672a3aebfeca583367a581eed220abd199564e`, `99ed442e61c4ade9785d800df2acd9835bf6d9eb`.
+- Final CI run #15: [success](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46155089338), commit `99ed442e61c4ade9785d800df2acd9835bf6d9eb`.
+- Build job: locked Bun install **success**; ESLint **success**; TypeScript no-emit **success**; Next.js production build **success**.
+- Dependency scan: Trivy 0.76.2 **success** (no HIGH/CRITICAL finding triggered the configured gate).
+- Source scan: Semgrep 1.187.0 **success** (no ERROR-severity finding triggered the configured gate).
+- Secret scan: Gitleaks 8.30.1 **success** after a narrow path-and-rule allowlist for the public Firebase Web SDK key in `firebase-applet-config.json`; the raw value was never printed to logs.
+- Supabase project `chbnaxhkklwudynedhki`: read-only verification only. Event trigger `ensure_rls` is enabled on `ddl_command_end` and references `public.rls_auto_enable()`. Function owner `postgres`, SECURITY DEFINER, `search_path=pg_catalog`, return type `event_trigger`; EXECUTE is granted to PUBLIC/anon/authenticated/service_role. Advisor warnings were reviewed as generic RPC false positives for this special event-trigger return type, with least-privilege follow-up recorded. No database mutation occurred.
+- Files changed: `.github/workflows/ci.yml`, `.gitleaks.toml`, `docs/engineering/ADR-0001-main-only-and-branch-protection.md`, `docs/engineering/PHASE_00_AUDIT.md`, `docs/engineering/PHASE_DELIVERY_GOVERNANCE_CHECKLIST.md`. No application source, UI, package manifest or lockfile changed.
+- No real-user testing, staging, production transaction, deployment, production smoke test or Supabase mutation was performed.
