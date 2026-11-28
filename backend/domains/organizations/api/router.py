@@ -244,8 +244,8 @@ async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor)
 async def create_verification_draft(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     sid=a.user_id if p.subject_type=="freelancer" else p.subject_id
     if not sid: raise HTTPException(422,"Organization subject_id is required")
-    if p.subject_type=="freelancer" and p.subject_id and p.subject_id!=a.user_id: raise HTTPException(403,"Cannot create a draft for another user")
-    if p.subject_type=="organization": await require_permission(db,a,"verification.submit",sid)
+    if p.subject_type=="freelancer" and p.subject_id and str(p.subject_id)!=a.user_id: raise HTTPException(403,"Cannot create a draft for another user")
+    if p.subject_type=="organization": await require_permission(db,a,"verification.submit",str(sid))
     row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by)
         values($1,$2::uuid,$3,'draft',$4,$5::uuid) returning id::text,status,created_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
     return dict(row)
@@ -273,7 +273,10 @@ async def upload_document(case_id:UUID,file:UploadFile=File(...),a:Actor=Depends
     if len(data)>settings.verification_max_upload_bytes: raise HTTPException(413,"Document too large")
     signatures={"application/pdf":data.startswith(b"%PDF-"),"image/jpeg":data.startswith(bytes.fromhex("ffd8ff")),"image/png":data.startswith(bytes.fromhex("89504e470d0a1a0a"))}
     if not signatures.get(file.content_type,False): raise HTTPException(415,"File signature does not match its declared MIME type")
-    case=await db.fetchrow("select id from public.verification_cases where id=$1::uuid and submitted_by=$2::uuid and status in ('draft','submitted')",case_id,a.user_id)
+    case=await db.fetchrow("""select c.id from public.verification_cases c where c.id=$1::uuid and c.status in ('draft','submitted')
+        and (c.submitted_by=$2::uuid or (c.subject_type='organization'
+          and exists(select 1 from public.user_preferences up where up.user_id=$2::uuid and up.active_organization_id=c.subject_id)
+          and public.has_permission('verification.submit',c.subject_id)))""",case_id,a.user_id)
     if not case: raise HTTPException(404,"Verification case not found")
     name=re.sub(r"[^A-Za-z0-9._-]+","_",(file.filename or "document")).strip("._")[:80] or "document"
     path=f"{a.user_id}/{case_id}/{uuid4()}-{name}"; base=str(settings.supabase_url).rstrip("/")
@@ -287,6 +290,8 @@ async def upload_document(case_id:UUID,file:UploadFile=File(...),a:Actor=Depends
             await cleanup.delete(f"{base}/storage/v1/object/verification-private/{path}",
                 headers={"Authorization":f"Bearer {key}","apikey":key})
         raise
+    await db.execute("""select public.write_audit_event('verification.document_uploaded','verification_document',$1::uuid,
+        jsonb_build_object('case_id',$2::uuid,'mime_type',$3,'size_bytes',$4))""",row["id"],case_id,file.content_type,len(data))
     return dict(row)
 @router.get("/verification/{case_id}/documents",response_model=VerificationDocumentListResponse)
 async def list_verification_documents(case_id:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -312,7 +317,7 @@ async def download_document(case_id:UUID,document_id:UUID,a:Actor=Depends(requir
     return {"url":base+"/storage/v1"+signed,"expires_in":300}
 
 @router.patch("/verification/{case_id}/decision")
-async def decision(case_id:str,p:DecisionInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+async def decision(case_id:UUID,p:DecisionInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     try:
         row=await db.fetchrow("select * from public.review_verification_case($1::uuid,$2,$3)",case_id,p.status,p.reason)
     except asyncpg.PostgresError as exc:
