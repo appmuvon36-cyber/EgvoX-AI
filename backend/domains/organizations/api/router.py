@@ -24,6 +24,70 @@ class OrgInput(BaseModel):
     business_purpose:str=Field(min_length=10,max_length=3000)
     terms_accepted:bool
     terms_version:str=Field(default="2026-11-26",pattern="^2026-11-26$")
+class OrganizationResponse(BaseModel):
+    id: str
+    kind: str
+    legal_name: str
+    verification_status: str
+    created_at: datetime
+    role_id: str | None = None
+    membership_status: str | None = None
+
+class OrganizationListResponse(BaseModel):
+    items: list[OrganizationResponse]
+
+class MemberResponse(BaseModel):
+    id: str
+    user_id: str
+    display_name: str | None = None
+    role_id: str
+    status: str
+    created_at: datetime
+
+class MemberListResponse(BaseModel):
+    items: list[MemberResponse]
+
+class InvitationResponse(BaseModel):
+    id: str
+    email: str
+    role_id: str
+    status: str
+    expires_at: datetime
+    created_at: datetime | None = None
+
+class InvitationListResponse(BaseModel):
+    items: list[InvitationResponse]
+
+class VerificationSubmissionResponse(BaseModel):
+    id: str
+    status: str
+    created_at: datetime
+    submitted_at: datetime | None = None
+
+class VerificationStatusItem(BaseModel):
+    id: str
+    subject_type: str
+    subject_id: str
+    case_type: str
+    status: str
+    review_reason: str | None = None
+    created_at: datetime
+    submitted_at: datetime | None = None
+    reviewed_at: datetime | None = None
+
+class VerificationStatusResponse(BaseModel):
+    items: list[VerificationStatusItem]
+
+class VerificationDocumentResponse(BaseModel):
+    id: str
+    original_filename: str
+    mime_type: str
+    size_bytes: int
+    created_at: datetime | None = None
+
+class VerificationDocumentListResponse(BaseModel):
+    items: list[VerificationDocumentResponse]
+
 class InviteInput(BaseModel):
     email:EmailStr
     role_id:str
@@ -39,7 +103,7 @@ class DecisionInput(BaseModel):
     status:str=Field(pattern="^(under_review|changes_requested|approved|rejected)$")
     reason:str|None=None
 
-@router.post("/onboarding/organizations",status_code=201)
+@router.post("/onboarding/organizations",status_code=201,response_model=OrganizationResponse)
 async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     if not p.terms_accepted: raise HTTPException(422,"Organization terms must be accepted")
     if await db.fetchval("select status from public.profiles where id=$1::uuid",a.user_id)!="active": raise HTTPException(403,"Active profile required")
@@ -60,7 +124,7 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
     await db.execute("insert into public.organization_members(organization_id,user_id,role_id,status,created_by) values($1::uuid,$2::uuid,$3,'active',$2::uuid)",oid,a.user_id,owner)
     await db.execute("select public.write_audit_event('organization.created','organization',$1::uuid,'{}'::jsonb)",oid)
     return dict(row)
-@router.get("/organizations")
+@router.get("/organizations",response_model=OrganizationListResponse)
 async def orgs(a:Actor=Depends(require_actor),db=Depends(db_connection)):
     rows=await db.fetch("""select o.id::text,o.kind,o.legal_name,o.verification_status,m.role_id,m.status membership_status
         from public.organizations o left join public.organization_members m
@@ -76,12 +140,12 @@ async def switch_org(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connec
     if not ok: raise HTTPException(403,"Active organization membership required")
     await db.execute("""insert into public.user_preferences(user_id,active_organization_id) values($1::uuid,$2::uuid) on conflict(user_id) do update set active_organization_id=$2::uuid,updated_at=now()""",a.user_id,oid)
     return {"active_organization_id":oid}
-@router.get("/organizations/{oid}/members")
+@router.get("/organizations/{oid}/members",response_model=MemberListResponse)
 async def members(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     await require_permission(db,a,"organization.members.read",oid)
     rows=await db.fetch("""select m.id::text,m.user_id::text,p.display_name,m.role_id,m.status,m.created_at from public.organization_members m join public.profiles p on p.id=m.user_id where m.organization_id=$1::uuid order by m.created_at""",oid)
     return {"items":[dict(r) for r in rows]}
-@router.get("/organizations/{oid}/invitations")
+@router.get("/organizations/{oid}/invitations",response_model=InvitationListResponse)
 async def list_invitations(oid: str, a: Actor = Depends(require_actor), db=Depends(db_connection)):
     await require_permission(db, a, "organization.members.read", oid)
     rows = await db.fetch("""select id::text,email,role_id,case when status='pending' and expires_at<=now() then 'expired' else status end status,expires_at,created_at
@@ -162,7 +226,7 @@ async def member_status(oid:str,mid:str,p:MemberStatus,a:Actor=Depends(require_a
     await db.execute("""select public.write_audit_event('organization.membership_status_updated','organization_member',$1::uuid,
         jsonb_build_object('organization_id',$2::uuid,'status',$3))""",mid,oid,p.status)
     return {"status":p.status}
-@router.post("/verification/submissions",status_code=201)
+@router.post("/verification/submissions",status_code=201,response_model=VerificationSubmissionResponse)
 async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     sid=a.user_id if p.subject_type=="freelancer" else p.subject_id
     if not sid: raise HTTPException(422,"Organization subject_id is required")
@@ -171,7 +235,7 @@ async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor)
     row=await db.fetchrow("""insert into public.verification_cases(subject_type,subject_id,case_type,status,notes,submitted_by,submitted_at) values($1,$2::uuid,$3,'submitted',$4,$5::uuid,now()) returning id::text,status,created_at,submitted_at""",p.subject_type,sid,p.case_type,p.notes,a.user_id)
     await db.execute("select public.write_audit_event('verification.submitted','verification_case',$1::uuid,'{}'::jsonb)",row["id"])
     return dict(row)
-@router.post("/verification/drafts",status_code=201)
+@router.post("/verification/drafts",status_code=201,response_model=VerificationSubmissionResponse)
 async def create_verification_draft(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     sid=a.user_id if p.subject_type=="freelancer" else p.subject_id
     if not sid: raise HTTPException(422,"Organization subject_id is required")
@@ -191,7 +255,7 @@ async def submit_verification_draft(case_id:str,a:Actor=Depends(require_actor),d
         raise
     return dict(row)
 
-@router.get("/verification/status")
+@router.get("/verification/status",response_model=VerificationStatusResponse)
 async def verification_status(a:Actor=Depends(require_actor),db=Depends(db_connection)):
     rows=await db.fetch("""select id::text,subject_type,subject_id::text,case_type,status,review_reason,created_at,submitted_at,reviewed_at from public.verification_cases where submitted_by=$1::uuid or subject_id=$1::uuid or (subject_type='organization' and exists(select 1 from public.organization_members m join public.user_preferences up on up.user_id=m.user_id and up.active_organization_id=m.organization_id where m.organization_id=verification_cases.subject_id and m.user_id=$1::uuid and m.status='active')) order by created_at desc""",a.user_id)
     return {"items":[dict(r) for r in rows]}
@@ -219,7 +283,7 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
                 headers={"Authorization":f"Bearer {key}","apikey":key})
         raise
     return dict(row)
-@router.get("/verification/{case_id}/documents")
+@router.get("/verification/{case_id}/documents",response_model=VerificationDocumentListResponse)
 async def list_verification_documents(case_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     rows=await db.fetch("""select d.id::text,d.original_filename,d.mime_type,d.size_bytes,d.created_at
         from public.verification_documents d where d.case_id=$1::uuid order by d.created_at desc""",case_id)
