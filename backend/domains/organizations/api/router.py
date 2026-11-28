@@ -45,14 +45,14 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
     if await db.fetchval("select status from public.profiles where id=$1::uuid",a.user_id)!="active": raise HTTPException(403,"Active profile required")
     existing=await db.fetchrow("""select id::text,kind,legal_name,verification_status,created_at
         from public.organizations where created_by=$1::uuid and country_code=$2
-        and registration_identifier=$3""",a.user_id,p.country_code.upper(),p.registration_identifier)
+        and upper(registration_identifier)=upper($3)""",a.user_id,p.country_code.upper(),p.registration_identifier.strip())
     if existing:
         if existing['kind']!=p.kind:
             raise HTTPException(409,'This registration identifier is already associated with another organization type')
         return dict(existing)
     oid=str(uuid4()); owner="vendor_owner" if p.kind=="vendor" else "enterprise_owner"
     try:
-        row=await db.fetchrow("""insert into public.organizations(id,kind,legal_name,trading_name,country_code,registration_identifier,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,terms_accepted_at,terms_version,verification_status,catalog_publishing_enabled,created_by) values($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,now(),$14,'submitted',false,$15::uuid) returning id::text,kind,legal_name,verification_status,created_at""",oid,p.kind,p.legal_name,p.trading_name,p.country_code.upper(),p.registration_identifier,p.website,str(p.business_email).lower(),json.dumps(p.address),p.industry,p.contact_person,p.authorized_representative,p.business_purpose,p.terms_version,a.user_id)
+        row=await db.fetchrow("""insert into public.organizations(id,kind,legal_name,trading_name,country_code,registration_identifier,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,terms_accepted_at,terms_version,verification_status,catalog_publishing_enabled,created_by) values($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,now(),$14,'submitted',false,$15::uuid) returning id::text,kind,legal_name,verification_status,created_at""",oid,p.kind,p.legal_name,p.trading_name,p.country_code.upper(),p.registration_identifier.strip().upper(),str(p.website) if p.website else None,str(p.business_email).lower(),json.dumps(p.address),p.industry,p.contact_person,p.authorized_representative,p.business_purpose,p.terms_version,a.user_id)
     except Exception as exc:
         if "organizations_country_code_registration_identifier_key" in str(exc):
             raise HTTPException(409,"This registration identifier is already registered") from exc
