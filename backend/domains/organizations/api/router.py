@@ -57,11 +57,16 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
     return dict(row)
 @router.get("/organizations")
 async def orgs(a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    rows=await db.fetch("""select o.id::text,o.kind,o.legal_name,o.verification_status,m.role_id,m.status membership_status from public.organization_members m join public.organizations o on o.id=m.organization_id where m.user_id=$1::uuid and m.status='active' order by o.created_at desc""",a.user_id)
+    rows=await db.fetch("""select o.id::text,o.kind,o.legal_name,o.verification_status,m.role_id,m.status membership_status
+        from public.organizations o left join public.organization_members m
+          on m.organization_id=o.id and m.user_id=$1::uuid and m.status='active'
+        where m.id is not null or public.has_permission('organization.read',o.id)
+        order by o.created_at desc""",a.user_id)
     return {"items":[dict(r) for r in rows]}
 @router.post("/organizations/{oid}/context")
 async def switch_org(oid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    ok=await db.fetchval("select 1 from public.organization_members where organization_id=$1::uuid and user_id=$2::uuid and status='active'",oid,a.user_id)
+    ok=await db.fetchval("""select exists(select 1 from public.organization_members where organization_id=$1::uuid and user_id=$2::uuid and status='active')
+        or public.has_permission('organization.read',$1::uuid)""",oid,a.user_id)
     if not ok: raise HTTPException(403,"Active organization membership required")
     await db.execute("""insert into public.user_preferences(user_id,active_organization_id) values($1::uuid,$2::uuid) on conflict(user_id) do update set active_organization_id=$2::uuid,updated_at=now()""",a.user_id,oid)
     return {"active_organization_id":oid}
