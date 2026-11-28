@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+from pathlib import Path
 
 def test_invitation_token_is_random_and_stored_as_digest():
     raw = secrets.token_urlsafe(40)
