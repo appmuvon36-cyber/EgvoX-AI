@@ -54,3 +54,14 @@ def test_auth_invitation_and_mfa_security_invariants():
     assert "recent mfa re-authentication required" in sql
     assert "verification documents required" in sql
     assert "verification-private bucket security mismatch" in sql
+
+def test_application_dml_is_private_to_fastapi_database_role():
+    root = Path(__file__).resolve().parents[2]
+    sql = (root / "supabase/migrations/20261128000100_identity_organizations.sql").read_text().lower()
+    security = (root / "backend/shared/security.py").read_text()
+    assert "create role egvox_api nologin" in sql
+    assert "grant egvox_api to postgres" in sql
+    assert "set local role egvox_api" in security.lower()
+    assert "grant select,insert on public.organizations to authenticated" not in sql
+    assert "grant select,insert on public.verification_cases to authenticated" not in sql
+    assert "grant select on public.profiles" in sql and "to authenticated" in sql
