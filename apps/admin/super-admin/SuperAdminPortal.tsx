@@ -133,7 +133,7 @@ export const SuperAdminPortal: React.FC<{
       const challenge = await egvoxAuth('mfa-challenge', { factor_id: factorId });
       await egvoxAuth('mfa-verify', { factor_id: factorId, challenge_id: challenge.challenge.id, code: mfaCode });
       const assurance = await egvoxApi<{aal:string;recent_mfa:boolean}>('/sessions');
-      if (assurance.aal !== 'aal2') throw new Error('MFA assurance did not reach AAL2.');
+      if (assurance.aal !== 'aal2' || !assurance.recent_mfa) throw new Error('Recent MFA assurance was not established.');
       setIsAuthenticated(true);
     } catch (error) { setAuthError(error instanceof Error ? error.message : 'MFA verification failed'); }
   };
