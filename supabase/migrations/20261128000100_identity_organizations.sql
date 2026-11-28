@@ -587,13 +587,13 @@ create policy profiles_update_self on public.profiles for update to authenticate
   using (id=auth.uid() and status='active') with check (id=auth.uid() and status='active');
 create policy preferences_self on public.user_preferences for all to authenticated
   using (user_id=auth.uid())
-  with check (user_id=auth.uid() and (active_organization_id is null or public.is_active_org_member(active_organization_id) or public.has_permission('organization.read',active_organization_id)));
+  with check (user_id=auth.uid() and (active_organization_id is null or public.is_active_org_member(active_organization_id) or public.has_permission('organization.read',active_organization_id) or exists(select 1 from public.resource_assignments ra where ra.user_id=auth.uid() and ra.organization_id=active_organization_id and ra.status='active')));
 create policy roles_read on public.roles for select to authenticated using (true);
 create policy permissions_read on public.permissions for select to authenticated using (true);
 create policy role_permissions_read on public.role_permissions for select to authenticated using (true);
 
 create policy organizations_read_member on public.organizations for select to authenticated
-  using (public.is_active_org_member(id) or public.has_permission('organization.read',id));
+  using (public.is_active_org_member(id) or public.has_permission('organization.read',id) or exists(select 1 from public.resource_assignments ra where ra.user_id=auth.uid() and ra.organization_id=id and ra.status='active'));
 create policy organizations_create_self on public.organizations for insert to authenticated
   with check (created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
