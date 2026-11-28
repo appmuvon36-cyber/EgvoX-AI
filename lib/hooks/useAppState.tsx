@@ -421,7 +421,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
   const [pausedServiceIds, setPausedServiceIds] = useState<string[]>([]);
   const [acknowledgedOrderIds, setAcknowledgedOrderIds] = useState<string[]>([]);
   const [acceptedEnterpriseDeliveries, setAcceptedEnterpriseDeliveries] = useState<string[]>([]);
-  const [kycStatus, setKycStatus] = useState<'verified' | 'pending_review'>('verified');
+  const [kycStatus, setKycStatus] = useState<'verified' | 'pending_review'>('pending_review');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [proposalModalProject, setProposalModalProject] =
@@ -1501,8 +1501,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       username: 'rizal-maulana',
       freelancerName: 'Rizal Maulana',
       avatar: '/images/avatar_contributor_male_1795676771682.jpg',
-      verified: true,
-      kycStatus: 'verified',
+      verified: false,
+      kycStatus: 'pending',
       available: true,
       roleType: input.roleType,
       levelBadge: 'Level Expert',
@@ -1565,7 +1565,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
               : 'Consented Preview Sample'),
           duration: '0:35',
           thumbnail: input.portfolioImage || defaultThumbnail,
-          consentVerified: true,
+          consentVerified: false,
           watermarked: true,
         },
       ],
@@ -1814,9 +1814,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     setAdminVerifications((prev) =>
       prev.map((v) => (v.id === id ? { ...v, status } : v))
     );
-    if (status === 'verified') {
-      setKycStatus('verified');
-    }
     appendAuditLog(
       locale === 'id'
         ? `Verifikasi ${target?.entityName || id} -> ${status}`
