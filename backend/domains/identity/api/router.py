@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from datetime import datetime
 from shared.security import Actor, db_connection, require_actor, has_recent_mfa
 
 router = APIRouter(tags=["identity"])
@@ -13,13 +14,48 @@ class ProfilePatch(BaseModel):
     locale: str | None = Field(default=None, pattern="^(id|en)$")
     timezone: str | None = Field(default=None, max_length=64)
 
+class ProfileResponse(BaseModel):
+    id: str
+    display_name: str | None = None
+    phone: str | None = None
+    country_code: str | None = None
+    city: str | None = None
+    bio: str | None = None
+    status: str
+    onboarding_completed_at: datetime | None = None
+    locale: str
+    timezone: str
+    active_organization_id: str | None = None
+
+class MeResponse(BaseModel):
+    user_id: str
+    email: str
+    profile: ProfileResponse
+
+class RoleResponse(BaseModel):
+    id: str
+    display_name: str
+    scope: str
+    organization_id: str | None = None
+    status: str
+
+class RoleListResponse(BaseModel):
+    items: list[RoleResponse]
+
+class SessionResponse(BaseModel):
+    authenticated: bool
+    user_id: str
+    aal: str
+    recent_mfa: bool
+    expires_at: int | None = None
+
 class FreelancerOnboarding(BaseModel):
     persona_roles: list[str] = Field(min_length=1, max_length=3)
     country_code: str = Field(min_length=2, max_length=2)
     city: str = Field(min_length=2, max_length=120)
     bio: str | None = Field(default=None, max_length=2000)
 
-@router.get("/me")
+@router.get("/me", response_model=MeResponse)
 async def me(actor: Actor = Depends(require_actor), db=Depends(db_connection)):
     row = await db.fetchrow("""select p.id::text,p.display_name,p.phone,p.country_code,p.city,p.bio,
         p.status,p.onboarding_completed_at,coalesce(u.locale,'id') locale,
@@ -32,7 +68,7 @@ async def me(actor: Actor = Depends(require_actor), db=Depends(db_connection)):
         raise HTTPException(403, "Account suspended")
     return {"user_id": actor.user_id, "email": actor.email, "profile": dict(row)}
 
-@router.patch("/me")
+@router.patch("/me", response_model=MeResponse)
 async def patch_me(payload: ProfilePatch, actor: Actor = Depends(require_actor), db=Depends(db_connection)):
     v = payload.model_dump(exclude_unset=True)
     await db.execute("""update public.profiles set
@@ -50,7 +86,7 @@ async def patch_me(payload: ProfilePatch, actor: Actor = Depends(require_actor),
             actor.user_id, v.get("locale"), v.get("timezone"))
     return await me(actor, db)
 
-@router.get("/me/roles")
+@router.get("/me/roles", response_model=RoleListResponse)
 async def roles(actor: Actor = Depends(require_actor), db=Depends(db_connection)):
     rows = await db.fetch("""select r.id,r.display_name,r.scope,ura.organization_id::text,ura.status
         from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
@@ -82,7 +118,7 @@ async def freelancer(payload: FreelancerOnboarding, actor: Actor = Depends(requi
         actor.user_id, sorted(roles), payload.country_code.upper(), payload.city)
     return {"status": "completed", "roles": sorted(roles)}
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=SessionResponse)
 async def sessions(actor: Actor = Depends(require_actor)):
     return {"authenticated": True, "user_id": actor.user_id,
         "aal": actor.aal, "recent_mfa": has_recent_mfa(actor), "expires_at": actor.claims.get("exp")}
