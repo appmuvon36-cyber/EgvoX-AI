@@ -99,6 +99,10 @@ async def require_permission(conn, actor: Actor, permission: str, org_id: str | 
         and r.scope='platform')""", actor.user_id)
     if privileged:
         require_recent_mfa(actor)
+    if org_id is not None:
+        active_org = await conn.fetchval("select active_organization_id::text from public.user_preferences where user_id=$1::uuid", actor.user_id)
+        if active_org != org_id:
+            raise HTTPException(409, "Switch to this organization before accessing its workspace")
     allowed = await conn.fetchval("select public.has_permission($1,$2::uuid)", permission, org_id)
     if not allowed:
         raise HTTPException(403, "Insufficient permission")
