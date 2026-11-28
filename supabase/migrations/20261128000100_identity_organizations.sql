@@ -630,7 +630,7 @@ create policy permissions_read on public.permissions for select to authenticated
 create policy role_permissions_read on public.role_permissions for select to authenticated,egvox_api using (true);
 
 create policy organizations_read_member on public.organizations for select to authenticated,egvox_api
-  using (public.is_active_org_member(id) or public.has_permission('organization.read',id) or exists(select 1 from public.resource_assignments ra where ra.user_id=auth.uid() and ra.organization_id=id and ra.status='active'));
+  using (public.is_active_org_member(id) or public.has_permission('organization.read',id) or exists(select 1 from public.resource_assignments ra where ra.user_id=auth.uid() and ra.organization_id=id and ra.status='active') and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 create policy organizations_create_self on public.organizations for insert to authenticated,egvox_api
   with check (created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
@@ -639,7 +639,7 @@ create policy organizations_update_manager on public.organizations for update to
   with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=id) and public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
 
 create policy members_read on public.organization_members for select to authenticated,egvox_api
-  using (user_id=auth.uid() or (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id)));
+  using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and (user_id=auth.uid() or (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id))));
 create policy members_create_owner on public.organization_members for insert to authenticated,egvox_api
   with check (user_id=auth.uid() and created_by=auth.uid() and status='active'
     and public.organization_owner_role_valid(organization_id,role_id)
@@ -651,8 +651,8 @@ create policy members_manage on public.organization_members for update to authen
     and role_id not in ('vendor_owner','enterprise_owner'));
 
 create policy invitations_read on public.organization_invitations for select to authenticated,egvox_api
-  using ((exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id))
-    or lower(email)=lower(coalesce(auth.jwt()->>'email','')));
+  using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and ((exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.read',organization_id))
+    or lower(email)=lower(coalesce(auth.jwt()->>'email',''))));
 create policy invitations_create on public.organization_invitations for insert to authenticated,egvox_api
   with check (exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=organization_id) and public.has_permission('organization.members.invite',organization_id)
     and invited_by=auth.uid() and status='pending'
@@ -663,18 +663,18 @@ create policy invitations_create on public.organization_invitations for insert t
 create policy role_assignments_read_self on public.user_role_assignments for select to authenticated,egvox_api
   using (user_id=auth.uid());
 create policy resource_assignments_read_self on public.resource_assignments for select to authenticated,egvox_api
-  using (user_id=auth.uid());
+  using (user_id=auth.uid() and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 create policy role_assignments_freelancer_self on public.user_role_assignments for insert to authenticated,egvox_api
   with check (user_id=auth.uid() and created_by=auth.uid() and organization_id is null
     and role_id in ('freelancer_contributor','freelancer_annotator','freelancer_qa_specialist')
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 
 create policy verification_read on public.verification_cases for select to authenticated,egvox_api
-  using (submitted_by=auth.uid()
+  using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and (submitted_by=auth.uid()
     or (subject_type='freelancer' and subject_id=auth.uid())
     or (subject_type='organization' and public.is_active_org_member(subject_id) and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id))
     or public.has_permission('verification.read',null)
-    or public.has_permission('verification.review',null));
+    or public.has_permission('verification.review',null)));
 create policy verification_draft_create on public.verification_cases for insert to authenticated,egvox_api with check (submitted_by=auth.uid() and status='draft' and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and ((subject_type='freelancer' and subject_id=auth.uid()) or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
 create policy verification_submit on public.verification_cases for insert to authenticated,egvox_api
   with check (submitted_by=auth.uid() and status='submitted'
@@ -683,13 +683,13 @@ create policy verification_submit on public.verification_cases for insert to aut
       or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
 -- No direct UPDATE policy: verification decisions use the MFA-enforcing RPC.
 create policy verification_docs_read on public.verification_documents for select to authenticated,egvox_api
-  using (uploaded_by=auth.uid()
+  using (exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') and (uploaded_by=auth.uid()
     or exists(select 1 from public.verification_cases c where c.id=case_id and (
       public.has_permission('verification.review',null)
       or (c.subject_type='organization'
         and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id)
         and public.has_permission('verification.read',c.subject_id))
-    )));
+    ))));
 create policy verification_docs_create on public.verification_documents for insert to authenticated,egvox_api
   with check (uploaded_by=auth.uid()
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
