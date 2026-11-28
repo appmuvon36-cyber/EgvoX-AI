@@ -7,8 +7,7 @@ type Invitation={id:string;email:string;role_id:string;status:string;expires_at:
 export default function AccountOrganizationsPage(){
  const [orgs,setOrgs]=useState<Org[]>([]);const [selected,setSelected]=useState('');const [members,setMembers]=useState<Member[]>([]);const [invitations,setInvitations]=useState<Invitation[]>([]);
  const [email,setEmail]=useState('');const [role,setRole]=useState('vendor_admin');const [inviteUrl,setInviteUrl]=useState('');const [error,setError]=useState('');
- const loadOrgs=async()=>{try{const r=await egvoxApi<{items:Org[]}>('/organizations');setOrgs(r.items);if(!selected&&r.items[0])setSelected(r.items[0].id);}catch(e){setError(e instanceof Error?e.message:'Unable to load organizations');}};
- useEffect(()=>{void loadOrgs();},[]);
+ useEffect(()=>{let active=true;egvoxApi<{items:Org[]}>('/organizations').then(r=>{if(active){setOrgs(r.items);if(r.items[0])setSelected(r.items[0].id);}}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Unable to load organizations');});return()=>{active=false;};},[]);
  useEffect(()=>{if(!selected)return;Promise.all([egvoxApi<{items:Member[]}>('/organizations/'+selected+'/members'),egvoxApi<{items:Invitation[]}>('/organizations/'+selected+'/invitations')]).then(([m,i])=>{setMembers(m.items);setInvitations(i.items);}).catch(e=>setError(e instanceof Error?e.message:'Unable to load organization details'));},[selected]);
  const active=orgs.find(o=>o.id===selected);
  const switchOrg=async(id:string)=>{setSelected(id);try{await egvoxApi('/organizations/'+id+'/context',{method:'POST'});}catch(e){setError(e instanceof Error?e.message:'Organization switch failed');}};
