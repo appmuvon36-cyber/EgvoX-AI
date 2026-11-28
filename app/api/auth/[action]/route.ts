@@ -88,7 +88,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   switch (action) {
     case 'signup':
       if (!body.email || !body.password || !body.full_name) return failure(422, 'Name, email and password are required');
-      const persona = ['freelancer','vendor','enterprise'].includes(body.requested_persona) ? body.requested_persona : 'freelancer';\n      result = await supabase('signup?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email?persona=' + persona), 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name } });
+      const persona = ['freelancer','vendor','enterprise'].includes(body.requested_persona) ? body.requested_persona : 'freelancer';
+      result = await supabase('signup?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email?persona=' + persona), 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name } });
       break;
     case 'signin':
       if (!body.email || !body.password) return failure(422, 'Email and password are required');
