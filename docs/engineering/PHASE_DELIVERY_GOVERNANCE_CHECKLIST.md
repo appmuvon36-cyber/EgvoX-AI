@@ -76,3 +76,19 @@ No real-world testing or staging is permitted. Phase completion is based on the 
 - [x] Supabase `rls_auto_enable()` was verified read-only; no production database mutation.
 - [x] No staging, deployment, real-user test, production smoke test or real transaction.
 - [x] No Product Owner acceptance or approval gate introduced.
+
+
+## Phase 01 execution checklist — 2026-11-28
+
+- [x] Re-fetched main and read AGENTS.md, Master PRD v1.3, CONTRIBUTING.md and Phase 00 governance evidence.
+- [x] Audited existing design tokens, CSS, root layout/font setup, design-system components, navigation shells, routes and official brand asset.
+- [x] Preserved existing App Router routes, navigation shells and page composition.
+- [x] Added platform-neutral token contract and semantic web theme mappings.
+- [x] Added shared core UI primitives and improved modal keyboard/accessibility behavior.
+- [x] Reused existing official logo and compact icon; did not redraw or fabricate monochrome assets.
+- [x] Added Phase 01 design-system documentation.
+- [ ] TypeScript, ESLint and Next.js production build — pending CI evidence.
+- [ ] Static component/token import review — record after CI/source verification.
+- [ ] Phase 01 closure — only after successful automated checks and final evidence update.
+
+Phase 01 remains IN PROGRESS until the CI run and closure evidence are verified.

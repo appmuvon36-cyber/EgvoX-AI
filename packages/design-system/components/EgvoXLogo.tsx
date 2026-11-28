@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import Image from 'next/image';
 
@@ -15,18 +13,17 @@ export const EgvoXLogo: React.FC<EgvoXLogoProps> = ({
   className = '',
 }) => {
   if (variant === 'symbol') {
-    const size = Math.max(32, Math.round(width));
+    const size = Math.max(44, Math.round(width));
     return (
       <span
-        className={`inline-flex items-center justify-center rounded-lg bg-white p-1 border border-[var(--egvox-border-default)] shrink-0 ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--egvox-border-default)] bg-white p-1 ${className}`}
         style={{ width: size, height: size }}
       >
         <Image
           src="/icon.svg"
-          alt="EgvoX"
+          alt="EgvoX brand symbol"
           width={size - 8}
           height={size - 8}
-          referrerPolicy="no-referrer"
           className="object-contain"
         />
       </span>
@@ -36,17 +33,14 @@ export const EgvoXLogo: React.FC<EgvoXLogoProps> = ({
   const height = Math.round(width * 0.34);
 
   return (
-    <span
-      className={`inline-flex items-center shrink-0 dark:rounded-lg dark:bg-white dark:px-1.5 sm:dark:px-2 dark:py-0.5 ${className}`}
-    >
+    <span className={`inline-flex shrink-0 items-center rounded-md bg-white px-1.5 py-0.5 ${className}`}>
       <Image
         src="/assets/aistudio/EgvoX_Official_Logo_ef943c39.webp"
         alt="EgvoX"
         width={width}
         height={height}
         priority
-        referrerPolicy="no-referrer"
-        className="h-auto w-full max-h-9 sm:max-h-10 object-contain select-none"
+        className="h-auto max-h-9 w-full select-none object-contain sm:max-h-10"
       />
     </span>
   );

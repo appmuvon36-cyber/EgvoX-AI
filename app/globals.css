@@ -45,7 +45,7 @@
   --egvox-border-strong: #A9BABB;
 
   --egvox-font-sans: var(--font-sans), Aptos, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --egvox-font-display: var(--font-display), var(--font-sans), Aptos, system-ui, sans-serif;
+  --font-display: var(--font-sans);\n  --egvox-font-display: var(--font-sans), Aptos, system-ui, sans-serif;
   --egvox-font-mono: var(--font-mono), ui-monospace, monospace;
   --egvox-container-sm: 640px;
   --egvox-container-md: 768px;
