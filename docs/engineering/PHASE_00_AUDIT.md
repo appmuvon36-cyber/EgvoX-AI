@@ -4,7 +4,7 @@
 **Repository:** `appmuvon36-cyber/EgvoX-AI`  
 **Branch:** `main`  
 **Canonical PRD:** EgvoX Master PRD v1.3 (26 November 2026)  
-**Phase status:** In progress — engineering evidence and open deliverables remain  
+**Phase status:** IN PROGRESS — security scan triage and final CI evidence remain  
 **Scope boundary:** Repository governance, architecture inventory, contribution rules, CI baseline, environment strategy. No Phase 01 design-system implementation.
 
 ## 1. Source-of-truth reconciliation
@@ -75,11 +75,11 @@ GitHub recursive tree returned 228 entries, not truncated.
 ## 4. CI and repository controls
 
 - No `.github/workflows` entries were present in the recursive tree before this commit.
-- GitHub reports `main` as default branch, repository push/admin permissions available to connected EgvoX account.
-- GitHub branch metadata reported `protected: false`; no branch protection/ruleset enforcement was verified.
-- Main-only direct commit policy conflicts with conventional required-PR protection. ADR-0001 records the decision and keeps branch-protection enforcement open rather than applying a contradictory setting.
-- A minimal CI workflow runs dependency installation, ESLint, TypeScript no-emit checking and Next.js build on pushes to main and manual dispatch. It does not deploy or run real-world tests.
-- Security baseline is currently partial: CI does not yet include a pinned, verified SAST/secret-scanning/dependency vulnerability scanner. This is an open Phase 00 exit gap, not claimed as complete.
+- GitHub reports `main` as the default branch and the connected EgvoX identity has repository push/admin permissions in repository metadata. Branch enumeration returned only `main`.
+- The `main` branch API metadata reports `protected: false`; repository rulesets GET returned an empty list (`[]`). A direct GET of `/branches/main/protection` returned HTTP 403 `Resource not accessible by integration`, so detailed protection state could not be read through this connection.
+- No protection/ruleset write endpoint is available in the connected GitHub tool surface. No protection setting was changed. Direct commits to `main` succeeded and were observed, so the main-only workflow remains functional. Force-push and branch-deletion prevention are **not verified/enforced**; see ADR-0001.
+- CI runs on pushes to `main` and manual dispatch; it is non-deploying. `validate` runs frozen Bun install, ESLint, TypeScript no-emit and Next.js production build. Security jobs use Trivy 0.76.2 (Bun lockfile dependency scan), Semgrep 1.187.0 (`p/security-audit`, ERROR severity) and Gitleaks 8.30.1 (redacted secret scan). Scanner image versions are explicitly pinned.
+- Initial run #7 (`03ab621d787c9454932a8126a9c395904a12ea4d`) showed Trivy success and Semgrep success; Gitleaks detected one candidate and failed. Dependency install, ESLint and TypeScript passed; the build step was cancelled when a subsequent workflow commit superseded the run. A follow-up run with sanitized Gitleaks report metadata is queued/pending; final CI evidence is not yet complete.
 
 ## 5. Environment strategy
 
@@ -99,11 +99,11 @@ GitHub recursive tree returned 228 entries, not truncated.
 - No application-owned objects were returned from the `public` schema inventory. System-managed schemas observed: `auth`, `extensions`, `graphql`, `graphql_public`, `public`, `realtime`, `storage`, `vault`.
 - Installed extensions reported: `pg_stat_statements`, `pgcrypto`, `plpgsql`, `supabase_vault`, `uuid-ossp`.
 - `storage.buckets` returned no bucket rows in the read-only query.
-- Existing function `public.rls_auto_enable()` is an event-trigger function owned by postgres, marked SECURITY DEFINER, with fixed search_path `pg_catalog`. Its definition enables RLS on newly created tables in `public`; it catches exceptions and logs failures. ACL includes PUBLIC, anon, authenticated and service_role EXECUTE.
-- Supabase Security Advisor reports two warning findings for the same function: executable by anon and authenticated. The advisor describes an RPC exposure; however, SQL metadata shows the function return type is `event_trigger`, not a normal callable RPC function. Treat the advisor finding and ACL as security-review work requiring precise verification, not proof that the event trigger can be invoked through PostgREST.
-- The function is attached/used as a database event trigger only if a corresponding trigger exists; event-trigger inventory and dependencies still need verification. Do not drop or alter it without that analysis.
-- Supabase Performance Advisor returned no lints.
-- Security remediation is not part of Phase 00 implementation; no change was made. Preserve the finding for a dedicated security review.
+- `public.rls_auto_enable()` is present as an event-trigger function. Read-only catalog inspection confirmed it is attached to event trigger `ensure_rls`, event `ddl_command_end`, enabled state `O` (origin/enabled), owned by `postgres`.
+- Function metadata: no arguments; return type `event_trigger` (PostgreSQL pseudo-type); owner `postgres`; `SECURITY DEFINER`; fixed `search_path=pg_catalog`. Its body inspects DDL commands and enables RLS for new tables in `public`, with exception logging.
+- ACL includes `PUBLIC`, `anon`, `authenticated`, and `service_role` EXECUTE; `has_function_privilege` returned true for anon/authenticated/service_role. `public` is an exposed schema and the advisor reports two WARN lints (`anon_security_definer_function_executable`, `authenticated_security_definer_function_executable`) describing an RPC path.
+- PostgreSQL documents that `event_trigger` is a special return type used as a signal for event-trigger invocation, not an ordinary SQL/RPC function result. Given the verified return type and attached event trigger, the advisor's generic RPC-exposure classification is a false positive for ordinary RPC invocation; the broad EXECUTE ACL is still unnecessary least-privilege exposure and should be cleaned up only in a separately authorized database change. See [PostgreSQL event-trigger behavior](https://www.postgresql.org/docs/current/event-trigger-definition.html) and [trigger functions](https://www.postgresql.org/docs/current/plpgsql-trigger.html).
+- No function, trigger, grant, policy, schema or data was changed. No DDL or migration was run. Supabase Security Advisor returned the two warnings above; no production remediation was attempted. Performance Advisor previously returned no lints.
 
 ## 7. Phase 00 deliverable status
 
@@ -114,12 +114,12 @@ GitHub recursive tree returned 228 entries, not truncated.
 | Master PRD | Complete | Canonical v1.3 now copied to root `MASTER_PRD.md` |
 | Contribution rules | Complete | Root `CONTRIBUTING.md` |
 | Architecture decision records | Partial | ADR-0001 recorded; domain/architecture ADRs still needed where decisions arise |
-| Branch protection | Open | Main is not protected; direct-commit rule conflicts with conventional PR required protection |
-| CI skeleton | Partial | Baseline workflow added; must observe CI result to validate lint/type/build |
+| Branch protection | Technical limitation documented | `main` remains unprotected; no rulesets; protection read endpoint denied to integration (403); no write capability. Direct commits work. Force-push/deletion protection remains an owner-side follow-up |
+| CI skeleton | Implemented | Push-main and manual triggers; no deployment steps |
 | Environment strategy | Complete (documented) | This report §5 |
-| Repository builds | Not verified | No build executed in this audit |
+| Repository builds | Pending final run | Prior run #6 succeeded on pre-security workflow; latest workflow run was cancelled before build completion |
 | Domain ownership documented | Complete (repository-level) | This report §3 |
-| CI lint/type/build/security baseline | Partial | Workflow defined; security scanner not yet integrated and CI run evidence pending |
+| CI lint/type/build/security baseline | Partial | Three pinned scanners integrated; Trivy/Semgrep passed in run #7; Gitleaks candidate and final CI run pending |
 
 ## 8. Explicit out-of-scope items
 
@@ -134,13 +134,24 @@ Not implemented in Phase 00:
 
 ## 9. Open engineering blockers
 
-1. **Branch protection policy:** decide how to reconcile main-only direct commits with enforceable branch protection. Until resolved, do not enable PR-required protection that blocks direct commits.
-2. **Security CI tooling:** select a pinned, maintainable secret/dependency/code scanner compatible with direct-to-main workflow; add only after tool/version and license review.
-3. **Build evidence:** CI run must finish successfully. This is automated engineering evidence for Phase 00 exit criteria.
-4. **Supabase function/event-trigger:** verify event-trigger attachment, dependencies and actual privilege impact before any security remediation.
-5. **Production deployment inventory:** existing deployment targets/services are not inventoried in this phase because no production changes are authorized; perform read-only inventory only when connector access and phase scope permit.
-6. **Root README:** optional; not a named Phase 00 PRD deliverable. Add only if onboarding docs are to be consolidated.
+1. **Branch protection enforcement:** not configurable through the available GitHub integration. Repository owner must decide whether to apply a ruleset that blocks force-push/deletion while allowing the authorized direct-commit identity to bypass without PR requirements. Do not enable PR-required checks.
+2. **Gitleaks candidate:** run #7 reported one candidate. The follow-up run is configured to print only redacted metadata (rule, file, line, description), never the matched value. Triage and final scan result remain pending.
+3. **Final CI evidence:** latest non-cancelled run must complete frozen install, ESLint, TypeScript, Next.js build, Trivy, Semgrep and Gitleaks successfully or document any genuine blocker.
+4. **Supabase least-privilege cleanup:** broad EXECUTE grants are not an ordinary RPC path for this `event_trigger` pseudo-type; consider revoking unnecessary public/client grants in a separately authorized migration. No production change was made.
+5. **Production deployment inventory:** intentionally outside Phase 00 and not performed; no deployment or production smoke test.
+6. **Root README:** optional; not a named Phase 00 PRD deliverable.
 
 ## 10. Phase completion assessment
 
 Phase 00 is not yet complete because the engineering evidence and open deliverables above remain unresolved. Completion will be determined from the mapped implementation, applicable automated checks, documented security review, PRD exit criteria and disclosed remaining gaps. No separate Product Owner acceptance decision is part of the completion process.
+
+
+## 11. Phase 00 execution evidence — 2026-11-28
+
+- Starting `main` SHA: `9d28cacc580e0b9fe80dd9dca832dab4058e0ee1`.
+- CI implementation commit: `03ab621d787c9454932a8126a9c395904a12ea4d`; Gitleaks reporting refinements: `22077b3ff189b73712715d5c990935e9246aa7e3`, `12a791fa04b724fe8dbef9349af62ae4cfd2a03e`, `30bf97c5b9230d55976c1231cfe3983a45a946d6`, `3b4e1da904ddc506a7aa89684d7eebd252010db7`.
+- CI run #6 on the pre-security workflow: [success](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46153802721).
+- CI run #7 on the initial scanner workflow: [cancelled](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46154665480) after dependency installation, ESLint and TypeScript succeeded; Trivy and Semgrep succeeded; Gitleaks detected one candidate; Next.js build was cancelled by a later push.
+- CI run #11 for the latest Gitleaks-report workflow commit: [pending at audit update](https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46154783907). Do not treat pending as a pass.
+- No real-user testing, staging, production transaction, deployment, Supabase mutation or UI/UX change was performed.
+- Files changed in this execution: `.github/workflows/ci.yml` and the three engineering documents updated with this record. Application code, package manifests and lockfile were not changed.

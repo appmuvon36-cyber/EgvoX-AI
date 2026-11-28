@@ -44,3 +44,26 @@ For each phase, record:
 Automated checks are engineering verification. They do not authorize real-world testing, staging, production transactions or release.
 
 No real-world testing or staging is permitted. Phase completion is based on the required implementation, documented evidence, relevant automated checks and PRD exit criteria. Production release remains a separate authorization gate.
+
+
+## Phase 00 execution record — 2026-11-28
+
+- [x] Active phase and exact Phase 00 scope checked against Master PRD v1.3.
+- [x] Repository governance documents and main-only direct-commit rules inspected.
+- [x] Main-only direct commit path retained; no branch or implementation PR created.
+- [x] Branch protection state and rulesets inspected; integration limitation recorded in ADR-0001. Protection is not claimed active.
+- [x] Non-deploying CI includes dependency, source-code and secret scanners with explicit tool versions.
+- [ ] Final CI run must complete frozen dependency install, ESLint, TypeScript no-emit, Next.js build, Trivy, Semgrep and Gitleaks.
+- [ ] Gitleaks candidate from the first scan must be triaged from redacted metadata; do not expose candidate values in logs.
+- [x] Supabase `public.rls_auto_enable()` event-trigger attachment, type, owner, SECURITY DEFINER, search_path, ACL and Security Advisor findings inspected read-only.
+- [x] No Supabase DDL, migration, data write, policy/grant/trigger/function change or deployment performed.
+- [x] No staging, real-user testing, production smoke test, real transaction or UI/UX change performed.
+- [ ] Phase 00 remains IN PROGRESS until final CI and secret-scan evidence is successful and documented.
+
+### Commits and evidence
+
+- CI baseline: `03ab621d787c9454932a8126a9c395904a12ea4d`.
+- Gitleaks reporting refinements: `22077b3ff189b73712715d5c990935e9246aa7e3`, `12a791fa04b724fe8dbef9349af62ae4cfd2a03e`, `30bf97c5b9230d55976c1231cfe3983a45a946d6`, `3b4e1da904ddc506a7aa89684d7eebd252010db7`.
+- Prior baseline CI success (before security jobs were added): https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46153802721
+- Initial security CI run (Trivy/Semgrep passed; Gitleaks candidate; build cancelled): https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46154665480
+- Latest queued security CI run at audit update: https://github.com/appmuvon36-cyber/EgvoX-AI/actions/runs/46154783907
