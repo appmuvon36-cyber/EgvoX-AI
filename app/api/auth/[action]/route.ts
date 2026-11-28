@@ -89,7 +89,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
     case 'signup':
       if (typeof body.email !== 'string' || body.email.length > 254 || typeof body.password !== 'string' || body.password.length < 12 || body.password.length > 256 || body.password.length > 256 || typeof body.full_name !== 'string' || body.full_name.trim().length < 2 || body.full_name.trim().length > 120) return failure(422, 'Valid name, email and 12–256 character password are required');
       const persona = ['freelancer','vendor','enterprise'].includes(body.requested_persona) ? body.requested_persona : 'freelancer';
-      result = await supabase('signup?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email?persona=' + persona), 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name } });
+      result = await supabase('signup?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email?persona=' + persona), 'POST', { email: body.email, password: body.password, data: { full_name: body.full_name.trim() } });
       break;
     case 'signin':
       if (typeof body.email !== 'string' || body.email.length > 254 || typeof body.password !== 'string' || body.password.length > 256) return failure(422, 'Valid email and password are required');
