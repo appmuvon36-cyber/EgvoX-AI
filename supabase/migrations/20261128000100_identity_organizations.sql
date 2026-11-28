@@ -197,6 +197,11 @@ begin
  insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
  values(null,'platform.role_provisioned','profile',p_user_id,jsonb_build_object('role_id',p_role_id,'reason',p_reason));
 end; $$;
+create or replace function public.organization_owner_role_valid(p_org_id uuid,p_role_id text)
+returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $
+ select exists(select 1 from public.organizations o where o.id=p_org_id and o.created_by=auth.uid()
+   and ((o.kind='vendor' and p_role_id='vendor_owner') or (o.kind='enterprise' and p_role_id='enterprise_owner')));
+$;
 create or replace function public.create_profile_for_auth_user()
 returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$$
 begin
@@ -228,7 +233,7 @@ create policy organizations_read_member on public.organizations for select to au
 create policy organizations_create_self on public.organizations for insert to authenticated with check(created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false);
 create policy organizations_update_manager on public.organizations for update to authenticated using(public.has_permission('organization.manage',id)) with check(public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
 create policy members_read on public.organization_members for select to authenticated using(user_id=auth.uid() or public.has_permission('organization.members.read',organization_id));
-create policy members_create_owner on public.organization_members for insert to authenticated with check(user_id=auth.uid() and created_by=auth.uid() and status='active' and role_id in('vendor_owner','enterprise_owner') and public.is_org_creator(organization_id) and exists(select 1 from public.organizations o where o.id=organization_id and ((o.kind='vendor' and role_id='vendor_owner') or (o.kind='enterprise' and role_id='enterprise_owner'))));
+create policy members_create_owner on public.organization_members for insert to authenticated with check(user_id=auth.uid() and created_by=auth.uid() and status='active' and role_id in('vendor_owner','enterprise_owner') and public.organization_owner_role_valid(organization_id,role_id));
 create policy members_manage on public.organization_members for update to authenticated using(public.has_permission('organization.members.manage',organization_id) and role_id not in('vendor_owner','enterprise_owner')) with check(public.has_permission('organization.members.manage',organization_id) and role_id not in('vendor_owner','enterprise_owner'));
 create policy invitations_read on public.organization_invitations for select to authenticated using(public.has_permission('organization.members.read',organization_id) or lower(email)=lower(coalesce(auth.jwt()->>'email','')));
 create policy invitations_create on public.organization_invitations for insert to authenticated with check(public.has_permission('organization.members.invite',organization_id) and invited_by=auth.uid() and status='pending' and exists(select 1 from public.organizations o where o.id=organization_id and ((o.kind='vendor' and role_id in('vendor_admin','vendor_project_manager')) or (o.kind='enterprise' and role_id='enterprise_member'))));
@@ -258,7 +263,7 @@ grant select,insert on public.verification_documents to authenticated;
 grant select,insert on public.audit_events to authenticated;
 grant select on public.roles,public.permissions,public.role_permissions to authenticated;
 grant usage,select on sequence public.audit_events_id_seq to authenticated;
-grant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
+revoke execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) from public,anon;\ngrant execute on function public.has_permission(text,uuid),public.is_active_org_member(uuid),public.is_org_creator(uuid),public.organization_owner_role_valid(uuid,text),public.accept_org_invitation(text),public.reject_org_invitation(text),public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text) to authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
 grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
