@@ -73,8 +73,9 @@ def require_aal2(actor: Actor) -> None:
     if actor.aal != "aal2":
         raise HTTPException(403, "Privileged platform sessions require MFA (AAL2)")
 
-def require_recent_mfa(actor: Actor, max_age_seconds: int = 600) -> None:
-    require_aal2(actor)
+def has_recent_mfa(actor: Actor, max_age_seconds: int = 600) -> bool:
+    if actor.aal != "aal2":
+        return False
     methods = actor.claims.get("amr", [])
     now = int(time.time())
     for method in methods if isinstance(methods, list) else []:
@@ -85,8 +86,12 @@ def require_recent_mfa(actor: Actor, max_age_seconds: int = 600) -> None:
         except (TypeError, ValueError):
             continue
         if now - max_age_seconds <= timestamp <= now + 30:
-            return
-    raise HTTPException(403, "Recent MFA re-authentication is required")
+            return True
+    return False
+
+def require_recent_mfa(actor: Actor, max_age_seconds: int = 600) -> None:
+    if not has_recent_mfa(actor, max_age_seconds):
+        raise HTTPException(403, "Recent MFA re-authentication is required")
 
 async def require_permission(conn, actor: Actor, permission: str, org_id: str | None = None):
     privileged = await conn.fetchval("""select exists(select 1 from public.user_role_assignments u
