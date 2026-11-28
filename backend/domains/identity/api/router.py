@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from shared.security import Actor, db_connection, require_actor
+from shared.security import Actor, db_connection, require_actor, has_recent_mfa
 
 router = APIRouter(tags=["identity"])
 
@@ -85,4 +85,4 @@ async def freelancer(payload: FreelancerOnboarding, actor: Actor = Depends(requi
 @router.get("/sessions")
 async def sessions(actor: Actor = Depends(require_actor)):
     return {"authenticated": True, "user_id": actor.user_id,
-        "aal": actor.aal, "expires_at": actor.claims.get("exp")}
+        "aal": actor.aal, "recent_mfa": has_recent_mfa(actor), "expires_at": actor.claims.get("exp")}
