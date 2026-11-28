@@ -2,8 +2,6 @@
 -- Reviewed migration artifact. Do not apply to hosted production without separate release authorization.
 begin;
 
-create extension if not exists pgcrypto with schema extensions;
-
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
@@ -55,6 +53,8 @@ create table public.organizations (
   contact_person text not null,
   authorized_representative text not null,
   business_purpose text not null,
+  terms_accepted_at timestamptz not null,
+  terms_version text not null,
   verification_status text not null default 'submitted'
     check (verification_status in ('draft','submitted','under_review','changes_requested','approved','rejected')),
   catalog_publishing_enabled boolean not null default false,
@@ -121,7 +121,7 @@ create table public.verification_cases (
   submitted_by uuid not null references public.profiles(id),
   reviewed_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
-  submitted_at timestamptz not null default now(),
+  submitted_at timestamptz,
   reviewed_at timestamptz
 );
 create index verification_cases_subject_idx on public.verification_cases(subject_type,subject_id,status);
@@ -351,6 +351,33 @@ begin
 end;
 $$;
 
+create or replace function public.submit_verification_case(p_case_id uuid)
+returns table(id uuid,status text,submitted_at timestamptz)
+language plpgsql security definer
+set search_path=pg_catalog,public,auth as $
+declare v_case public.verification_cases%rowtype;
+begin
+  if auth.uid() is null or not exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active') then
+    raise exception 'active authenticated profile required' using errcode='42501';
+  end if;
+  select * into v_case from public.verification_cases where id=p_case_id and submitted_by=auth.uid() and status='draft' for update;
+  if not found then raise exception 'verification draft not found' using errcode='P0002'; end if;
+  if v_case.subject_type='freelancer' and v_case.subject_id<>auth.uid() then
+    raise exception 'freelancer verification subject mismatch' using errcode='42501';
+  elsif v_case.subject_type='organization' then
+    if not exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=v_case.subject_id)
+      or not public.has_permission('verification.submit',v_case.subject_id) then
+      raise exception 'active organization verification permission required' using errcode='42501';
+    end if;
+  end if;
+  update public.verification_cases set status='submitted',submitted_at=now()
+    where id=v_case.id returning * into v_case;
+  insert into public.audit_events(actor_user_id,action,target_type,target_id)
+    values(auth.uid(),'verification.submitted','verification_case',v_case.id);
+  return query select v_case.id,v_case.status,v_case.submitted_at;
+end;
+$;
+
 create or replace function public.review_verification_case(p_case_id uuid,p_status text,p_reason text)
 returns table(id uuid,status text,review_reason text,reviewed_at timestamptz)
 language plpgsql security definer
@@ -550,6 +577,11 @@ create policy verification_read on public.verification_cases for select to authe
     or (subject_type='organization' and public.is_active_org_member(subject_id) and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id))
     or public.has_permission('verification.read',null)
     or public.has_permission('verification.review',null));
+create policy verification_draft_create on public.verification_cases for insert to authenticated
+  with check (submitted_by=auth.uid() and status='draft'
+    and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
+    and ((subject_type='freelancer' and subject_id=auth.uid())
+      or (subject_type='organization' and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=subject_id) and public.has_permission('verification.submit',subject_id))));
 create policy verification_submit on public.verification_cases for insert to authenticated
   with check (submitted_by=auth.uid() and status='submitted'
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
@@ -571,7 +603,9 @@ create policy verification_docs_create on public.verification_documents for inse
 create policy audit_read on public.audit_events for select to authenticated
   using (public.has_permission('platform.audit.read',null));
 
-revoke all on all tables in schema public from anon;
+revoke all on public.profiles,public.user_preferences,public.roles,public.permissions,public.role_permissions,
+  public.organizations,public.organization_members,public.organization_invitations,public.user_role_assignments,
+  public.verification_cases,public.verification_documents,public.audit_events from anon;
 grant select on public.profiles to authenticated;
 grant update(display_name,phone,country_code,city,bio,updated_at) on public.profiles to authenticated;
 grant select,insert,update(locale,timezone,active_organization_id,updated_at) on public.user_preferences to authenticated;
@@ -591,16 +625,17 @@ grant select on public.roles,public.permissions,public.role_permissions to authe
 revoke execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   from public,anon;
 grant execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   to authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
+revoke execute on function public.create_profile_for_auth_user() from public,anon,authenticated;
 grant execute on function public.provision_platform_role(uuid,text,text) to service_role;
 
 do $$
@@ -614,8 +649,13 @@ $$;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values ('verification-private','verification-private',false,10485760,
   array['application/pdf','image/jpeg','image/png'])
-on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,
-  allowed_mime_types=excluded.allowed_mime_types;
+on conflict(id) do nothing;
+do $ begin
+  if not exists(select 1 from storage.buckets where id='verification-private' and public=false
+    and file_size_limit=10485760 and allowed_mime_types @> array['application/pdf','image/jpeg','image/png']) then
+    raise exception 'verification-private bucket exists with incompatible security settings';
+  end if;
+end; $;
 
 -- No authenticated Storage policies: private document upload/download uses FastAPI and its backend-only service role.
 commit;
@@ -999,13 +1039,13 @@ grant select on public.roles,public.permissions,public.role_permissions to authe
 revoke execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   from public,anon;
 grant execute on function public.has_permission(text,uuid),
   public.is_active_org_member(uuid),public.organization_owner_role_valid(uuid,text),
   public.accept_org_invitation(text),public.reject_org_invitation(text),
-  public.mutate_org_invitation(uuid,uuid,text,text),public.review_verification_case(uuid,text,text),
+  public.mutate_org_invitation(uuid,uuid,text,text),public.submit_verification_case(uuid),public.review_verification_case(uuid,text,text),
   public.write_audit_event(text,text,uuid,jsonb)
   to authenticated;
 revoke execute on function public.provision_platform_role(uuid,text,text) from public,anon,authenticated;
