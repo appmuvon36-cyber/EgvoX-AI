@@ -9,10 +9,17 @@ const MEMBER_ROLES = new Set([
 ]);
 const OPS_ROLES = new Set(['platform_sales_partnership','platform_project_manager','data_operations','qa_reviewer','finance_operator','trust_safety','compliance_officer']);
 
-function redirect(request: NextRequest, path: string) {
+function redirect(request: NextRequest, path: string, source?: NextResponse) {
   const url = new URL(path, request.url);
   const response = NextResponse.redirect(url);
+  if (source) for (const cookie of source.cookies.getAll()) response.cookies.set(cookie);
   return response;
+}
+function clearSession(response: NextResponse) {
+  for (const name of [ACCESS, REFRESH, CSRF]) response.cookies.set(name, '', {
+    httpOnly: name !== CSRF, secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax', path: '/', maxAge: 0,
+  });
 }
 
 export async function middleware(request: NextRequest) {
@@ -21,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const api = process.env.EGVOX_API_URL?.replace(/\/$/, '');
   const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!api || !supabase || !anon) return redirect(request, login);
+  if (!api || !supabase || !anon) return redirect(request, login, nextResponse);
 
   let access = request.cookies.get(ACCESS)?.value;
   const refresh = request.cookies.get(REFRESH)?.value;
@@ -49,9 +56,11 @@ export async function middleware(request: NextRequest) {
       if (session.refresh_token) nextResponse.cookies.set(REFRESH, session.refresh_token, { httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 30 });
       if (!request.cookies.get(CSRF)?.value) nextResponse.cookies.set(CSRF, crypto.randomUUID(), { httpOnly: false, secure, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 30 });
       response = await callApi('me');
+    } else if ([400, 401].includes(renewed.status)) {
+      clearSession(nextResponse);
     }
   }
-  if (!response.ok) return redirect(request, login);
+  if (!response.ok) return redirect(request, login, nextResponse);
   const identity = await response.clone().json();
 
   if (path.startsWith('/workspace')) {
@@ -60,12 +69,12 @@ export async function middleware(request: NextRequest) {
     const roles = await rolesResponse.json();
     const roleIds = (roles.items || []).map((role: {id:string}) => role.id);
     if (!roleIds.some((id:string) => MEMBER_ROLES.has(id))) {
-      return redirect(request, '/onboarding/freelancer');
+      return redirect(request, '/onboarding/freelancer', nextResponse);
     }
     const hasFreelancer = roleIds.some((id:string) => ['freelancer_contributor','freelancer_annotator','freelancer_qa_specialist'].includes(id));
     const hasOrganization = roleIds.some((id:string) => ['vendor_owner','vendor_admin','vendor_project_manager','enterprise_owner','enterprise_member'].includes(id));
     if (hasOrganization && !hasFreelancer && !identity.profile?.active_organization_id) {
-      return redirect(request, '/account/organizations');
+      return redirect(request, '/account/organizations', nextResponse);
     }
   }
 
@@ -75,9 +84,9 @@ export async function middleware(request: NextRequest) {
     const roles = await rolesResponse.json();
     const session = await sessionResponse.json();
     const roleIds = (roles.items || []).map((role: {id:string}) => role.id);
-    if (path.startsWith('/admin') && !roleIds.includes('super_admin')) return redirect(request, '/workspace');
+    if (path.startsWith('/admin') && !roleIds.includes('super_admin')) return redirect(request, '/workspace', nextResponse);
     if (path.startsWith('/ops') && !roleIds.some((id:string) => OPS_ROLES.has(id))) return redirect(request, '/workspace');
-    if (session.aal !== 'aal2' || session.recent_mfa !== true) return redirect(request, '/account/security');
+    if (session.aal !== 'aal2' || session.recent_mfa !== true) return redirect(request, '/account/security', nextResponse);
   }
 
   return nextResponse;
