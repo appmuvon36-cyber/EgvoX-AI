@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const api = process.env.EGVOX_API_URL?.replace(/\/$/, '');
   const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!api || !supabase || !anon) return redirect(request, login, nextResponse);
+  if (!api || !supabase || !anon) return redirect(request, login);
 
   let access = request.cookies.get(ACCESS)?.value;
   const refresh = request.cookies.get(REFRESH)?.value;
@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
 
   if (path.startsWith('/workspace')) {
     const rolesResponse = await callApi('me/roles');
-    if (!rolesResponse.ok) return redirect(request, login);
+    if (!rolesResponse.ok) return redirect(request, login, nextResponse);
     const roles = await rolesResponse.json();
     const roleIds = (roles.items || []).map((role: {id:string}) => role.id);
     if (!roleIds.some((id:string) => MEMBER_ROLES.has(id))) {
@@ -80,12 +80,12 @@ export async function middleware(request: NextRequest) {
 
   if (path.startsWith('/admin') || path.startsWith('/ops')) {
     const [rolesResponse, sessionResponse] = await Promise.all([callApi('me/roles'), callApi('sessions')]);
-    if (!rolesResponse.ok || !sessionResponse.ok) return redirect(request, login);
+    if (!rolesResponse.ok || !sessionResponse.ok) return redirect(request, login, nextResponse);
     const roles = await rolesResponse.json();
     const session = await sessionResponse.json();
     const roleIds = (roles.items || []).map((role: {id:string}) => role.id);
     if (path.startsWith('/admin') && !roleIds.includes('super_admin')) return redirect(request, '/workspace', nextResponse);
-    if (path.startsWith('/ops') && !roleIds.some((id:string) => OPS_ROLES.has(id))) return redirect(request, '/workspace');
+    if (path.startsWith('/ops') && !roleIds.some((id:string) => OPS_ROLES.has(id))) return redirect(request, '/workspace', nextResponse);
     if (session.aal !== 'aal2' || session.recent_mfa !== true) return redirect(request, '/account/security', nextResponse);
   }
 
