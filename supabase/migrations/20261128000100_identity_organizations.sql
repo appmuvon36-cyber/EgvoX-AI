@@ -661,7 +661,7 @@ create policy invitations_create on public.organization_invitations for insert t
         or (o.kind='enterprise' and role_id='enterprise_member'))));
 
 create policy role_assignments_read_self on public.user_role_assignments for select to authenticated,egvox_api
-  using (user_id=auth.uid());
+  using (user_id=auth.uid() and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 create policy resource_assignments_read_self on public.resource_assignments for select to authenticated,egvox_api
   using (user_id=auth.uid() and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active'));
 create policy role_assignments_freelancer_self on public.user_role_assignments for insert to authenticated,egvox_api
