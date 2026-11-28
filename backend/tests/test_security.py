@@ -1,7 +1,8 @@
 import jwt
 import pytest
+import time
 from fastapi import HTTPException
-from shared.security import Actor, PLATFORM_ROLE_IDS, SELF_ASSIGNABLE_PERSONA_ROLES, require_aal2, verify_token
+from shared.security import Actor, PLATFORM_ROLE_IDS, SELF_ASSIGNABLE_PERSONA_ROLES, require_aal2, require_recent_mfa, verify_token
 
 def test_unsigned_jwt_is_rejected():
     token = jwt.encode({"sub": "00000000-0000-0000-0000-000000000001"}, key="", algorithm="none")
@@ -25,3 +26,13 @@ def test_privileged_session_requires_aal2():
     with pytest.raises(HTTPException):
         require_aal2(actor)
     require_aal2(Actor(actor.user_id, actor.email, "aal2", {}))
+
+def test_recent_mfa_requires_fresh_totp_claim(monkeypatch):
+    now = 1_800_000_000
+    monkeypatch.setattr("shared.security.time.time", lambda: now)
+    user_id = "00000000-0000-0000-0000-000000000001"
+    fresh = Actor(user_id, "test@example.invalid", "aal2", {"amr": [{"method": "totp", "timestamp": now - 30}]})
+    require_recent_mfa(fresh)
+    stale = Actor(user_id, "test@example.invalid", "aal2", {"amr": [{"method": "totp", "timestamp": now - 601}]})
+    with pytest.raises(HTTPException):
+        require_recent_mfa(stale)
