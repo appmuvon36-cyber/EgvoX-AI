@@ -1,10 +1,11 @@
 'use client';
 import React,{useEffect,useState} from 'react';
 import {egvoxApi} from '@/lib/egvox-api';
+import type {MeDTO} from '@/packages/api-contracts';
 import {useAppState} from '@/lib/hooks/useAppState';
 export default function AccountProfilePage(){
  const {locale}=useAppState();const id=locale==='id';const [v,setV]=useState({display_name:'',phone:'',locale:'id',timezone:'Asia/Jakarta'});const [error,setError]=useState('');const [saved,setSaved]=useState(false);const [busy,setBusy]=useState(false);
- useEffect(()=>{egvoxApi<any>('/me').then(r=>setV({display_name:r.profile.display_name||'',phone:r.profile.phone||'',locale:r.profile.locale,timezone:r.profile.timezone})).catch(e=>setError(e.message));},[]);
+ useEffect(()=>{egvoxApi<MeDTO>('/me').then(r=>setV({display_name:r.profile.display_name||'',phone:r.profile.phone||'',locale:r.profile.locale,timezone:r.profile.timezone})).catch(e=>setError(e.message));},[]);
  const save=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');setSaved(false);try{await egvoxApi('/me',{method:'PATCH',body:JSON.stringify(v)});setSaved(true);}catch(e){setError(e instanceof Error?e.message:'Save failed');}finally{setBusy(false);}};
  return <main className="mx-auto max-w-xl space-y-5 px-4 py-10"><h1 className="text-2xl font-bold">{id?'Profil akun':'Account profile'}</h1><form onSubmit={save} className="space-y-4 rounded-2xl border p-5"><label className="block text-sm">Display name<input value={v.display_name} onChange={e=>setV({...v,display_name:e.target.value})} className="mt-1 w-full rounded-lg border p-3"/></label><label className="block text-sm">Phone<input value={v.phone} onChange={e=>setV({...v,phone:e.target.value})} className="mt-1 w-full rounded-lg border p-3"/></label><label className="block text-sm">Language<select value={v.locale} onChange={e=>setV({...v,locale:e.target.value})} className="mt-1 w-full rounded-lg border p-3"><option value="id">Bahasa Indonesia</option><option value="en">English</option></select></label><label className="block text-sm">Timezone<input value={v.timezone} onChange={e=>setV({...v,timezone:e.target.value})} className="mt-1 w-full rounded-lg border p-3"/></label>{error&&<p role="alert" className="text-sm text-red-600">{error}</p>}{saved&&<p role="status" className="text-sm text-emerald-700">{id?'Profil tersimpan.':'Profile saved.'}</p>}<button disabled={busy} className="h-11 rounded-lg bg-[#027F86] px-5 text-sm font-semibold text-white">{busy?'...':id?'Simpan':'Save profile'}</button></form></main>;
 }
