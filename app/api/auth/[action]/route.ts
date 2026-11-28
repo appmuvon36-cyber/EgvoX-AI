@@ -101,9 +101,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       result = await supabase('token?grant_type=refresh_token', 'POST', { refresh_token: refresh });
       break;
     }
-    case 'signout':
-      if (access) await supabase('logout?scope=global', 'POST', undefined, access);
-      { const response = NextResponse.json({ ok: true }); clearSession(response); return response; }
+    case 'signout': {
+      let invalidated = true;
+      if (access) {
+        const logout = await supabase('logout?scope=global', 'POST', undefined, access).catch(() => null);
+        invalidated = Boolean(logout?.response.ok);
+      }
+      const response = invalidated
+        ? NextResponse.json({ ok: true, signed_out: true })
+        : failure(502, 'Global sign-out could not be confirmed; local cookies were cleared.');
+      clearSession(response);
+      return response;
+    }
     case 'recover':
       if (typeof body.email !== 'string' || body.email.length > 254) return failure(422, 'Valid email is required');
       result = await supabase('recover?redirect_to=' + encodeURIComponent(request.nextUrl.origin + '/verify-email'), 'POST', { email: body.email });
