@@ -204,13 +204,22 @@ async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
     return {"status":"rejected"}
 @router.post("/organizations/{oid}/invitations/{iid}/revoke")
 async def revoke(oid:UUID,iid:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'revoke',null)",oid,iid)
+    try:
+        ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'revoke',null)",oid,iid)
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate=="42501": raise HTTPException(403,"Invitation management permission denied") from exc
+        raise
     if not ok: raise HTTPException(404,"Pending invitation not found")
     return {"status":"revoked"}
 @router.post("/organizations/{oid}/invitations/{iid}/resend")
 async def resend(oid:UUID,iid:UUID,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     raw=secrets.token_urlsafe(40); digest=hashlib.sha256(raw.encode()).hexdigest()
-    ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'resend',$3)",oid,iid,digest)
+    try:
+        ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'resend',$3)",oid,iid,digest)
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate=="42501": raise HTTPException(403,"Invitation management permission denied") from exc
+        if exc.sqlstate=="22023": raise HTTPException(422,"Invalid invitation action") from exc
+        raise
     if not ok: raise HTTPException(404,"Invitation cannot be resent")
     row=await db.fetchrow("select id::text,email,role_id,expires_at from public.organization_invitations where id=$1::uuid",iid)
     return {"invitation":dict(row),"token":raw}
