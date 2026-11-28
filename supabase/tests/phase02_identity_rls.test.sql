@@ -1,0 +1,16 @@
+begin;
+select plan(12);
+select has_table('public','profiles','profiles table exists');
+select has_table('public','user_preferences','user preferences table exists');
+select has_table('public','organizations','organizations table exists');
+select has_table('public','organization_members','organization memberships exist');
+select has_table('public','organization_invitations','organization invitations exist');
+select has_table('public','user_role_assignments','role assignments exist');
+select has_table('public','verification_cases','verification cases exist');
+select has_table('public','verification_documents','verification documents exist');
+select ok((select relrowsecurity from pg_class where oid='public.profiles'::regclass),'profiles RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.organizations'::regclass),'organizations RLS enabled');
+select ok((select relrowsecurity from pg_class where oid='public.organization_members'::regclass),'membership RLS enabled');
+select ok((select not has_function_privilege('anon','public.provision_platform_role(uuid,text,text)','EXECUTE')),'anon cannot provision platform roles');
+select * from finish();
+rollback;
