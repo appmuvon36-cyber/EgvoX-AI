@@ -117,10 +117,8 @@ async def onboard_org(p:OrgInput,a:Actor=Depends(require_actor),db=Depends(db_co
     oid=str(uuid4()); owner="vendor_owner" if p.kind=="vendor" else "enterprise_owner"
     try:
         row=await db.fetchrow("""insert into public.organizations(id,kind,legal_name,trading_name,country_code,registration_identifier,website,business_email,address,industry,contact_person,authorized_representative,business_purpose,terms_accepted_at,terms_version,verification_status,catalog_publishing_enabled,created_by) values($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,now(),$14,'submitted',false,$15::uuid) returning id::text,kind,legal_name,verification_status,created_at""",oid,p.kind,p.legal_name,p.trading_name,p.country_code.upper(),p.registration_identifier.strip().upper(),str(p.website) if p.website else None,str(p.business_email).lower(),json.dumps(p.address),p.industry,p.contact_person,p.authorized_representative,p.business_purpose,p.terms_version,a.user_id)
-    except Exception as exc:
-        if "organizations_country_code_registration_identifier_key" in str(exc):
-            raise HTTPException(409,"This registration identifier is already registered") from exc
-        raise
+    except asyncpg.UniqueViolationError as exc:
+        raise HTTPException(409,"This registration identifier is already registered") from exc
     await db.execute("insert into public.organization_members(organization_id,user_id,role_id,status,created_by) values($1::uuid,$2::uuid,$3,'active',$2::uuid)",oid,a.user_id,owner)
     await db.execute("select public.write_audit_event('organization.created','organization',$1::uuid,'{}'::jsonb)",oid)
     return dict(row)
