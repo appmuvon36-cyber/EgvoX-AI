@@ -67,6 +67,11 @@ async def db_connection(request: Request, actor: Actor = Depends(require_actor))
                 json.dumps(actor.claims, separators=(",", ":")))
             await conn.execute("SELECT set_config('request.jwt.claim.sub',$1,true)", actor.user_id)
             await conn.execute("SELECT set_config('egvox.request_id',$1,true)", getattr(request.state, "request_id", ""))
+            profile_status = await conn.fetchval("SELECT status FROM public.profiles WHERE id=$1::uuid", actor.user_id)
+            if profile_status is None:
+                raise HTTPException(409, "Profile not provisioned")
+            if profile_status != "active":
+                raise HTTPException(403, "Account suspended")
             yield conn
 
 def require_aal2(actor: Actor) -> None:
