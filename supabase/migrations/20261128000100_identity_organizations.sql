@@ -198,7 +198,7 @@ begin
  values(null,'platform.role_provisioned','profile',p_user_id,jsonb_build_object('role_id',p_role_id,'reason',p_reason));
 end; $$;
 create or replace function public.organization_owner_role_valid(p_org_id uuid,p_role_id text)
-returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $
+returns boolean language sql stable security definer set search_path=pg_catalog,public,auth as $$
  select exists(select 1 from public.organizations o where o.id=p_org_id and o.created_by=auth.uid()
    and ((o.kind='vendor' and p_role_id='vendor_owner') or (o.kind='enterprise' and p_role_id='enterprise_owner')));
 $;
