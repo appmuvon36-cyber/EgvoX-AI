@@ -454,7 +454,13 @@ export type OpsStaffRole =
   | 'data_operations'
   | 'qa_reviewer'
   | 'project_manager'
-  | 'annotation_ops';
+  | 'annotation_ops'
+  | 'platform_sales_partnership'
+  | 'platform_project_manager'
+  | 'finance_operator'
+  | 'trust_safety'
+  | 'compliance_officer'
+  | 'super_admin';
 
 export interface OpsProjectPackage {
   id: string;
