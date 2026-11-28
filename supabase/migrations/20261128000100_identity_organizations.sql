@@ -208,7 +208,12 @@ insert into public.permissions (id,description) values
   ('verification.read','Read verification status'),
   ('verification.review','Review verification cases'),
   ('platform.identity.manage','Manage platform identity'),
-  ('platform.audit.read','Read platform audit trail');
+  ('platform.audit.read','Read platform audit trail'),
+  ('resource.read','Read explicitly assigned resources'),
+  ('resource.contribute','Contribute to explicitly assigned resources'),
+  ('resource.annotate','Annotate explicitly assigned resources'),
+  ('resource.review','Review explicitly assigned resources'),
+  ('resource.manage','Manage resources within assigned scope');
 
 insert into public.role_permissions(role_id,permission_id)
   select 'super_admin', id from public.permissions;
@@ -239,6 +244,22 @@ insert into public.role_permissions(role_id,permission_id) values
   ('trust_safety','verification.read'),('trust_safety','verification.review'),
   ('compliance_officer','verification.read'),('compliance_officer','verification.review'),
   ('finance_operator','platform.audit.read');
+
+insert into public.role_permissions(role_id,permission_id) values
+  ('freelancer_contributor','resource.read'),('freelancer_contributor','resource.contribute'),
+  ('freelancer_annotator','resource.read'),('freelancer_annotator','resource.annotate'),
+  ('freelancer_qa_specialist','resource.read'),('freelancer_qa_specialist','resource.review'),
+  ('vendor_owner','resource.read'),('vendor_owner','resource.manage'),
+  ('vendor_admin','resource.read'),('vendor_admin','resource.manage'),
+  ('vendor_project_manager','resource.read'),('vendor_project_manager','resource.manage'),
+  ('enterprise_owner','resource.read'),('enterprise_owner','resource.manage'),
+  ('enterprise_member','resource.read'),
+  ('platform_sales_partnership','resource.read'),
+  ('platform_project_manager','resource.read'),('platform_project_manager','resource.manage'),
+  ('data_operations','resource.read'),('data_operations','resource.contribute'),
+  ('qa_reviewer','resource.read'),('qa_reviewer','resource.review'),
+  ('trust_safety','resource.read'),('trust_safety','resource.review'),
+  ('compliance_officer','resource.read'),('compliance_officer','resource.review');
 
 create or replace function public.has_permission(p_permission text,p_organization_id uuid default null)
 returns boolean language sql stable security definer
