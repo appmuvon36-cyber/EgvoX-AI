@@ -79,10 +79,10 @@ export const DataOpsPortal: React.FC<{
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
-  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string}>('/sessions')]); const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id)); if (active && role && assurance.aal === 'aal2') { setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole); setOperatorEmail(session.user?.email || ''); setIsAuthenticated(true); } } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
 
   const [activeModule, setActiveModule] = useState<OpsModuleId>(initialModule);
   const [opsRole, setOpsRole] = useState<OpsStaffRole>('data_operations');
+  useEffect(() => { let active = true; (async () => { try { const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(r => r.json()); if (!session.authenticated) return; const [roles, assurance] = await Promise.all([egvoxApi<{items:{id:string}[]}>('/me/roles'), egvoxApi<{aal:string}>('/sessions')]); const role = roles.items.find(r => ['data_operations','qa_reviewer','platform_project_manager','super_admin'].includes(r.id)); if (active && role && assurance.aal === 'aal2') { setOpsRole(role.id === 'platform_project_manager' ? 'project_manager' : role.id as OpsStaffRole); setOperatorEmail(session.user?.email || ''); setIsAuthenticated(true); } } catch { if (active) setIsAuthenticated(false); } })(); return () => { active = false; }; }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [helpSopOpen, setHelpSopOpen] = useState(false);
