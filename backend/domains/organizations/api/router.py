@@ -165,6 +165,12 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
     if res.status_code>=300: raise HTTPException(502,"Private upload failed")
     row=await db.fetchrow("""insert into public.verification_documents(case_id,storage_path,original_filename,mime_type,size_bytes,uploaded_by) values($1::uuid,$2,$3,$4,$5,$6::uuid) returning id::text,original_filename,mime_type,size_bytes""",case_id,path,name,file.content_type,len(data),a.user_id)
     return dict(row)
+@router.get("/verification/{case_id}/documents")
+async def list_verification_documents(case_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    rows=await db.fetch("""select d.id::text,d.original_filename,d.mime_type,d.size_bytes,d.created_at
+        from public.verification_documents d where d.case_id=$1::uuid order by d.created_at desc""",case_id)
+    return {"items":[dict(row) for row in rows]}
+
 @router.get("/verification/{case_id}/documents/{document_id}/download")
 async def download_document(case_id:str,document_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     key=settings.supabase_service_role_key
