@@ -88,7 +88,7 @@ jobs:
             -v "${{ github.workspace }}:/src:ro" \
             -v "${{ runner.temp }}:/reports" \
             zricethezav/gitleaks:v8.30.1 \
-            dir --redact --no-banner --report-format json \
+            dir --config /src/.gitleaks.toml --redact --no-banner --report-format json \
             --report-path /reports/gitleaks-report.json --exit-code 1 /src
           scan_status=$?
           set -e
