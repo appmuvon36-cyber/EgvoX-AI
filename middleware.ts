@@ -7,7 +7,7 @@ const MEMBER_ROLES = new Set([
   'freelancer_contributor','freelancer_annotator','freelancer_qa_specialist',
   'vendor_owner','vendor_admin','vendor_project_manager','enterprise_owner','enterprise_member',
 ]);
-const OPS_ROLES = new Set(['data_operations','qa_reviewer','platform_project_manager','super_admin']);
+const OPS_ROLES = new Set(['platform_sales_partnership','platform_project_manager','data_operations','qa_reviewer','finance_operator','trust_safety','compliance_officer']);
 
 function redirect(request: NextRequest, path: string) {
   const url = new URL(path, request.url);
