@@ -86,13 +86,14 @@ jobs:
           set +e
           docker run --rm \
             -v "${{ github.workspace }}:/src:ro" \
+            -v "${{ runner.temp }}:/reports" \
             zricethezav/gitleaks:v8.30.1 \
             dir --redact --no-banner --report-format json \
-            --report-path /tmp/gitleaks-report.json --exit-code 1 /src
+            --report-path /reports/gitleaks-report.json --exit-code 1 /src
           scan_status=$?
           set -e
 
-          if [ -f /tmp/gitleaks-report.json ]; then
+          if [ -f ${{ runner.temp }}/gitleaks-report.json ]; then
             jq -r '.[] | "finding rule=\(.RuleID) file=\(.File) line=\(.StartLine) description=\(.Description)"' /tmp/gitleaks-report.json
           fi
 
