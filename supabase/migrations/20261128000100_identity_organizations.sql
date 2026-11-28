@@ -153,13 +153,17 @@ begin
    where id=p_invitation_id and organization_id=p_org_id and status in('pending','expired');
  else raise exception 'invalid invitation action' using errcode='22023';
  end if;
+ if found then
+   insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
+   values(auth.uid(),'organization.invitation_'||p_action,'invitation',p_invitation_id,jsonb_build_object('organization_id',p_org_id));
+ end if;
  return found;
-end; $$;
+end; $;
 create or replace function public.review_verification_case(p_case_id uuid,p_status text,p_reason text)
 returns table(id uuid,status text,review_reason text,reviewed_at timestamptz) language plpgsql security definer set search_path=pg_catalog,public,auth as $$
 declare v_case public.verification_cases%rowtype;
 begin
- if auth.jwt()->>'aal' <> 'aal2' then raise exception 'MFA AAL2 required' using errcode='42501'; end if;
+ if coalesce(auth.jwt()->>'aal','aal1') <> 'aal2' then raise exception 'MFA AAL2 required' using errcode='42501'; end if;
  if not public.has_permission('verification.review',null) then raise exception 'permission denied' using errcode='42501'; end if;
  if p_status not in('under_review','changes_requested','approved','rejected') then raise exception 'invalid decision' using errcode='22023'; end if;
  update public.verification_cases set status=p_status,review_reason=p_reason,reviewed_by=auth.uid(),reviewed_at=now()
@@ -229,7 +233,7 @@ create policy preferences_self on public.user_preferences for all to authenticat
 create policy roles_read on public.roles for select to authenticated using(true);
 create policy permissions_read on public.permissions for select to authenticated using(true);
 create policy role_permissions_read on public.role_permissions for select to authenticated using(true);
-create policy organizations_read_member on public.organizations for select to authenticated using(public.is_active_org_member(id));
+create policy organizations_read_member on public.organizations for select to authenticated using(public.is_active_org_member(id) or public.has_permission('organization.read',id));
 create policy organizations_create_self on public.organizations for insert to authenticated with check(created_by=auth.uid() and verification_status='submitted' and catalog_publishing_enabled=false);
 create policy organizations_update_manager on public.organizations for update to authenticated using(public.has_permission('organization.manage',id)) with check(public.has_permission('organization.manage',id) and catalog_publishing_enabled=false);
 create policy members_read on public.organization_members for select to authenticated using(user_id=auth.uid() or public.has_permission('organization.members.read',organization_id));
