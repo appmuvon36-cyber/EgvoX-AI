@@ -113,7 +113,7 @@ export const egvoxFormatIDR = (amount: number): string => {
   const sign = rounded < 0 ? '-' : '';
   const digits = Math.abs(rounded)
     .toString()
-    .replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.');
+    .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${sign}Rp ${digits}`;
 };
 
@@ -123,6 +123,6 @@ export const egvoxFormatUSD = (amountIDR: number): string => {
   const abs = Math.abs(usd);
   const fixed = abs.toFixed(2);
   const [intPart, decPart] = fixed.split('.');
-  const formattedInt = intPart.replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return `${sign}$${formattedInt}.${decPart}`;
 };

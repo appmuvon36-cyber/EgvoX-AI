@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgeTone } from './Badge';
+import type { BadgeTone } from './Badge';
 
 const styles: Record<BadgeTone, string> = {
   neutral: 'border-[var(--egvox-border-default)] bg-[var(--egvox-bg-subtle)] text-[var(--egvox-text-primary)]',
