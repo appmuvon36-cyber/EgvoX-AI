@@ -1,8 +1,9 @@
 'use client';
 import React,{useEffect,useState} from 'react';
 import {egvoxApi} from '@/lib/egvox-api';
-type Case={id:string;subject_type:string;case_type:string;status:string;review_reason?:string;created_at:string};
-type Document={id:string;original_filename:string;mime_type:string;size_bytes:number};
+import type {VerificationCaseDTO,VerificationDocumentDTO} from '@/packages/api-contracts';
+type Case=VerificationCaseDTO;
+type Document=VerificationDocumentDTO;
 export default function VerificationPage(){
  const [items,setItems]=useState<Case[]>([]);const [documents,setDocuments]=useState<Document[]>([]);
  const [file,setFile]=useState<File|null>(null);const [caseId,setCaseId]=useState('');
