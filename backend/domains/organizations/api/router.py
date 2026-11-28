@@ -70,12 +70,11 @@ async def invite(oid:str,p:InviteInput,a:Actor=Depends(require_actor),db=Depends
 @router.post("/organizations/invitations/accept")
 async def accept(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
-    row=await db.fetchrow("select * from public.organization_invitations where token_hash=$1 and status='pending' and expires_at>now() for update",digest)
-    if not row: raise HTTPException(410,"Invitation invalid, expired or used")
-    if row["email"].lower()!=a.email: raise HTTPException(403,"Invitation email does not match account")
-    await db.execute("""insert into public.organization_members(organization_id,user_id,role_id,status,created_by) values($1,$2::uuid,$3,'active',$2::uuid) on conflict(organization_id,user_id) do update set role_id=excluded.role_id,status='active'""",row["organization_id"],a.user_id,row["role_id"])
-    await db.execute("update public.organization_invitations set status='accepted',accepted_by=$2::uuid,responded_at=now() where id=$1",row["id"],a.user_id)
-    return {"status":"accepted","organization_id":str(row["organization_id"])}
+    try:
+        org_id=await db.fetchval("select public.accept_org_invitation($1)",digest)
+    except Exception as exc:
+        raise HTTPException(403,"Invitation is invalid, expired, or not addressed to this account") from exc
+    return {"status":"accepted","organization_id":str(org_id)}
 @router.post("/organizations/invitations/reject")
 async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     digest=hashlib.sha256(p.token.encode()).hexdigest()
@@ -84,16 +83,15 @@ async def reject(p:TokenInput,a:Actor=Depends(require_actor),db=Depends(db_conne
     return {"status":"rejected"}
 @router.post("/organizations/{oid}/invitations/{iid}/revoke")
 async def revoke(oid:str,iid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    await require_permission(db,a,"organization.members.invite",oid)
-    result=await db.execute("update public.organization_invitations set status='revoked',responded_at=now() where id=$1::uuid and organization_id=$2::uuid and status='pending'",iid,oid)
-    if result.endswith(" 0"): raise HTTPException(404,"Pending invitation not found")
+    ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'revoke',null)",oid,iid)
+    if not ok: raise HTTPException(404,"Pending invitation not found")
     return {"status":"revoked"}
 @router.post("/organizations/{oid}/invitations/{iid}/resend")
 async def resend(oid:str,iid:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    await require_permission(db,a,"organization.members.invite",oid)
     raw=secrets.token_urlsafe(40); digest=hashlib.sha256(raw.encode()).hexdigest()
-    row=await db.fetchrow("""update public.organization_invitations set token_hash=$3,status='pending',expires_at=now()+interval '7 days',responded_at=null where id=$1::uuid and organization_id=$2::uuid and status in ('pending','expired') returning id::text,email,role_id,expires_at""",iid,oid,digest)
-    if not row: raise HTTPException(404,"Invitation cannot be resent")
+    ok=await db.fetchval("select public.mutate_org_invitation($1::uuid,$2::uuid,'resend',$3)",oid,iid,digest)
+    if not ok: raise HTTPException(404,"Invitation cannot be resent")
+    row=await db.fetchrow("select id::text,email,role_id,expires_at from public.organization_invitations where id=$1::uuid",iid)
     return {"invitation":dict(row),"token":raw}
 @router.patch("/organizations/{oid}/members/{mid}")
 async def member_status(oid:str,mid:str,p:MemberStatus,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -132,9 +130,8 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
     return dict(row)
 @router.patch("/verification/{case_id}/decision")
 async def decision(case_id:str,p:DecisionInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
-    await require_permission(db,a,"verification.review")
-    row=await db.fetchrow("""update public.verification_cases set status=$2,review_reason=$3,reviewed_by=$4::uuid,reviewed_at=now() where id=$1::uuid and status in ('submitted','under_review','changes_requested') returning id::text,status,review_reason,reviewed_at""",case_id,p.status,p.reason,a.user_id)
-    if not row: raise HTTPException(404,"Reviewable case not found")
-    if p.status=="approved":
-        await db.execute("""update public.organizations set verification_status='approved',verified_at=now() where id=(select subject_id from public.verification_cases where id=$1::uuid and subject_type='organization')""",case_id)
+    try:
+        row=await db.fetchval("select public.review_verification_case($1::uuid,$2,$3)",case_id,p.status,p.reason)
+    except Exception as exc:
+        raise HTTPException(403,"AAL2 privileged reviewer permission is required") from exc
     return dict(row)
