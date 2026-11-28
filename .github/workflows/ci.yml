@@ -84,16 +84,16 @@ jobs:
       - name: Scan repository files without exposing matched values
         run: |
           set +e
-          docker run --rm
-            -v "${{ github.workspace }}:/src:ro"
-            zricethezav/gitleaks:v8.30.1
-            dir --redact --no-banner --report-format json
+          docker run --rm \
+            -v "${{ github.workspace }}:/src:ro" \
+            zricethezav/gitleaks:v8.30.1 \
+            dir --redact --no-banner --report-format json \
             --report-path /tmp/gitleaks-report.json --exit-code 1 /src
           scan_status=$?
           set -e
 
           if [ -f /tmp/gitleaks-report.json ]; then
-            jq -r '.[] | "finding rule=\\(.RuleID) file=\\(.File) line=\\(.StartLine) description=\\(.Description)"' /tmp/gitleaks-report.json
+            jq -r '.[] | "finding rule=\(.RuleID) file=\(.File) line=\(.StartLine) description=\(.Description)"' /tmp/gitleaks-report.json
           fi
 
           exit "$scan_status"
