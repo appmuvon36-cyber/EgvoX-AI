@@ -239,7 +239,7 @@ insert into public.role_permissions(role_id,permission_id) values
   ('vendor_owner','verification.submit'),('vendor_owner','verification.read'),
   ('vendor_admin','organization.read'),('vendor_admin','organization.manage'),
   ('vendor_admin','organization.members.read'),('vendor_admin','organization.members.invite'),
-  ('vendor_admin','organization.members.manage'),
+  ('vendor_admin','organization.members.manage'),('vendor_admin','verification.submit'),('vendor_admin','verification.read'),
   ('vendor_project_manager','organization.read'),('vendor_project_manager','organization.members.read'),
   ('enterprise_owner','profile.read'),('enterprise_owner','profile.write'),
   ('enterprise_owner','organization.read'),('enterprise_owner','organization.manage'),
@@ -523,6 +523,17 @@ begin
     if p_target_type<>'verification_case' or not exists (
       select 1 from public.verification_cases c where c.id=p_target_id and c.submitted_by=auth.uid()
     ) then raise exception 'invalid verification audit target' using errcode='42501'; end if;
+  elsif p_action='verification.document_uploaded' then
+    if p_target_type<>'verification_document' or not exists (
+      select 1 from public.verification_documents d
+      join public.verification_cases c on c.id=d.case_id
+      where d.id=p_target_id and (
+        c.submitted_by=auth.uid()
+        or (c.subject_type='organization'
+          and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id)
+          and public.has_permission('verification.submit',c.subject_id))
+      )
+    ) then raise exception 'invalid verification document audit target' using errcode='42501'; end if;
   else
     raise exception 'unsupported audit action' using errcode='22023';
   end if;
@@ -695,7 +706,12 @@ create policy verification_docs_create on public.verification_documents for inse
   with check (uploaded_by=auth.uid()
     and exists(select 1 from public.profiles p where p.id=auth.uid() and p.status='active')
     and exists(select 1 from public.verification_cases c where c.id=case_id
-      and c.submitted_by=auth.uid() and c.status in ('draft','submitted')));
+      and c.status in ('draft','submitted') and (
+        c.submitted_by=auth.uid()
+        or (c.subject_type='organization'
+          and exists(select 1 from public.user_preferences up where up.user_id=auth.uid() and up.active_organization_id=c.subject_id)
+          and public.has_permission('verification.submit',c.subject_id))
+      )));
 
 create policy audit_read on public.audit_events for select to authenticated,egvox_api
   using (public.has_permission('platform.audit.read',null));
