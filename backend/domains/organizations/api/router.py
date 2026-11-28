@@ -120,6 +120,9 @@ async def member_status(oid:str,mid:str,p:MemberStatus,a:Actor=Depends(require_a
     await require_permission(db,a,"organization.members.manage",oid)
     result=await db.execute("update public.organization_members set status=$3,updated_at=now() where id=$1::uuid and organization_id=$2::uuid and role_id not in ('vendor_owner','enterprise_owner')",mid,oid,p.status)
     if result.endswith(" 0"): raise HTTPException(404,"Member not found or owner cannot be changed")
+    await db.execute("""insert into public.audit_events(actor_user_id,action,target_type,target_id,metadata)
+        values($1::uuid,'organization.membership_status_updated','organization_member',$2::uuid,
+        jsonb_build_object('organization_id',$3::uuid,'status',$4))""",a.user_id,mid,oid,p.status)
     return {"status":p.status}
 @router.post("/verification/submissions",status_code=201)
 async def submit_verification(p:VerificationInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
@@ -141,6 +144,8 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
     if file.content_type not in {"application/pdf","image/jpeg","image/png"}: raise HTTPException(415,"Only PDF, JPEG and PNG are accepted")
     data=await file.read(settings.verification_max_upload_bytes+1)
     if len(data)>settings.verification_max_upload_bytes: raise HTTPException(413,"Document too large")
+    signatures={"application/pdf":data.startswith(b"%PDF-"),"image/jpeg":data.startswith(b"\\xff\\xd8\\xff"),"image/png":data.startswith(b"\\x89PNG\\r\\n\\x1a\\n")}
+    if not signatures.get(file.content_type,False): raise HTTPException(415,"File signature does not match its declared MIME type")
     case=await db.fetchrow("select id from public.verification_cases where id=$1::uuid and submitted_by=$2::uuid and status in ('draft','submitted')",case_id,a.user_id)
     if not case: raise HTTPException(404,"Verification case not found")
     name=(file.filename or "document").replace("/","_").replace(chr(92),"_")[:100]
@@ -150,6 +155,23 @@ async def upload_document(case_id:str,file:UploadFile=File(...),a:Actor=Depends(
     if res.status_code>=300: raise HTTPException(502,"Private upload failed")
     row=await db.fetchrow("""insert into public.verification_documents(case_id,storage_path,original_filename,mime_type,size_bytes,uploaded_by) values($1::uuid,$2,$3,$4,$5,$6::uuid) returning id::text,original_filename,mime_type,size_bytes""",case_id,path,name,file.content_type,len(data),a.user_id)
     return dict(row)
+@router.get("/verification/{case_id}/documents/{document_id}/download")
+async def download_document(case_id:str,document_id:str,a:Actor=Depends(require_actor),db=Depends(db_connection)):
+    key=settings.supabase_service_role_key
+    if not key: raise HTTPException(503,"Private storage is not configured")
+    row=await db.fetchrow("""select d.storage_path from public.verification_documents d
+        join public.verification_cases c on c.id=d.case_id
+        where d.id=$1::uuid and c.id=$2::uuid""",document_id,case_id)
+    if not row: raise HTTPException(404,"Verification document not found")
+    base=str(settings.supabase_url).rstrip("/")
+    async with httpx.AsyncClient(timeout=20) as client:
+        response=await client.post(f"{base}/storage/v1/object/sign/verification-private/{row['storage_path']}",
+            json={"expiresIn":300},headers={"Authorization":f"Bearer {key}","apikey":key})
+    if response.status_code>=300: raise HTTPException(502,"Could not create a private download link")
+    signed=response.json().get("signedURL")
+    if not signed: raise HTTPException(502,"Storage did not return a signed URL")
+    return {"url":base+"/storage/v1"+signed,"expires_in":300}
+
 @router.patch("/verification/{case_id}/decision")
 async def decision(case_id:str,p:DecisionInput,a:Actor=Depends(require_actor),db=Depends(db_connection)):
     try:
