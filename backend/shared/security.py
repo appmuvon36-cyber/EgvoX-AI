@@ -45,7 +45,7 @@ def verify_token(token: str) -> dict[str, Any]:
         else:
             raise InvalidTokenError("Unconfigured signing algorithm")
         UUID(str(claims["sub"]))
-        if claims.get("role") != "authenticated":
+        if claims.get("role") != "authenticated" or claims.get("is_anonymous") is True:
             raise InvalidTokenError("Invalid JWT role")
         return claims
     except (InvalidTokenError, PyJWKClientError, KeyError, ValueError) as exc:
