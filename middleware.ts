@@ -68,9 +68,9 @@ export async function middleware(request: NextRequest) {
     const roles = await rolesResponse.json();
     const session = await sessionResponse.json();
     const roleIds = (roles.items || []).map((role: {id:string}) => role.id);
-    if (path.startsWith('/admin') && !roleIds.includes('super_admin')) return redirect(request, '/login?next=%2Fadmin');
-    if (path.startsWith('/ops') && !roleIds.some((id:string) => OPS_ROLES.has(id))) return redirect(request, '/login?next=%2Fops');
-    if (session.aal !== 'aal2') return redirect(request, '/account/security');
+    if (path.startsWith('/admin') && !roleIds.includes('super_admin')) return redirect(request, '/workspace');
+    if (path.startsWith('/ops') && !roleIds.some((id:string) => OPS_ROLES.has(id))) return redirect(request, '/workspace');
+    if (session.aal !== 'aal2' || session.recent_mfa !== true) return redirect(request, '/account/security');
   }
 
   return nextResponse;
