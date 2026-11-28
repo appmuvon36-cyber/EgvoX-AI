@@ -56,7 +56,7 @@ Invitation creation/resend returns the one-time token so the authorized organiza
 
 ## Request and response contract
 
-Pydantic request DTOs validate role/status allowlists, email, country code, URL, field lengths, token lengths, verification subject ownership and terms acceptance. Identity and organization routers publish typed response models for profile, roles, sessions, organizations, members, invitations, verification cases and document metadata.
+Pydantic request DTOs validate role/status allowlists, email, country code, URL, field lengths, token lengths, verification subject ownership and terms acceptance. Identity and organization routers publish typed response models for profile, roles, sessions, organizations, members, invitations, verification cases and document metadata. Shared TypeScript DTOs live in `packages/api-contracts`; the same-origin typed transport lives in `packages/api-client-ts`.
 
 FastAPI returns a consistent error envelope:
 ```json
