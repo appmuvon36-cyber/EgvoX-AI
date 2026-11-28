@@ -11,47 +11,94 @@
   --egvox-brand-yellow-500: #FDBA27;
 
   --egvox-neutral-950: #102326;
+  --egvox-neutral-900: #193235;
   --egvox-neutral-800: #263F42;
   --egvox-neutral-700: #42595B;
+  --egvox-neutral-600: #596F71;
   --egvox-neutral-500: #718486;
+  --egvox-neutral-400: #A9BABB;
   --egvox-neutral-300: #D7E1E1;
   --egvox-neutral-200: #E8EEEE;
   --egvox-neutral-100: #F4F8F8;
   --egvox-neutral-0: #FFFFFF;
 
-  --egvox-success: #16835D;
-  --egvox-warning: #B7791F;
-  --egvox-danger: #C43D3D;
-  --egvox-info: #2563A6;
-
-  --egvox-gradient-brand: linear-gradient(110deg, #027F86 0%, #04B8B4 100%);
-  --egvox-gradient-workflow: linear-gradient(110deg, #FC840E 0%, #FDBA27 100%);
+  --egvox-success: #116B4A;
+  --egvox-success-bg: #E8F5EF;
+  --egvox-success-border: #A8D9C2;
+  --egvox-warning: #80520D;
+  --egvox-warning-bg: #FFF5DF;
+  --egvox-warning-border: #F2D28C;
+  --egvox-danger: #A52D35;
+  --egvox-danger-bg: #FCEBED;
+  --egvox-danger-border: #EAB8BD;
+  --egvox-info: #20588D;
+  --egvox-info-bg: #EAF2FA;
+  --egvox-info-border: #B9D1E8;
 
   --egvox-bg-canvas: #F4F8F8;
   --egvox-bg-surface: #FFFFFF;
   --egvox-bg-subtle: #E8EEEE;
   --egvox-text-primary: #102326;
   --egvox-text-secondary: #42595B;
-  --egvox-text-muted: #718486;
+  --egvox-text-muted: #596F71;
   --egvox-border-default: #D7E1E1;
+  --egvox-border-strong: #A9BABB;
 
+  --egvox-font-sans: var(--font-sans), Aptos, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --egvox-font-display: var(--font-display), var(--font-sans), Aptos, system-ui, sans-serif;
+  --egvox-font-mono: var(--font-mono), ui-monospace, monospace;
+  --egvox-container-sm: 640px;
+  --egvox-container-md: 768px;
+  --egvox-container-lg: 1024px;
+  --egvox-container-xl: 1280px;
+  --egvox-container-wide: 1440px;
+  --egvox-page-gutter: clamp(16px, 3vw, 32px);
+  --egvox-grid-gap: 24px;
+
+  --egvox-radius-xs: 4px;
+  --egvox-radius-sm: 6px;
+  --egvox-radius-md: 8px;
+  --egvox-radius-lg: 12px;
+  --egvox-radius-xl: 16px;
+  --egvox-radius-2xl: 24px;
+  --egvox-radius-full: 9999px;
   --egvox-shadow-card: 0 1px 3px rgb(16 35 38 / 8%), 0 4px 12px rgb(16 35 38 / 4%);
   --egvox-shadow-popover: 0 12px 32px rgb(16 35 38 / 14%);
-  --egvox-focus-ring: 0 0 0 3px rgb(4 184 180 / 28%);
+  --egvox-shadow-modal: 0 20px 48px rgb(16 35 38 / 20%);
+  --egvox-focus-ring: 0 0 0 3px rgb(4 184 180 / 24%);
+  --egvox-motion-fast: 120ms;
+  --egvox-motion-normal: 180ms;
+  --egvox-motion-slow: 240ms;
+  --egvox-motion-easing: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* Semantic dark theme: values are selected for dark surfaces, not inverted. */
 .dark {
   color-scheme: dark;
   --egvox-bg-canvas: #101F21;
   --egvox-bg-surface: #172B2D;
   --egvox-bg-subtle: #20383A;
   --egvox-text-primary: #F2F8F7;
-  --egvox-text-secondary: #B9CCCA;
-  --egvox-text-muted: #8BA4A2;
+  --egvox-text-secondary: #C4D5D3;
+  --egvox-text-muted: #A5BCBA;
   --egvox-border-default: #355052;
-
+  --egvox-border-strong: #557274;
+  --egvox-success: #83D7B1;
+  --egvox-success-bg: #173D30;
+  --egvox-success-border: #326D54;
+  --egvox-warning: #F5CE79;
+  --egvox-warning-bg: #493817;
+  --egvox-warning-border: #80652B;
+  --egvox-danger: #F0A0A6;
+  --egvox-danger-bg: #4A252A;
+  --egvox-danger-border: #804047;
+  --egvox-info: #9BC5EF;
+  --egvox-info-bg: #1D3853;
+  --egvox-info-border: #355F86;
   --egvox-shadow-card: 0 1px 3px rgb(0 0 0 / 24%), 0 4px 14px rgb(0 0 0 / 18%);
   --egvox-shadow-popover: 0 12px 32px rgb(0 0 0 / 40%);
+  --egvox-shadow-modal: 0 20px 48px rgb(0 0 0 / 48%);
+  --egvox-focus-ring: 0 0 0 3px rgb(85 182 180 / 32%);
 }
 
 html {
@@ -62,19 +109,24 @@ html {
 body {
   background-color: var(--egvox-bg-canvas);
   color: var(--egvox-text-primary);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--egvox-font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: clip;
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+:where(button, input, select, textarea, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--egvox-brand-teal-600);
+  outline-offset: 2px;
+  box-shadow: var(--egvox-focus-ring);
 }
 
-.text-balance {
-  text-wrap: balance;
+:where(button, input, select, textarea) {
+  font: inherit;
 }
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.text-balance { text-wrap: balance; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

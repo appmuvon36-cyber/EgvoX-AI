@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { DM_Sans, JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { AppStateProvider } from '@/lib/hooks/useAppState';
 import { SiteHeader } from '@/apps/web/shared/SiteHeader';
@@ -8,22 +8,17 @@ import { MobileBottomNav } from '@/apps/web/shared/MobileBottomNav';
 import { GlobalActionModals } from '@/apps/web/shared/GlobalActionModals';
 import { OfflineIndicator } from '@/packages/design-system';
 
-const plusJakarta = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-display',
-});
-
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
   variable: '--font-sans',
+  display: 'swap',
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
   variable: '--font-mono',
+  display: 'swap',
 });
 
 export const viewport: Viewport = {
@@ -85,16 +80,12 @@ const DEV_SW_PURGE_SCRIPT = `
 })();
 `;
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="id"
       suppressHydrationWarning
-      className={`${plusJakarta.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: DEV_SW_PURGE_SCRIPT }} />
